@@ -83,7 +83,7 @@ The LLM's role is deliberately constrained: it compiles English into a validated
   v1.1: Recon views (issuer/acquirer/switch/settlement w/ breaks) · MCP server
 ```
 
-Services: Fastify (or NestJS) API + job orchestration, BullMQ workers for chunked parallel generation with idempotent resume, Postgres for scenarios/specs/run metadata, Redis for queues, React + Recharts dashboard. Node worker_threads inside each generation worker for CPU-bound throughput; a documented performance budget with a published benchmark ("sustains 1,000 TPS to Kafka with flat memory") is part of the v1 definition of done. TypeScript end to end. Ships as one `docker compose up`.
+Services: Fastify API + job orchestration, BullMQ workers for chunked parallel generation with idempotent resume, MySQL (Knex for migrations and query building, no ORM) for scenarios/specs/run metadata, Redis for queues, React + Recharts dashboard built as a Vite SPA. Node worker_threads inside each generation worker for CPU-bound throughput; a documented performance budget with a published benchmark ("sustains 1,000 TPS to Kafka with flat memory") is part of the v1 definition of done. TypeScript end to end. Ships as one `docker compose up`.
 
 ## Simulation spec (illustrative excerpt)
 

@@ -18,6 +18,15 @@ Everyone building or testing financial software needs transaction data, and nobo
 
 The differentiators no competitor combines: a behavioral world model (simulating causes, not plausible rows), ground-truth answer keys, a labeled imperfection engine, history-to-live continuity from the same world state, and open-source self-hosting. The natural-language interface is the on-ramp, not the engine: the language model proposes a spec, the deterministic engine enforces it, and it never generates transactions itself.
 
+## Clarifications
+
+### Session 2026-07-11
+
+- Q: Do generated transactions carry an outcome/status in v1, or is every event a successful payment? → A: Minimal status set — every transaction carries one of approved, declined, or reversed/refund; card testing produces realistic decline patterns, refund abuse produces refund events, and baseline decline rates are configurable.
+- Q: How long are run outputs (datasets, truth records, answer keys, realism reports) retained? → A: Until manual delete — outputs persist until the user deletes the run from the UI; deleting a run keeps its immutable metadata (spec snapshot + seed) so the dataset remains regenerable.
+- Q: How does v1 handle currency in generated transactions? → A: Single currency per scenario — each scenario declares one currency (e.g., INR for the UPI-style template) and all amounts and distributions are denominated in it.
+- Q: How do users obtain ground-truth labels for events delivered in live streaming mode? → A: Parallel label channel — labels publish in real time to a separate channel on the same sink (dedicated Kafka topic / RabbitMQ queue), opt-in per stream; truth is also recorded for later export.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Generate a deterministic, labeled dataset from a scenario spec (Priority: P1)
@@ -151,7 +160,7 @@ An operator manages delivery destinations (Kafka clusters, RabbitMQ brokers, web
 #### Scenario spec — the source of truth
 
 - **FR-001**: The system MUST represent every scenario as a structured, human-readable, hand-editable spec that fully determines simulation behavior; the spec (not any prompt) is the single source of truth for a run.
-- **FR-002**: The spec MUST support: a random seed; a simulated clock (start date, duration in days, optional follow-on live-stream rate); a consumer population with a count and weighted archetypes, each with income patterns (e.g., fixed credit day with a statistical amount distribution, or irregular weekly income) and spend rhythms (e.g., daily transaction count distribution, weekend multiplier); a merchant population with a count and weighted categories each carrying an amount distribution; seasonality events with date windows and volume multipliers; a fraud section with a target rate and typology configurations with shares; an imperfections section; and an output section selecting sinks and label-export mode.
+- **FR-002**: The spec MUST support: a random seed; a single scenario currency in which all amounts and distributions are denominated (e.g., INR for the UPI-style template); a simulated clock (start date, duration in days, optional follow-on live-stream rate); a consumer population with a count and weighted archetypes, each with income patterns (e.g., fixed credit day with a statistical amount distribution, or irregular weekly income) and spend rhythms (e.g., daily transaction count distribution, weekend multiplier); a merchant population with a count and weighted categories each carrying an amount distribution; seasonality events with date windows and volume multipliers; a fraud section with a target rate and typology configurations with shares; an imperfections section; and an output section selecting sinks and label-export mode.
 - **FR-003**: The system MUST validate every spec against (a) a formal structural schema and (b) a battery of semantic invariants (e.g., every seasonality window must intersect the simulation clock window; shares and weights must be coherent) before any generation runs.
 - **FR-004**: Semantic-invariant violations MUST produce explanations that state what is wrong, where in the spec, and why — actionable both by a human editor and by the automated repair loop.
 - **FR-005**: The system MUST keep a version history for every scenario with one-click rollback to any prior version.
@@ -171,6 +180,7 @@ An operator manages delivery destinations (Kafka clusters, RabbitMQ brokers, web
 - **FR-013**: Generation MUST be deterministic: the same seed and same spec MUST produce identical output, always, including under parallel execution (workers receive deterministic partitions of the persona space with independent per-partition random streams).
 - **FR-014**: The engine MUST simulate a behavioral world over a virtual clock: persona agents wake on their schedules and transact per their archetype's income and spending rhythms; merchant activity follows category weights and amount distributions; seasonality windows multiply volume as configured.
 - **FR-015**: Fraud actors MUST execute multi-step typology scripts woven into legitimate traffic over the simulated clock — not injected as isolated rows.
+- **FR-015a**: Every generated transaction MUST carry an outcome status from a minimal set — approved, declined, or reversed/refund — produced by the world model: card-testing bursts yield realistic decline patterns, refund-abuse typologies produce refund events, and legitimate traffic carries a configurable baseline decline rate.
 - **FR-016**: v1 MUST ship exactly three fraud typologies: card testing (configurable burst size ranges, burst windows, and small-amount ranges), account takeover (configurable dormancy precondition and drain behavior, e.g., drain via peer-to-peer transfers), and refund abuse. Typology shares of the fraud target rate MUST be configurable.
 - **FR-017**: The engine MUST target the configured overall fraud rate and report the achieved rate against it per run.
 - **FR-018**: Generation MUST execute as resumable parallel work with per-partition progress reporting; interrupted runs MUST resume idempotently without duplicating or losing truth events.
@@ -198,12 +208,14 @@ An operator manages delivery destinations (Kafka clusters, RabbitMQ brokers, web
 
 - **FR-029**: A scenario MUST be able to generate a historical period as files and then continue the same world state as a live stream at a configured rate — same population, same actor states, no reset between phases.
 - **FR-030**: Live streams MUST support start, stop, pause, and resume, and live adjustment of the target rate, all without breaking world-state continuity.
+- **FR-030a**: In live streaming mode, ground-truth labels MUST be available in real time via an opt-in parallel label channel on the same sink (e.g., a dedicated Kafka topic or RabbitMQ queue, separate from the event channel), so running pipelines can be scored live; streamed truth MUST also be recorded for later export, and the default remains labels-off on the event channel itself.
 
 #### Runs and reproducibility
 
 - **FR-031**: Users MUST be able to launch runs from a scenario with run-scoped parameters — seed, scale override, sink selection — without modifying the scenario.
 - **FR-032**: Active runs MUST expose status, per-partition progress, throughput, estimated completion, and logs, with pause/cancel controls.
 - **FR-033**: Completed runs MUST be immutable records permanently linking the spec snapshot, seed, realism report, and outputs; a single action MUST regenerate exactly the same dataset.
+- **FR-033a**: Run outputs (datasets, truth records, answer keys, realism reports) MUST be retained until the user explicitly deletes the run from the UI; deletion reclaims output storage but MUST preserve the run's immutable metadata (spec snapshot + seed) so the identical dataset remains regenerable.
 
 #### Realism report
 
@@ -233,7 +245,7 @@ An operator manages delivery destinations (Kafka clusters, RabbitMQ brokers, web
 - **Seasonality Event**: A named date window with a volume multiplier applied to the world's activity.
 - **Imperfection Profile**: Configured rates and parameters for duplicate delivery, late arrival, out-of-order delivery, and per-source clock skew.
 - **Run**: One execution of a spec snapshot with a seed and run-scoped parameters; carries live progress while active and becomes an immutable record (spec snapshot + seed + realism report + outputs) when complete.
-- **Truth Event**: An immutable generated transaction as the world actually produced it, with full causal traceability.
+- **Truth Event**: An immutable generated transaction as the world actually produced it, with full causal traceability and an outcome status (approved, declined, or reversed/refund).
 - **Delivered Event**: A truth event's copy as emitted through a sink, possibly corrupted by labeled imperfections.
 - **Answer Key / Label Set**: The separate export enumerating ground truth: fraud flag, typology, actor identity, and corruption type per affected record.
 - **Realism Report**: The per-run quality evidence: distribution summaries, inter-arrival statistics, achieved-vs-target rates, seasonality effect sizes, benchmark comparisons with sources.
@@ -278,6 +290,6 @@ An operator manages delivery destinations (Kafka clusters, RabbitMQ brokers, web
 - **Natural-language input**: English-language scenario descriptions are the v1 target.
 - **Reference calibration**: realism defaults for the flagship India/UPI-style template are calibrated against published public aggregates (e.g., national payment-system statistics), with sources documented; other templates use documented, overridable defaults.
 - **Scale envelope**: the documented v1 envelope centers on the reference scenario (200k consumers / 5k merchants / 90 days), with live streaming benchmarked at a sustained 1,000 events per second; larger scales are best-effort and bounded by the published benchmark.
-- **Simulated instrument scope**: v1 models consumer-to-merchant payments, peer-to-peer transfers (as used by drain behavior), salary/income credits, and refunds within a single simulated payment network per scenario.
+- **Simulated instrument scope**: v1 models consumer-to-merchant payments, peer-to-peer transfers (as used by drain behavior), salary/income credits, and refunds within a single simulated payment network per scenario, denominated in a single per-scenario currency (multi-currency worlds and FX are out of scope for v1).
 - **License**: Apache-2.0, matching fintech open-source norms and permitting corporate adoption.
 - **Competitive positioning** (informs messaging, not requirements): leads with the world model, ground truth, and answer key — not "generate data from English"; a comparison against adjacent tools is documented plainly in the project README.

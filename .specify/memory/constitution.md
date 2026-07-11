@@ -31,6 +31,11 @@ Follow-up TODOs: none
 Amendment 1.0.1 (2026-07-11): v1 sink set changed by product decision — ledger
 seeder removed, RabbitMQ sink added (sinks remain four: files, Kafka, RabbitMQ,
 webhook). Principle III integration-test list updated accordingly. PATCH bump.
+
+Amendment 1.0.2 (2026-07-11): stack decisions finalized by user interview —
+Fastify (NestJS option dropped); Postgres replaced by MySQL accessed via Knex
+(no ORM); UI confirmed as Vite SPA. Technology & Architecture Constraints
+updated. PATCH bump.
 -->
 
 # TxLoom Constitution
@@ -132,10 +137,11 @@ promise and the ShadowTraffic comparison; an unmeasured budget is a slogan.
 
 ## Technology & Architecture Constraints
 
-- **Stack**: TypeScript end to end; Fastify (or NestJS) API + job
-  orchestration; BullMQ workers over Redis for chunked parallel generation;
-  Postgres for scenarios, specs, and run metadata; React + Recharts
-  dashboard; Node `worker_threads` for CPU-bound generation.
+- **Stack**: TypeScript end to end; Fastify API + job orchestration; BullMQ
+  workers over Redis for chunked parallel generation; MySQL for scenarios,
+  specs, and run metadata, accessed via Knex (migrations + query building,
+  no ORM); React + Recharts dashboard as a Vite SPA; Node `worker_threads`
+  for CPU-bound generation.
 - **Distribution**: The product ships as one `docker compose up`. Any new
   service or dependency MUST be justified against this constraint in the
   plan's Complexity Tracking table.
@@ -190,4 +196,4 @@ Complexity Tracking table or the approach MUST be simplified. Runtime
 development guidance lives in `CLAUDE.md` and MUST NOT contradict this
 document.
 
-**Version**: 1.0.1 | **Ratified**: 2026-07-11 | **Last Amended**: 2026-07-11
+**Version**: 1.0.2 | **Ratified**: 2026-07-11 | **Last Amended**: 2026-07-11
