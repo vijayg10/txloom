@@ -1,6 +1,6 @@
 # TxLoom — Synthetic Transaction Studio
 
-An open-source, self-hosted **payments world simulator**. It models a population of consumers, merchants, and fraud actors behaving over time — salaries, spending rhythms, seasonal spikes, fraud campaigns — and emits the resulting transactions wherever you need them: files for ML teams, live Kafka streams or webhooks at controlled TPS for platform testing, or directly into a ledger. Every event carries hidden ground-truth labels: which transactions are fraudulent, which typology produced them, which records were deliberately corrupted. A natural-language interface compiles plain-English scenario descriptions into the underlying simulation spec, but the spec — versioned, validated, hand-editable — is the product's source of truth, not the prompt.
+An open-source, self-hosted **payments world simulator**. It models a population of consumers, merchants, and fraud actors behaving over time — salaries, spending rhythms, seasonal spikes, fraud campaigns — and emits the resulting transactions wherever you need them: files for ML teams, or live Kafka/RabbitMQ streams and webhooks at controlled TPS for platform testing. Every event carries hidden ground-truth labels: which transactions are fraudulent, which typology produced them, which records were deliberately corrupted. A natural-language interface compiles plain-English scenario descriptions into the underlying simulation spec, but the spec — versioned, validated, hand-editable — is the product's source of truth, not the prompt.
 
 **One-line pitch:** "A simulated financial world — with the answer key."
 
@@ -47,7 +47,7 @@ The LLM's role is deliberately constrained: it compiles English into a validated
 
 **Generate.** The deterministic engine executes the spec from a seed. Persona agents wake on their schedules and transact; fraud actors run their typology scripts; the imperfection layer corrupts a labeled subset of the delivery (never the truth record). Same seed + same spec = identical output, always — parallel workers get deterministic partitions of the persona space with per-partition RNG streams.
 
-**Deliver.** Pluggable sinks: CSV/Parquet/JSON files; Kafka producer with configurable partitioning and TPS control with backpressure; signed webhook delivery with retries; direct POST into a ledger API (Formance, Blnk) to seed a running system. Ground-truth labels (is_fraud, typology, actor_id, corruption_type) export separately so the answer key never leaks into the test surface unless requested.
+**Deliver.** Pluggable sinks: CSV/Parquet/JSON files; Kafka producer with configurable partitioning and TPS control with backpressure; RabbitMQ publisher with configurable exchange/routing and the same TPS control; signed webhook delivery with retries. Ground-truth labels (is_fraud, typology, actor_id, corruption_type) export separately so the answer key never leaks into the test surface unless requested.
 
 **Verify.** Every run produces a **realism report**: distribution summaries per category, inter-arrival statistics, achieved-vs-target fraud rates, seasonality effect sizes, and reference-benchmark comparisons where public aggregates exist (e.g., RBI UPI statistics for the India pack). This is the run's quality evidence — the norm ML users expect from SDV-class tools, and the direct answer to "how do I know this is realistic?"
 
@@ -76,14 +76,14 @@ The LLM's role is deliberately constrained: it compiles English into a validated
                        └──────────────────┬─────────────────────────┘
               ┌────────────┬──────────────┼──────────────┬──────────────┐
               ▼            ▼              ▼              ▼              ▼
-         Files        Kafka sink     Webhook sink   Ledger seeder   Dashboard +
-         csv/parquet  TPS control    signed,        Formance/Blnk   realism report
-         + label set  backpressure   retries                        (React)
+         Files        Kafka sink     RabbitMQ sink  Webhook sink   Dashboard +
+         csv/parquet  TPS control    exchange/      signed,        realism report
+         + label set  backpressure   routing, TPS   retries        (React)
 
   v1.1: Recon views (issuer/acquirer/switch/settlement w/ breaks) · MCP server
 ```
 
-Services: Fastify (or NestJS) API + job orchestration, BullMQ workers for chunked parallel generation with idempotent resume, Postgres for scenarios/specs/run metadata, Redis for queues, React + Recharts dashboard. Node worker_threads inside each generation worker for CPU-bound throughput; a documented performance budget with a published benchmark ("sustains X TPS to Kafka with flat memory") is part of the v1 definition of done. TypeScript end to end. Ships as one `docker compose up`.
+Services: Fastify (or NestJS) API + job orchestration, BullMQ workers for chunked parallel generation with idempotent resume, Postgres for scenarios/specs/run metadata, Redis for queues, React + Recharts dashboard. Node worker_threads inside each generation worker for CPU-bound throughput; a documented performance budget with a published benchmark ("sustains 1,000 TPS to Kafka with flat memory") is part of the v1 definition of done. TypeScript end to end. Ships as one `docker compose up`.
 
 ## Simulation spec (illustrative excerpt)
 
@@ -139,7 +139,7 @@ Every capability is operable from the web UI — the CLI is an automation conven
 
 **5. Ground-truth explorer.** Filter and browse by typology, then drill into an actor's *story*: an account-takeover actor's timeline from dormancy through credential-change signal to drain transactions, rendered as a sequence. Export controls live here — with or without labels, per format, with an explicit warning when labels are included in the main export rather than the separate answer key.
 
-**6. Connections & settings.** Sink management (Kafka clusters, webhook endpoints, ledger targets) with test-connection buttons and credential storage; LLM provider configuration; global defaults. Nothing requires editing a config file on disk.
+**6. Connections & settings.** Sink management (Kafka clusters, RabbitMQ brokers, webhook endpoints) with test-connection buttons and credential storage; LLM provider configuration; global defaults. Nothing requires editing a config file on disk.
 
 The UI is a pure client of the same REST/WebSocket API the CLI and the future MCP server use — one API surface, three clients.
 
@@ -162,7 +162,7 @@ The UI is a parallel workstream from week 3, not a final-fortnight afterthought 
 | 1–2 | Spec format + JSON Schema + semantic invariant validator; deterministic engine core (personas, virtual clock, seeded partitioned RNG); CSV sink; REST API skeleton + CLI runner | — (API contracts defined) |
 | 3–4 | Fraud typologies (card testing, ATO, refund abuse) with label export; imperfection engine (dupes, late, out-of-order, clock skew); Parquet + Kafka sinks with TPS control; chunked parallel generation via BullMQ; WebSocket progress events | App shell + Run control (launch, progress bars, logs, cancel/resume); spec editor with schema validation |
 | 5–6 | LLM scenario compiler with validation/repair loop; NL spec-diff endpoint; realism report generation; scenario template library | Scenario workspace (NL prompt panel, inline invariant errors, diff review, template gallery); World inspector (charts, fraud timeline, imperfection audit, realism report) |
-| 7–8 | Webhook + ledger-seeder sinks; streaming mode hardening; performance benchmark | Stream console (TPS dial, live throughput, event ticker); Ground-truth explorer (actor stories, export controls); Connections & settings; run comparison; polish |
+| 7–8 | Webhook + RabbitMQ sinks; streaming mode hardening; performance benchmark | Stream console (TPS dial, live throughput, event ticker); Ground-truth explorer (actor stories, export controls); Connections & settings; run comparison; polish |
 
 De-scope order if time compresses: run comparison and template gallery first, ground-truth actor stories second (labels still exportable via files), webhook sink third. The irreducible v1 is: scenario workspace + run control + world inspector in the UI, with Kafka + labeled fraud + imperfections + realism report underneath. Multi-perspective recon mode and MCP are explicitly *not* in the 8 weeks — they are the announced v1.1 so the README shows a living roadmap.
 
@@ -180,8 +180,4 @@ De-scope order if time compresses: run comparison and template gallery first, gr
 
 ## Positioning line for the README
 
-> Academic simulators are rigid. ML synthesizers need your real data. Streaming generators make plausible rows with no ground truth. TxLoom simulates a financial world — customers, merchants, fraudsters, and mess — and hands you both the data and the answer key: as files, as a Kafka firehose, or straight into your ledger.
-
-## License
-
-Apache-2.0 (matches Blnk and the fintech OSS norm; permissive enough for corporate adoption, which drives stars and contributions).
+> Academic simulators are rigid. ML synthesizers need your real data. Streaming generators make plausible rows with no ground truth. TxLoom simulates a financial world — customers, merchants, fraudsters, and mess — and hands you both the data and the answer key: as files, as a Kafka or RabbitMQ firehose, or as a stream of signed webhooks.
