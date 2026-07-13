@@ -60,10 +60,12 @@ evidence contradicts).
 
 ### D6. Repo layout — pnpm workspace monorepo
 
-- **Decision**: `apps/{api,worker,web,cli}` + `packages/{spec,engine,sinks,llm}`; plain pnpm
-  scripts, no build orchestrator initially.
+- **Decision**: `apps/{api,worker,web,cli}` + `packages/{spec,engine,sinks,agent-tools}`; plain
+  pnpm scripts, no build orchestrator initially. *(Package set revised 2026-07-13: `agent-tools`
+  replaces `llm` — see D13.)*
 - **Rationale**: Strict dependency isolation; shared spec types flow from `packages/spec` to
-  every consumer; engine isolated from delivery and LLM per constitution Principles I–II.
+  every consumer; engine isolated from delivery and the agent-integration surface per
+  constitution Principles I–II.
 - **Alternatives considered**: npm workspaces (weaker hoisting control), single package
   (boundaries erode), Turborepo (defer until CI time hurts).
 
@@ -127,41 +129,61 @@ evidence contradicts).
 - **Decision**: One Ajv instance validates spec structure; semantic invariants are pure TS
   functions `(spec) → InvariantViolation[]` each returning a JSON-Pointer path, message, and
   machine-readable code. The same battery runs in the API, the editor (via API round-trip), and
-  the repair loop.
+  the MCP validate tool.
 - **Rationale**: Ajv is Fastify-native; JSON Pointer locations power both Monaco inline markers
-  and LLM repair prompts — one error model for humans and the repair loop (FR-004).
+  and external agents' repair iterations — one error model for humans, the editor, and agents
+  (FR-004, FR-010).
 - **Alternatives considered**: Zod (would duplicate the JSON Schema the editor needs for
   autocomplete), custom validator (reinventing Ajv).
 
-### D13. LLM integration — official Anthropic SDK + OpenAI-compatible client, behind one interface
+### D13. Agent integration — MCP server + shared `agent-tools` package, no embedded LLM *(revised by user decision 2026-07-13)*
 
-- **Decision**: `packages/llm` defines a `SpecCompiler`/`SpecDiffer` provider interface with two
-  adapters: the official Anthropic SDK, and an OpenAI-compatible adapter (custom base URL + key —
-  covers OpenAI, Ollama, vLLM, OpenRouter). Compile and diff both emit candidate JSON that must
-  pass D12 validation; the repair loop feeds violations back for up to N attempts
-  (default 3) before handing the best candidate + errors to the user.
-- **Rationale**: Matches the user's provider decision; keeps the constitution's "engine works
-  without LLM" rule by construction (nothing outside `packages/llm` imports a provider SDK).
-- **Alternatives considered**: a meta-framework (LangChain et al.) — rejected: two thin adapters
-  and a JSON-validate-repair loop don't justify the dependency.
+- **Decision**: v1 embeds no language model. Authoring assistance is externalized: an MCP server
+  (official `@modelcontextprotocol/sdk`, streamable-HTTP transport mounted at `/mcp` on the
+  Fastify API) exposes the full authoring-and-run loop as tools; `packages/agent-tools` holds the
+  tool definitions (names, schemas, descriptions) and the agent authoring docs (annotated spec
+  schema, semantic-invariant error-code catalog with remedies, worked example specs per template)
+  as the single source of truth, published to `docs/agent/`. Users bring their own MCP-capable
+  agent (Claude Code, Cursor, any MCP client). MCP tools map 1:1 onto REST endpoints — no
+  agent-only capabilities.
+- **Rationale**: The validator, not the LLM, is the load-bearing component — located,
+  machine-actionable violations (D12) let any external agent run the propose→validate→repair
+  loop itself. Dropping the embedded compiler removes provider adapters, key management, prompt
+  maintenance, and per-compile cost from the core, frees roadmap time, and converts "no embedded
+  LLM" into "works with every LLM". It also strengthens the openness principle: the self-hosted
+  core has zero dependence on any hosted AI service.
+- **Alternatives considered**: embedded compile/repair loop in a `packages/llm` (the original
+  plan — superseded by user decision: duplicate authoring codepath, provider support burden,
+  positioning risk of leading with "English in, data out"); a separate BFF service hosting an
+  agent loop that consumes the MCP server (rejected: a runtime protocol hop and roadmap coupling
+  to buy a consistency that a shared library already provides); routing all UI traffic through
+  MCP (rejected: wrong transport for progress bars and ticker streams — REST/WS stays the UI
+  path).
+- **Consequences**: a post-v1 optional **AI-assist plugin** (in-process Fastify plugin behind a
+  config flag, bring-your-own key) imports the same `packages/agent-tools` definitions and calls
+  the same REST surface directly; the UI reveals its panel only when `GET /capabilities`
+  advertises it. Nothing in core changes when it arrives.
 
 ### D14. Secrets at rest — AES-256-GCM envelope with instance key
 
-- **Decision**: Sink credentials and LLM keys encrypt with AES-256-GCM under a per-install key
+- **Decision**: Sink credentials encrypt with AES-256-GCM under a per-install key
   generated on first boot into the data volume (overridable via env var).
 - **Rationale**: v1 has no auth (trusted network) but the constitution/spec require encrypted
   secrets at rest; an instance key is the standard self-hosted pattern (cf. n8n, Metabase).
 - **Alternatives considered**: OS keychain (server deployments lack one), plaintext + volume
   encryption (fails the spec's explicit requirement).
 
-### D15. Webhook signing — HMAC-SHA256, timestamped, with bounded retries
+### D15. Webhook delivery — plain HTTP POST with bounded retries *(signing removed by user decision 2026-07-13)*
 
-- **Decision**: `X-TxLoom-Signature: t=<unix>,v1=HMAC_SHA256(secret, t + "." + body)`; retries
-  with exponential backoff + jitter (5 attempts default), per-endpoint secret shown once in UI.
-- **Rationale**: The de-facto webhook signing pattern (Stripe-style); trivially verifiable by
-  consumers; timestamp defends replay.
-- **Alternatives considered**: JWT-signed payloads (heavier verification story), no signing
-  (spec requires signed delivery).
+- **Decision**: Webhook deliveries are plain JSON POSTs — no signature header, no per-endpoint
+  secret. Retries with exponential backoff + jitter (5 attempts default); failures surface as
+  backpressure and console indicators rather than silent drops.
+- **Rationale**: User decision — signing adds a verification burden on receivers and a secret
+  lifecycle in the product that isn't warranted for a self-hosted, trusted-network test-data
+  tool (the v1 trust boundary already assumes anyone who can reach the studio has full access).
+- **Alternatives considered**: HMAC-SHA256 Stripe-style signing (the original plan — removed
+  2026-07-13; could return post-v1 as an opt-in per-endpoint setting if users testing
+  signature-verifying consumers ask for it), JWT-signed payloads (heavier verification story).
 
 ### D16. TPS control — token bucket per stream, shared across partitions
 
@@ -184,6 +206,39 @@ evidence contradicts).
   mergeable sketches fit the partitioned execution model.
 - **Alternatives considered**: post-hoc scan of truth files (simpler but doubles IO and runtime),
   DuckDB queries over Parquet (adds a heavy dependency for v1's fixed report).
+
+### D18. Party display names — deterministic dictionary sampling *(added by user decision 2026-07-13)*
+
+- **Decision**: Payer/payee display names are generated in-engine from per-locale **name
+  dictionary packs** — static, sourced data files shipped with templates (e.g., an `en-IN` pack
+  with given/family names and category-aware merchant naming patterns for the UPI template).
+  Each consumer and merchant is named exactly once at world instantiation, sampling via the same
+  pure-rand per-partition substreams as all other generation (D7); the spec's `locale` key
+  selects the pack (validated as a semantic invariant). Names are denormalized onto truth events
+  (`consumer_name`, `merchant_name`, `counterparty_name`) and flow through deliveries and
+  exports unchanged.
+- **Rationale**: Keeps the determinism gate intact — names are byte-identical per seed+spec and
+  survive resume via the existing RNG checkpoints; keeps the spec small (population remains
+  statistical, never enumerated); makes exports read like real seed data for the
+  fintech-developer audience and makes actor stories and the event ticker demo-credible.
+- **Alternatives considered**: faker-js (rejected: global mutable seeding fits per-partition
+  substreams poorly, and its locale packs are heavy transitive data for the two dictionary types
+  needed); a separate parties file joined at export time (rejected for v1: flat denormalized
+  events are what the seed-data audience consumes; a normalized world/parties export can come
+  later); IDs only (rejected 2026-07-13 — the original gap this decision closes).
+- **Populating packs**: each pack is a set of small JSON files — weighted given-name and
+  family-name lists (`{name, weight}`) plus per-category merchant naming grammars (pattern
+  strings like `"{family} Kirana Store"` with supporting word lists) — with source and license
+  recorded per file, mirroring the `benchmark_refs` pattern. Sources: public/open datasets where
+  they exist (US Census Bureau surname frequencies and SSA given names, both public domain, for
+  an `en-US` pack), curated open lists (Wikipedia/Wikidata common Indian given/family names,
+  CC BY-SA, for `en-IN`), and hand-written merchant grammars per category. ~500–2,000 weighted
+  entries per list suffices: given × family combinatorics yields millions of combinations, and
+  weighted sampling reproduces realistic duplicate rates at 200k consumers (name collisions are
+  a feature — real populations have them; IDs stay the join key). One-time LLM-assisted
+  curation of a list is acceptable — it is static, human-reviewed repo data, not runtime
+  generation, so determinism is unaffected. Packs are plain data files, making new locales a
+  natural community-contribution surface (CONTRIBUTING.md invitation).
 
 ## Resolved Technical Context unknowns
 

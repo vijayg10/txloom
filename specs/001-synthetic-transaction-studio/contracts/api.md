@@ -2,12 +2,13 @@
 
 **Date**: 2026-07-11 | **Plan**: [../plan.md](../plan.md)
 
-One capability surface (FR-035/037): the web UI, CLI, and future agent integrations are all
-clients of this contract. Base path `/api/v1`. All bodies JSON (Ajv-validated). No auth in v1.
+One capability surface (FR-035/037): the web UI, CLI, and the MCP server are all clients of
+this contract. Base path `/api/v1`. All bodies JSON (Ajv-validated). No auth in v1.
 
 **Error envelope** (all non-2xx): `{ error: { code, message, details? } }`. Spec-validation
 failures use `details.violations[]: { path (JSON Pointer), code, message }` — the same located
-error model consumed by Monaco markers and the LLM repair loop (FR-004, FR-038).
+error model consumed by Monaco markers and by external agents iterating on a spec
+(FR-004, FR-010, FR-038).
 
 ## Scenarios & spec versions
 
@@ -22,15 +23,13 @@ error model consumed by Monaco markers and the LLM repair loop (FR-004, FR-038).
 | POST `/scenarios/:id/versions` | Save edited spec as new head | body `{spec}`; runs full validation first |
 | POST `/scenarios/:id/versions/:versionId/rollback` | One-click rollback → new head | |
 
-## Spec validation, compile, and NL edit
+## Spec validation & authoring material
 
 | Method & Path | Purpose | Notes |
 |---|---|---|
-| POST `/spec/validate` | Validate arbitrary spec document | 200 `{valid, violations[]}` — powers inline editor errors (FR-038); never 4xx for invalid specs |
-| POST `/spec/compile` | NL description → validated spec (FR-008/009) | body `{description}`; 200 `{spec, repair_attempts}`; 422 `{best_candidate, violations[]}` when repair loop exhausts; 409 if no LLM provider configured (FR-012) |
-| POST `/scenarios/:id/spec-diff` | NL edit → reviewable diff (FR-010) | body `{instruction}`; 200 `{diff: hunks[]}` — never auto-applies |
-| POST `/scenarios/:id/spec-diff/apply` | Apply accepted hunks | body `{hunks[]}` (accepted subset); creates new spec version |
-| GET `/spec/schema` | JSON Schema for editor autocomplete | |
+| POST `/spec/validate` | Validate arbitrary spec document | 200 `{valid, violations[]}` — powers inline editor errors (FR-038) and agent repair iterations (FR-010); side-effect-free; never 4xx for invalid specs |
+| GET `/spec/schema` | JSON Schema for editor autocomplete and agent authoring | |
+| GET `/spec/docs` | Agent authoring documentation (FR-009) | annotated schema reference, semantic-invariant catalog (error codes + remedies), worked example specs per template |
 
 ## Runs
 
@@ -72,8 +71,31 @@ error model consumed by Monaco markers and the LLM repair loop (FR-004, FR-038).
 | GET/POST `/sinks`, GET/PATCH/DELETE `/sinks/:id` | Sink connection CRUD (FR-036 §6) | secrets write-only (never echoed) |
 | POST `/sinks/:id/test` | Test connection | 200 `{ok, detail}` |
 | GET `/templates` | Template gallery (FR-006) | |
-| GET/PUT `/settings` | Global defaults + LLM provider config | provider: `anthropic` \| `openai_compatible {base_url}`; keys write-only |
+| GET/PUT `/settings` | Global defaults | |
+| GET `/capabilities` | Optional-module discovery (FR-012) | 200 `{modules: {ai_assist: false, …}}` in v1; the UI reveals optional surfaces only when advertised |
 | GET `/health` | Compose healthcheck | |
+
+## MCP server (agent integration)
+
+`/mcp` — MCP endpoint (streamable-HTTP transport, official SDK), hosted by the same API
+process. Tool definitions live in `packages/agent-tools` and map 1:1 onto the REST endpoints
+above — no agent-only capabilities (FR-008/012). v1 toolset:
+
+| Tool | Maps to |
+|---|---|
+| `get_spec_schema` | GET `/spec/schema` |
+| `get_authoring_docs` | GET `/spec/docs` |
+| `list_templates` | GET `/templates` |
+| `validate_spec` | POST `/spec/validate` |
+| `create_scenario` | POST `/scenarios` |
+| `save_spec_version` | POST `/scenarios/:id/versions` |
+| `launch_run` | POST `/scenarios/:id/runs` |
+| `get_run_status` | GET `/runs/:id` |
+| `get_realism_report` | GET `/runs/:id/report` |
+| `create_export` / `get_export` | POST/GET `/runs/:id/exports…` |
+
+Validation results reuse the located violation model above verbatim, so an agent's repair
+iterations consume the same errors the Monaco editor renders (FR-010).
 
 ## WebSocket channels
 
@@ -91,4 +113,6 @@ error model consumed by Monaco markers and the LLM repair loop (FR-004, FR-038).
 - Label fields never appear in event/export payloads unless the warning flow ran (FR-021/022);
   the streaming label channel is a sink-level channel, not an API field (FR-030a).
 - All mutation endpoints are idempotent-safe under retry (ULID request keys where needed).
-- CLI maps 1:1 onto these endpoints (`txloom compile|validate|run|stream|export|sinks|…`).
+- CLI maps 1:1 onto these endpoints (`txloom validate|run|stream|export|sinks|…`).
+- MCP tools map 1:1 onto these endpoints; tool definitions have exactly one source
+  (`packages/agent-tools`), shared with any future AI-assist plugin.

@@ -1,6 +1,6 @@
 # TxLoom — Synthetic Transaction Studio
 
-An open-source, self-hosted **payments world simulator**. It models a population of consumers, merchants, and fraud actors behaving over time — salaries, spending rhythms, seasonal spikes, fraud campaigns — and emits the resulting transactions wherever you need them: files for ML teams, or live Kafka/RabbitMQ streams and webhooks at controlled TPS for platform testing. Every event carries hidden ground-truth labels: which transactions are fraudulent, which typology produced them, which records were deliberately corrupted. A natural-language interface compiles plain-English scenario descriptions into the underlying simulation spec, but the spec — versioned, validated, hand-editable — is the product's source of truth, not the prompt.
+An open-source, self-hosted **payments world simulator**. It models a population of consumers, merchants, and fraud actors behaving over time — salaries, spending rhythms, seasonal spikes, fraud campaigns — and emits the resulting transactions wherever you need them: files for ML teams, or live Kafka/RabbitMQ streams and webhooks at controlled TPS for platform testing. Every event carries hidden ground-truth labels: which transactions are fraudulent, which typology produced them, which records were deliberately corrupted. Plain-English authoring comes through the AI agent you already use: TxLoom ships an MCP server and agent-facing authoring docs, so any coding agent compiles your description into the underlying simulation spec — and the spec — versioned, validated, hand-editable — is the product's source of truth, not the prompt. No language model is embedded in the product.
 
 **One-line pitch:** "A simulated financial world — with the answer key."
 
@@ -35,19 +35,19 @@ Novel — no existing tool has even one of these, let alone the combination:
 5. **Multi-perspective output (v1.1 headline).** One underlying truth emitted as N inconsistent views — issuer extract, acquirer extract, switch log, end-of-day settlement file — with configurable injected breaks. This makes it the only tool for testing reconciliation systems, and no competitor is architected to add it.
 6. **Open source and self-hosted.** ShadowTraffic, Fabricate, Gretel, and Mockaroo are all commercial. In a domain where the data is the sensitive asset, self-hosted matters.
 
-The LLM's role is deliberately constrained: it compiles English into a validated spec and applies natural-language edit patches to it. It never generates transactions. This is the "LLM proposes, engine enforces" pattern — deterministic, reproducible, auditable, cheap at any volume.
+The LLM's role is deliberately externalized: TxLoom embeds no language model. It ships agent authoring docs and an MCP server so the user's own AI agent — Claude Code, Cursor, any MCP client — compiles English into a validated spec and edits it, iterating against the validator's located, machine-actionable errors. No language model ever generates transactions. This is the "agent proposes, engine enforces" pattern — deterministic, reproducible, auditable, cheap at any volume — and it works with *every* LLM instead of shipping one.
 
 ## How it works
 
 **Describe.** *"A UPI-style instant payment network in India. 200k consumers, 5k merchants across groceries, fuel, food delivery and electronics. Salary credits at month start, spike during Diwali week. Include 1.2% fraud: card-testing bursts, account takeover after dormancy, and refund abuse. Add realistic mess: 0.5% duplicate webhooks, occasional late-arriving events. 90 days of history, then stream live at 50 TPS."*
 
-**Compile.** An LLM agent translates this into a structured simulation spec: persona archetypes, merchant catalogs, temporal patterns, network topology, fraud typology configs, imperfection profiles. The spec is validated against a JSON Schema *and a battery of semantic invariants* before anything runs; invalid specs bounce through a repair loop. Example invariant: a seasonality event scheduled outside the simulation's clock window is syntactically valid JSON but semantically dead — the validator rejects it with an explanation the repair loop can act on. The spec is the source of truth: inspectable, hand-editable, versioned in git.
+**Compile.** Your AI agent — connected to TxLoom's MCP server and guided by its shipped authoring docs (annotated schema, invariant catalog with machine-readable error codes, worked examples) — translates this into a structured simulation spec: persona archetypes, merchant catalogs, temporal patterns, network topology, fraud typology configs, imperfection profiles. The spec is validated against a JSON Schema *and a battery of semantic invariants* before anything runs; the agent repairs invalid drafts from the validator's located explanations. Example invariant: a seasonality event scheduled outside the simulation's clock window is syntactically valid JSON but semantically dead — the validator rejects it with an explanation the agent can act on. The spec is the source of truth: inspectable, hand-editable, versioned in git. No agent? Start from a template and edit in the studio.
 
-**Edit conversationally.** "Raise fraud to 2% and add a mule ring of 15 accounts" produces a *spec diff* for review, not a regenerated spec — the same mental model as a code review.
+**Edit conversationally.** "Raise fraud to 2% and add a mule ring of 15 accounts" — told to your agent — lands as a new spec version in the scenario's history, reviewable against the previous version and rollbackable in one click: the same mental model as a code review.
 
-**Generate.** The deterministic engine executes the spec from a seed. Persona agents wake on their schedules and transact; fraud actors run their typology scripts; the imperfection layer corrupts a labeled subset of the delivery (never the truth record). Same seed + same spec = identical output, always — parallel workers get deterministic partitions of the persona space with per-partition RNG streams.
+**Generate.** The deterministic engine executes the spec from a seed. Consumers and merchants are instantiated with stable, locale-appropriate display names from dictionary packs selected by the spec's locale — payer and payee read like "Priya Sharma paid Balaji Stores", not opaque IDs. Persona agents wake on their schedules and transact; fraud actors run their typology scripts; the imperfection layer corrupts a labeled subset of the delivery (never the truth record). Same seed + same spec = identical output, always — including the names — parallel workers get deterministic partitions of the persona space with per-partition RNG streams.
 
-**Deliver.** Pluggable sinks: CSV/Parquet/JSON files; Kafka producer with configurable partitioning and TPS control with backpressure; RabbitMQ publisher with configurable exchange/routing and the same TPS control; signed webhook delivery with retries. Ground-truth labels (is_fraud, typology, actor_id, corruption_type) export separately so the answer key never leaks into the test surface unless requested.
+**Deliver.** Pluggable sinks: CSV/Parquet/JSON files; Kafka producer with configurable partitioning and TPS control with backpressure; RabbitMQ publisher with configurable exchange/routing and the same TPS control; webhook delivery with retries. Ground-truth labels (is_fraud, typology, actor_id, corruption_type) export separately so the answer key never leaks into the test surface unless requested.
 
 **Verify.** Every run produces a **realism report**: distribution summaries per category, inter-arrival statistics, achieved-vs-target fraud rates, seasonality effect sizes, and reference-benchmark comparisons where public aggregates exist (e.g., RBI UPI statistics for the India pack). This is the run's quality evidence — the norm ML users expect from SDV-class tools, and the direct answer to "how do I know this is realistic?"
 
@@ -56,12 +56,18 @@ The LLM's role is deliberately constrained: it compiles English into a validated
 ## Architecture
 
 ```
-  natural language ──► Scenario compiler (LLM)      NL edit ──► Spec differ (LLM)
-                              │ spec (JSON)                        │ spec patch
-                              ▼                                    ▼
+  natural language ──► your AI agent (Claude Code, Cursor, any MCP client)
+                              │ MCP tools: docs · validate · scenarios · runs · exports
+                              ▼
                        ┌────────────────────────────────────────────┐
+                       │ MCP server — tools map 1:1 onto the REST    │
+                       │ API (also hand-edited specs from the UI)    │
+                       └──────────────────┬─────────────────────────┘
+                                          │ spec (JSON)
+                       ┌──────────────────▼─────────────────────────┐
                        │ Spec validator: JSON Schema + semantic      │
-                       │ invariants + repair loop                    │
+                       │ invariants, located machine-actionable      │
+                       │ errors (agents + editor consume the same)   │
                        └──────────────────┬─────────────────────────┘
                                           ▼
                        ┌────────────────────────────────────────────┐
@@ -77,19 +83,21 @@ The LLM's role is deliberately constrained: it compiles English into a validated
               ┌────────────┬──────────────┼──────────────┬──────────────┐
               ▼            ▼              ▼              ▼              ▼
          Files        Kafka sink     RabbitMQ sink  Webhook sink   Dashboard +
-         csv/parquet  TPS control    exchange/      signed,        realism report
-         + label set  backpressure   routing, TPS   retries        (React)
+         csv/parquet  TPS control    exchange/      retries,       realism report
+         + label set  backpressure   routing, TPS   backoff        (React)
 
-  v1.1: Recon views (issuer/acquirer/switch/settlement w/ breaks) · MCP server
+  v1.1: Recon views (issuer/acquirer/switch/settlement w/ breaks) · AI-assist plugin
 ```
 
-Services: Fastify API + job orchestration, BullMQ workers for chunked parallel generation with idempotent resume, MySQL (Knex for migrations and query building, no ORM) for scenarios/specs/run metadata, Redis for queues, React + Recharts dashboard built as a Vite SPA. Node worker_threads inside each generation worker for CPU-bound throughput; a documented performance budget with a published benchmark ("sustains 1,000 TPS to Kafka with flat memory") is part of the v1 definition of done. TypeScript end to end. Ships as one `docker compose up`.
+Services: Fastify API + job orchestration (also hosting the MCP server endpoint over streamable HTTP — no separate service, no LLM SDKs anywhere), BullMQ workers for chunked parallel generation with idempotent resume, MySQL (Knex for migrations and query building, no ORM) for scenarios/specs/run metadata, Redis for queues, React + Recharts dashboard built as a Vite SPA. Node worker_threads inside each generation worker for CPU-bound throughput; a documented performance budget with a published benchmark ("sustains 1,000 TPS to Kafka with flat memory") is part of the v1 definition of done. TypeScript end to end. Ships as one `docker compose up`.
 
 ## Simulation spec (illustrative excerpt)
 
 ```jsonc
 {
   "seed": 42,
+  "currency": "INR",
+  "locale": "en-IN",   // selects the name-dictionary pack for payer/payee display names
   "clock": { "start": "2026-09-01", "days": 90, "then_stream_tps": 50 },
   "population": {
     "consumers": { "count": 200000, "archetypes": [
@@ -129,7 +137,7 @@ Services: Fastify API + job orchestration, BullMQ workers for chunked parallel g
 
 Every capability is operable from the web UI — the CLI is an automation convenience, not the primary interface. Six surfaces cover the product:
 
-**1. Scenario workspace.** The home of the "studio" experience. A natural-language prompt panel compiles a description into a spec; the result opens in a split view — Monaco JSON editor on the left with schema autocomplete and inline semantic-invariant errors (the Diwali-outside-clock class of mistake is a red squiggle with an explanation, not a failed run), and a live structural preview on the right (population summary, typology list, imperfection profile, estimated volume). Natural-language edits produce a **diff review panel** — accept/reject hunks like a code review. A template gallery (UPI-style, card-present retail, mobile money, marketplace payouts) lets users clone and modify instead of starting blank, and every saved scenario keeps a version history with one-click rollback.
+**1. Scenario workspace.** The home of the "studio" experience: a split view — Monaco JSON editor on the left with schema autocomplete and inline semantic-invariant errors (the Diwali-outside-clock class of mistake is a red squiggle with an explanation, not a failed run), and a live structural preview on the right (population summary, typology list, imperfection profile, estimated volume). A template gallery (UPI-style, card-present retail, mobile money, marketplace payouts) lets users clone and modify instead of starting blank, and every saved scenario keeps a version history with per-version comparison and one-click rollback — which is also where agent-authored specs and edits land for review, the same mental model as a code review.
 
 **2. Run control.** Launch runs from a scenario with run-scoped parameters (seed, scale override, sink selection). A run list shows status, progress from the chunked workers (per-partition progress bars), throughput, and ETA; run detail offers logs, pause/cancel, and idempotent resume. Completed runs are immutable records — spec snapshot, seed, realism report, and outputs are permanently linked, which is what makes "regenerate exactly this dataset" a button.
 
@@ -139,15 +147,15 @@ Every capability is operable from the web UI — the CLI is an automation conven
 
 **5. Ground-truth explorer.** Filter and browse by typology, then drill into an actor's *story*: an account-takeover actor's timeline from dormancy through credential-change signal to drain transactions, rendered as a sequence. Export controls live here — with or without labels, per format, with an explicit warning when labels are included in the main export rather than the separate answer key.
 
-**6. Connections & settings.** Sink management (Kafka clusters, RabbitMQ brokers, webhook endpoints) with test-connection buttons and credential storage; LLM provider configuration; global defaults. Nothing requires editing a config file on disk.
+**6. Connections & settings.** Sink management (Kafka clusters, RabbitMQ brokers, webhook endpoints) with test-connection buttons and credential storage; agent-integration details (MCP endpoint address, authoring-docs links); global defaults. Nothing requires editing a config file on disk.
 
-The UI is a pure client of the same REST/WebSocket API the CLI and the future MCP server use — one API surface, three clients.
+The UI is a pure client of the same REST/WebSocket API the CLI and the MCP server use — one API surface, three clients.
 
 ## Feature roadmap beyond v1
 
-**v1.1 — the reconciliation release.** Multi-perspective sinks: the same truth emitted as issuer, acquirer, and switch extracts plus end-of-day settlement files, with configurable injected breaks (missing legs, amount mismatches, timing differences). Turns the tool from "test data" into "the only way to test a recon system." Plus an **MCP server** exposing compile/generate/fetch as tools, so coding agents can self-serve labeled test datasets mid-task — cheap to build on the existing API and highly visible.
+**v1.1 — the reconciliation release.** Multi-perspective sinks: the same truth emitted as issuer, acquirer, and switch extracts plus end-of-day settlement files, with configurable injected breaks (missing legs, amount mismatches, timing differences). Turns the tool from "test data" into "the only way to test a recon system." Plus an optional **AI-assist plugin** — an in-process, bring-your-own-key module (config-flag enabled, revealed via capability discovery) hosting natural-language authoring inside the studio for teams without their own agent, reusing the same shared tool definitions the MCP server exposes. Plus **on-demand pull delivery** — a client-paced HTTP endpoint where a load-generation tool requests the next N events and the engine generates them lazily and idles between requests: cursor-based, idempotent to re-read, deterministic regardless of how the batches are sliced, with the consumer's request rate replacing the TPS dial.
 
-**v1.2 — the AML release.** Structuring/smurfing and mule-network typologies with graph-shaped ground truth (rings, layering chains), plus graph exports — expanding the audience from fraud-detection to compliance teams and answering gen-fraud-graph on its own turf with a full product around it.
+**v1.2 — the AML release.** Structuring/smurfing and mule-network typologies with graph-shaped ground truth (rings, layering chains), plus graph exports — expanding the audience from fraud-detection to compliance teams and answering gen-fraud-graph on its own turf with a full product around it. Also the **gRPC streaming sink** (shipped `.proto` contract, HTTP/2 flow control as backpressure, labels as a second stream) — deliberately built as the first sink against the public plugin interface, so it doubles as the documented reference plugin for community sink authors.
 
 **v2 candidates.** Concept-drift scheduling (fraud tactics evolve mid-run, for MLOps evaluation of model decay); format packs (ISO 8583, ISO 20022 pacs.008, UPI-like, generic JSON); label-noise injection for robustness testing; a community scenario-pack registry.
 
@@ -161,14 +169,14 @@ The UI is a parallel workstream from week 3, not a final-fortnight afterthought 
 |---|---|---|
 | 1–2 | Spec format + JSON Schema + semantic invariant validator; deterministic engine core (personas, virtual clock, seeded partitioned RNG); CSV sink; REST API skeleton + CLI runner | — (API contracts defined) |
 | 3–4 | Fraud typologies (card testing, ATO, refund abuse) with label export; imperfection engine (dupes, late, out-of-order, clock skew); Parquet + Kafka sinks with TPS control; chunked parallel generation via BullMQ; WebSocket progress events | App shell + Run control (launch, progress bars, logs, cancel/resume); spec editor with schema validation |
-| 5–6 | LLM scenario compiler with validation/repair loop; NL spec-diff endpoint; realism report generation; scenario template library | Scenario workspace (NL prompt panel, inline invariant errors, diff review, template gallery); World inspector (charts, fraud timeline, imperfection audit, realism report) |
+| 5–6 | MCP server (streamable HTTP on the API) + shared agent-tools package; agent authoring docs (schema reference, invariant error-code catalog, worked examples); realism report generation; scenario template library | Scenario workspace (inline invariant errors, version comparison/rollback, template gallery); World inspector (charts, fraud timeline, imperfection audit, realism report) |
 | 7–8 | Webhook + RabbitMQ sinks; streaming mode hardening; performance benchmark | Stream console (TPS dial, live throughput, event ticker); Ground-truth explorer (actor stories, export controls); Connections & settings; run comparison; polish |
 
-De-scope order if time compresses: run comparison and template gallery first, ground-truth actor stories second (labels still exportable via files), webhook sink third. The irreducible v1 is: scenario workspace + run control + world inspector in the UI, with Kafka + labeled fraud + imperfections + realism report underneath. Multi-perspective recon mode and MCP are explicitly *not* in the 8 weeks — they are the announced v1.1 so the README shows a living roadmap.
+De-scope order if time compresses: run comparison and template gallery first, ground-truth actor stories second (labels still exportable via files), webhook sink third. The irreducible v1 is: scenario workspace + run control + world inspector in the UI, with Kafka + labeled fraud + imperfections + realism report underneath, plus the MCP server + agent docs as the authoring on-ramp. Multi-perspective recon mode and the AI-assist plugin are explicitly *not* in the 8 weeks — they are the announced v1.1 so the README shows a living roadmap.
 
 ## Risks and mitigations
 
-**Positioning risk.** "Generate data from English" reads as a Mockaroo/Fabricate clone; leading with it buries the actual novelty. Mitigation: all messaging leads with the world model, ground truth, and answer key; the LLM is described as the on-ramp, not the engine.
+**Positioning risk.** "Generate data from English" reads as a Mockaroo/Fabricate clone; leading with it buries the actual novelty. Mitigation: all messaging leads with the world model, ground truth, and answer key; agent integration is described as the on-ramp, not the engine — and no LLM ships in the product at all.
 
 **Realism credibility.** Users who know payments will spot naive distributions. Mitigation: the realism report makes fidelity measurable per run; defaults calibrated against published aggregates (RBI UPI stats, category splits) with sources documented; every distribution overridable in the spec.
 
@@ -176,8 +184,8 @@ De-scope order if time compresses: run comparison and template gallery first, gr
 
 **Scope creep.** Sinks and typologies can grow forever. Mitigation: v1 ships exactly three typologies, four sinks, four imperfection types; everything else is a plugin interface plus a CONTRIBUTING.md invitation, which doubles as the community-growth mechanism.
 
-**LLM spec quality.** Mitigation: the repair loop plus hand-editability means a mediocre first compile is an inconvenience, not a failure; the engine works without the LLM at all.
+**Agent spec quality.** The quality of agent-authored specs depends on the user's agent. Mitigation: the validator's located, machine-actionable errors plus the shipped authoring docs make convergence an agent-competence floor, not a product failure; specs are always hand-editable; and the product is fully functional with no agent at all.
 
 ## Positioning line for the README
 
-> Academic simulators are rigid. ML synthesizers need your real data. Streaming generators make plausible rows with no ground truth. TxLoom simulates a financial world — customers, merchants, fraudsters, and mess — and hands you both the data and the answer key: as files, as a Kafka or RabbitMQ firehose, or as a stream of signed webhooks.
+> Academic simulators are rigid. ML synthesizers need your real data. Streaming generators make plausible rows with no ground truth. TxLoom simulates a financial world — customers, merchants, fraudsters, and mess — and hands you both the data and the answer key: as files, as a Kafka or RabbitMQ firehose, or as a stream of webhooks.

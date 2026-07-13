@@ -15,8 +15,10 @@ Open **http://localhost:3000**. Target: running studio in under 10 minutes (SC-0
 
 First dataset in three steps (target: under 15 minutes end to end, SC-002):
 
-1. **Scenario workspace** → *New from template* → "UPI-style instant payments" (or type a
-   plain-English description in the prompt panel if an LLM provider is configured in Settings).
+1. **Scenario workspace** → *New from template* → "UPI-style instant payments". Prefer plain
+   English? Point your own AI agent (Claude Code, Cursor, any MCP client) at
+   `http://localhost:3000/mcp` and describe the scenario — the agent authors and validates the
+   spec for you (see `docs/agent/`).
 2. Review the spec in the editor (inline validation errors, live structural preview) → **Run**.
 3. When the run completes: **World inspector** for charts + realism report; **Ground-truth
    explorer** → *Export* to download data files and the separate answer key.
@@ -51,7 +53,9 @@ Key invariants for contributors:
 - Same seed + same spec = byte-identical output. Golden-master tests enforce this; if your
   change legitimately alters output, it is a breaking change — declare it (versioned + changelog).
 - No `Math.random`, no wall-clock reads inside `packages/engine` (lint-enforced).
-- The LLM lives only in `packages/llm` and only emits specs/diffs — never events.
+- No language model ships in the product. Agent integration lives in `packages/agent-tools`
+  (tool definitions + authoring-docs source) and the API's `/mcp` endpoint; MCP tools must map
+  1:1 onto REST endpoints — agents author specs only, never events.
 - New sinks/typologies/imperfections implement the plugin interfaces in `packages/sinks` /
   `packages/engine`; do not thread conditionals through the core.
 

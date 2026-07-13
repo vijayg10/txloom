@@ -30,7 +30,7 @@ Append-only; rollback creates a new head pointing at old content (FR-005).
 | scenario_id | char(26) FK | indexed |
 | version_no | int | monotonic per scenario; unique (scenario_id, version_no) |
 | spec | json | full simulation spec document |
-| author_type | enum('user','llm_compile','llm_diff','rollback') | provenance |
+| author_type | enum('user','agent','rollback') | provenance; `agent` = saved via an MCP tool call |
 | parent_version_id | char(26) | nullable |
 | created_at | timestamp | |
 
@@ -90,14 +90,16 @@ One row per live-streaming phase of a run (mode `batch_then_stream`).
 | type | enum('file','kafka','rabbitmq','webhook') | v1 set (FR-026) |
 | name | varchar(120) | unique |
 | config | json | non-secret config: brokers/topic/partitioning, exchange/routing key, URL, formats |
-| credentials_enc | varbinary | AES-256-GCM envelope (D14); null for file |
+| credentials_enc | varbinary | AES-256-GCM envelope (D14); null for file and webhook (no signing secret — D15) |
 | last_test_at / last_test_ok | timestamp / boolean | test-connection state |
 | created_at / updated_at | timestamp | |
 
 ### templates
 
 Seeded at migration time; read-only in v1 (UPI-style, card-present retail, mobile money,
-marketplace payouts — FR-006).
+marketplace payouts — FR-006). Name-dictionary packs (per locale: given/family names, merchant
+naming patterns) ship as static, sourced engine data files, selected by each template spec's
+`locale` (FR-014a) — same pattern as `benchmark_refs`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -110,7 +112,7 @@ marketplace payouts — FR-006).
 
 | Column | Type | Notes |
 |---|---|---|
-| key | varchar(60) PK | e.g. `llm.provider`, `llm.base_url`, `defaults.*` |
+| key | varchar(60) PK | e.g. `defaults.*` (global defaults); optional-module settings (e.g. a future AI-assist plugin's provider config) namespace under the module name |
 | value | json | secrets referenced here are stored encrypted (credentials pattern as sinks) |
 | updated_at | timestamp | |
 
@@ -143,7 +145,9 @@ MySQL row (spec snapshot + seed) remains for one-click regeneration.
 | amount | decimal(18,2) | scenario currency |
 | currency | char(3) | constant per scenario |
 | consumer_id / merchant_id | string | merchant null for p2p/income |
+| consumer_name / merchant_name | string | stable display names assigned once at world instantiation from the locale's dictionary pack (FR-014a); merchant_name null for p2p/income |
 | counterparty_id | string null | p2p target (e.g., mule/drain destination) |
+| counterparty_name | string null | counterparties are consumers — named the same way |
 | channel | string | e.g. upi, card_present, wallet — template-dependent |
 | partition_no | int | provenance |
 
@@ -168,7 +172,8 @@ share `event_id`, differ in `delivery_id`.
 
 ## Spec document (authoritative JSON Schema lives in `packages/spec`)
 
-Top-level keys (FR-002): `seed`, `currency`, `clock {start, days, then_stream_tps?}`,
+Top-level keys (FR-002): `seed`, `currency`, `locale` (selects the name-dictionary pack for
+party display names, FR-014a), `clock {start, days, then_stream_tps?}`,
 `population {consumers {count, archetypes[]}, merchants {count, categories{}}}`,
 `seasonality[] {event, window[2], volume_multiplier}`,
 `fraud {target_rate, typologies[] (card_testing | account_takeover | refund_abuse with shares,
@@ -180,7 +185,8 @@ burst/precondition/behavior params)}`, `outcomes {baseline_decline_rate}`,
 FR-003/004): seasonality windows intersect the clock window; archetype weights and typology
 shares sum to 1 (±ε); fraud target_rate ∈ [0, 0.5]; account_takeover dormancy precondition
 satisfiable within clock.days; imperfection rates ∈ [0, 0.2]; imperfection sink targeting refers
-to selected output sinks; clock_skew sources reference declared sources; then_stream_tps within
+to selected output sinks; clock_skew sources reference declared sources; locale references a
+shipped name-dictionary pack; then_stream_tps within
 documented envelope (≤ benchmark-backed maximum); population within documented scale envelope
 (warn above reference scale).
 
