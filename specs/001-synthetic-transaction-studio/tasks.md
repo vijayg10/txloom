@@ -541,38 +541,38 @@ scenario, and run it — without touching any file on disk.
 
 ### Tests for User Story 6 (write first, Constitution Principle III) ⚠️
 
-- [ ] T178 [P] [US6] Contract test: sink-connection CRUD + test-connection action in
+- [X] T178 [P] [US6] Contract test: sink-connection CRUD + test-connection action in
       `apps/api/tests/contract/test_sinks.ts`
-- [ ] T179 [P] [US6] Contract test: `GET /templates`, `POST /scenarios {template_slug}` clone in
+- [X] T179 [P] [US6] Contract test: `GET /templates`, `POST /scenarios {template_slug}` clone in
       `apps/api/tests/contract/test_templates.ts`
-- [ ] T180 [P] [US6] Contract test: `GET/PUT /settings` in
+- [X] T180 [P] [US6] Contract test: `GET/PUT /settings` in
       `apps/api/tests/contract/test_settings.ts`
-- [ ] T181 [P] [US6] Integration test: fresh `docker compose up` reaches a healthy studio within
+- [X] T181 [P] [US6] Integration test: fresh `docker compose up` reaches a healthy studio within
       the documented time budget in `benchmarks/smoke/install-smoke.test.ts` (SC-003)
 
 ### Implementation for User Story 6
 
-- [ ] T182 [US6] Sink-connection repository + credential encryption wiring in
+- [X] T182 [US6] Sink-connection repository + credential encryption wiring in
       `apps/api/src/db/repositories/sink-connections.ts` (depends on T047)
-- [ ] T183 [US6] `GET/POST /sinks`, `GET/PATCH/DELETE /sinks/:id` routes, secrets write-only, in
+- [X] T183 [US6] `GET/POST /sinks`, `GET/PATCH/DELETE /sinks/:id` routes, secrets write-only, in
       `apps/api/src/routes/sinks.ts` (depends on T182)
-- [ ] T184 [US6] `POST /sinks/:id/test` route dispatching to each sink plugin's test-connection in
+- [X] T184 [US6] `POST /sinks/:id/test` route dispatching to each sink plugin's test-connection in
       `apps/api/src/routes/sink-test.ts` (depends on T053, T158–T160)
-- [ ] T185 [US6] Template-seed migration for the four gallery templates (UPI-style, card-present
+- [X] T185 [US6] Template-seed migration for the four gallery templates (UPI-style, card-present
       retail, mobile money, marketplace payouts) with `benchmark_refs` in
       `apps/api/src/db/migrations/009_seed_templates.ts` (depends on T040; FR-007)
-- [ ] T186 [US6] `GET /templates` route + `POST /scenarios {template_slug}` clone-into-scenario path
+- [X] T186 [US6] `GET /templates` route + `POST /scenarios {template_slug}` clone-into-scenario path
       in `apps/api/src/routes/templates.ts` (extends T099; depends on T185)
-- [ ] T187 [US6] `GET/PUT /settings` route in `apps/api/src/routes/settings.ts`
-- [ ] T188 [US6] Connections & settings: sink management with test-connection buttons + credential
+- [X] T187 [US6] `GET/PUT /settings` route in `apps/api/src/routes/settings.ts`
+- [X] T188 [US6] Connections & settings: sink management with test-connection buttons + credential
       forms in `apps/web/src/surfaces/settings/sink-management.tsx` (depends on T183, T184)
-- [ ] T189 [US6] Connections & settings: global-defaults form in
+- [X] T189 [US6] Connections & settings: global-defaults form in
       `apps/web/src/surfaces/settings/global-defaults.tsx` (depends on T187)
-- [ ] T190 [US6] Template gallery UI: browse + clone-into-scenario in
+- [X] T190 [US6] Template gallery UI: browse + clone-into-scenario in
       `apps/web/src/surfaces/scenario-workspace/template-gallery.tsx` (depends on T186)
-- [ ] T191 [US6] CLI command `txloom sinks list|add|test` in
+- [X] T191 [US6] CLI command `txloom sinks list|add|test` in
       `apps/cli/src/commands/sinks.ts`
-- [ ] T192 [US6] Single documented install command validated end-to-end against
+- [X] T192 [US6] Single documented install command validated end-to-end against
       `docker-compose.yml`; README/quickstart cross-check (SC-003)
 
 **Checkpoint**: All 6 user stories independently functional; zero-config self-hosted operation

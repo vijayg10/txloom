@@ -18,6 +18,7 @@ import {
   streamSetRateCommand,
 } from "./commands/stream.js";
 import { truthFilterCommand, truthActorStoryCommand } from "./commands/truth.js";
+import { sinksListCommand, sinksAddCommand, sinksTestCommand } from "./commands/sinks.js";
 
 const registry = new CommandRegistry();
 registry.register(validateCommand);
@@ -35,9 +36,9 @@ registry.register(streamStopCommand);
 registry.register(streamSetRateCommand);
 registry.register(truthFilterCommand);
 registry.register(truthActorStoryCommand);
-
-// Further story-specific commands (sinks) register here as each later user
-// story lands.
+registry.register(sinksListCommand);
+registry.register(sinksAddCommand);
+registry.register(sinksTestCommand);
 
 async function main() {
   const [, , commandName, ...args] = process.argv;
