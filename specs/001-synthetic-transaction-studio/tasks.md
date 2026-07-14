@@ -449,44 +449,44 @@ and pause/resume the stream.
 
 ### Tests for User Story 4 (write first, Constitution Principle III) ⚠️
 
-- [ ] T153 [P] [US4] Contract test: stream `start/pause/resume/stop`, `PATCH target_tps`,
+- [X] T153 [P] [US4] Contract test: stream `start/pause/resume/stop`, `PATCH target_tps`,
       `GET` stream state in `apps/api/tests/contract/test_stream.ts`
-- [ ] T154 [P] [US4] Integration test (Testcontainers Kafka): sustained delivery converges on
+- [X] T154 [P] [US4] Integration test (Testcontainers Kafka): sustained delivery converges on
       target TPS within tolerance in `apps/worker/tests/integration/kafka-stream.test.ts` (SC-007)
-- [ ] T155 [P] [US4] Integration test (Testcontainers RabbitMQ): publisher confirms drive
+- [X] T155 [P] [US4] Integration test (Testcontainers RabbitMQ): publisher confirms drive
       backpressure in `packages/sinks/tests/integration/rabbitmq-backpressure.test.ts`
-- [ ] T156 [P] [US4] Integration test: webhook sink retries with exponential backoff on failure in
+- [X] T156 [P] [US4] Integration test: webhook sink retries with exponential backoff on failure in
       `packages/sinks/tests/integration/webhook-retry.test.ts`
-- [ ] T157 [P] [US4] Property test: history phase → live phase continues the same population/actor
+- [X] T157 [P] [US4] Property test: history phase → live phase continues the same population/actor
       state with zero discontinuity in `packages/engine/tests/property/continuity.test.ts` (SC-006)
 
 ### Implementation for User Story 4
 
-- [ ] T158 [P] [US4] Kafka sink: producer with configurable partitioning, delivery-report-driven
+- [X] T158 [P] [US4] Kafka sink: producer with configurable partitioning, delivery-report-driven
       backpressure in `packages/sinks/src/kafka/producer.ts` (D8)
-- [ ] T159 [P] [US4] RabbitMQ sink: publisher with confirm-channel wrapper, reconnect, configurable
+- [X] T159 [P] [US4] RabbitMQ sink: publisher with confirm-channel wrapper, reconnect, configurable
       exchange/routing in `packages/sinks/src/rabbitmq/publisher.ts` (D9)
-- [ ] T160 [P] [US4] Webhook sink: plain HTTP POST with exponential-backoff+jitter retries (5
+- [X] T160 [P] [US4] Webhook sink: plain HTTP POST with exponential-backoff+jitter retries (5
       attempts default) in `packages/sinks/src/webhook/publisher.ts` (D15)
-- [ ] T161 [US4] Token-bucket rate limiter owned by the stream-drive job, shared across partitions,
+- [X] T161 [US4] Token-bucket rate limiter owned by the stream-drive job, shared across partitions,
       in `packages/engine/src/streaming/token-bucket.ts` (D16)
-- [ ] T162 [US4] `stream-drive` BullMQ job: continues the same world state into the live phase,
+- [X] T162 [US4] `stream-drive` BullMQ job: continues the same world state into the live phase,
       meters via the token bucket, publishes achieved/target/lag/backpressure gauges in
       `apps/worker/src/jobs/stream-drive.ts` (depends on T075, T158–T161; FR-029)
-- [ ] T163 [US4] Parallel label channel: opt-in dedicated topic/queue for streamed truth labels in
+- [X] T163 [US4] Parallel label channel: opt-in dedicated topic/queue for streamed truth labels in
       `apps/worker/src/jobs/stream-label-channel.ts` (FR-030a)
-- [ ] T164 [US4] Streams repository + stream lifecycle state machine
+- [X] T164 [US4] Streams repository + stream lifecycle state machine
       (`idle→streaming⇄paused→stopped`) in `apps/api/src/db/repositories/streams.ts`
-- [ ] T165 [US4] `POST /runs/:id/stream/start|pause|resume|stop`, `PATCH /runs/:id/stream`,
+- [X] T165 [US4] `POST /runs/:id/stream/start|pause|resume|stop`, `PATCH /runs/:id/stream`,
       `GET /runs/:id/stream` routes in `apps/api/src/routes/stream-control.ts` (depends on T164)
-- [ ] T166 [US4] WS `runs/:id/stream` channel (`achieved_tps/target_tps/sink_lag/backpressure` @1Hz
+- [X] T166 [US4] WS `runs/:id/stream` channel (`achieved_tps/target_tps/sink_lag/backpressure` @1Hz
       + ticker sample) in `apps/api/src/ws/run-stream.ts` (depends on T162)
-- [ ] T167 [US4] Stream console UI (rate dial, live achieved-vs-target throughput, sink lag/
+- [X] T167 [US4] Stream console UI (rate dial, live achieved-vs-target throughput, sink lag/
       backpressure indicators, real-time event ticker) in
       `apps/web/src/surfaces/stream-console/stream-console.tsx` (depends on T166)
-- [ ] T168 [US4] CLI command `txloom stream start|pause|resume|stop|set-rate` in
+- [X] T168 [US4] CLI command `txloom stream start|pause|resume|stop|set-rate` in
       `apps/cli/src/commands/stream.ts`
-- [ ] T169 [US4] Demo-broker compose profile wiring (local Kafka + RabbitMQ) for the streaming demo
+- [X] T169 [US4] Demo-broker compose profile wiring (local Kafka + RabbitMQ) for the streaming demo
       in `docker-compose.yml` (`demo-brokers` profile, per quickstart.md)
 
 **Checkpoint**: User Stories 1–4 all independently functional.

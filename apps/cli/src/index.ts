@@ -10,6 +10,13 @@ import {
   runRegenerateCommand,
   runStatusCommand,
 } from "./commands/run-control.js";
+import {
+  streamStartCommand,
+  streamPauseCommand,
+  streamResumeCommand,
+  streamStopCommand,
+  streamSetRateCommand,
+} from "./commands/stream.js";
 
 const registry = new CommandRegistry();
 registry.register(validateCommand);
@@ -20,9 +27,14 @@ registry.register(runResumeCommand);
 registry.register(runCancelCommand);
 registry.register(runRegenerateCommand);
 registry.register(runStatusCommand);
+registry.register(streamStartCommand);
+registry.register(streamPauseCommand);
+registry.register(streamResumeCommand);
+registry.register(streamStopCommand);
+registry.register(streamSetRateCommand);
 
-// Further story-specific commands (stream, sinks, truth) register here as
-// each later user story lands.
+// Further story-specific commands (sinks, truth) register here as each
+// later user story lands.
 
 async function main() {
   const [, , commandName, ...args] = process.argv;

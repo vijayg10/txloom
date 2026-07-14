@@ -1,5 +1,5 @@
 import type { SimulationSpec } from "@txloom/spec";
-import { derivePartitionRng, deriveNamedRng, type Rng } from "./rng.js";
+import { derivePartitionRng, deriveNamedRng, type Rng, type RngCheckpoint } from "./rng.js";
 import { createDeterministicUlid } from "./id.js";
 import { computeConsumerPartitions } from "./partitioning.js";
 import { sampleConsumers } from "./population/consumer-archetypes.js";
@@ -17,10 +17,19 @@ import type { LabelRecord, TruthEvent } from "./types.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Trailing world state after a partition's history phase — everything the
+ * live-stream phase needs to continue the SAME population and RNG stream
+ * with zero discontinuity (FR-029, SC-006) instead of resetting. */
+export interface PartitionWorldCheckpoint {
+  rng: RngCheckpoint;
+  consumers: NamedConsumer[];
+}
+
 export interface PartitionGenerationResult {
   truthEvents: TruthEvent[];
   labelRecords: LabelRecord[];
   achievedFraudRate: number;
+  worldCheckpoint: PartitionWorldCheckpoint;
 }
 
 /** Generates the shared, world-scoped merchant pool once (globally, not
@@ -162,5 +171,10 @@ export function generatePartition(
   );
   const labelRecords = [...legitLabels, ...fraudResult.fraudLabels];
 
-  return { truthEvents, labelRecords, achievedFraudRate: fraudResult.achievedRate };
+  return {
+    truthEvents,
+    labelRecords,
+    achievedFraudRate: fraudResult.achievedRate,
+    worldCheckpoint: { rng: rng.checkpoint(), consumers },
+  };
 }

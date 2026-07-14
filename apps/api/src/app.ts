@@ -22,7 +22,8 @@ import runRegenerateRoutes from "./routes/run-regenerate.js";
 import runOutputsRoutes from "./routes/run-outputs.js";
 import inspectorRoutes from "./routes/inspector.js";
 import runCompareRoutes from "./routes/run-compare.js";
-import runProgressWs from "./ws/run-progress.js";
+import streamControlRoutes from "./routes/stream-control.js";
+import wsRoutes from "./ws/index.js";
 import mcpRoutes from "./mcp/server.js";
 
 export interface BuildAppOptions {
@@ -64,7 +65,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         await api.register(runOutputsRoutes);
         await api.register(inspectorRoutes);
         await api.register(runCompareRoutes);
-        await api.register(runProgressWs);
+        await api.register(streamControlRoutes);
+        await api.register(wsRoutes);
       }
     },
     { prefix: API_PREFIX },

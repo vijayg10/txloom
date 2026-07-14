@@ -65,8 +65,17 @@ services:
       redis:
         condition: service_healthy
 
-  # Optional local demo brokers for the streaming "history-to-live" demo.
-  # Start with: docker compose --profile demo-brokers up
+  # Optional local demo brokers for the streaming "history-to-live" demo
+  # (User Story 4). Start with: docker compose --profile demo-brokers up
+  #
+  # Two listeners on Kafka because the two clients sit on different sides of
+  # the compose network: the `worker` container (which actually publishes,
+  # via the stream-drive job) reaches it at `kafka:29092`; host-side tools
+  # (a local kcat, the CLI run outside compose) use `localhost:9092`. A
+  # single "localhost"-advertised listener works for host clients but breaks
+  # for in-network clients — Kafka tells them to reconnect to the advertised
+  # address, and "localhost" inside the worker container is the worker
+  # itself, not the broker.
   kafka:
     image: apache/kafka:3.9.0
     profiles: ["demo-brokers"]
@@ -76,12 +85,16 @@ services:
     environment:
       KAFKA_NODE_ID: "1"
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://:9092,INTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka:29092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
 
+  # RabbitMQ needs no such split: `worker`/`api` reach it at `rabbitmq:5672`
+  # (compose DNS) and the host reaches it at `localhost:5672`, both valid —
+  # AMQP has no advertised-listener redirect step.
   rabbitmq:
     image: rabbitmq:4-management-alpine
     profiles: ["demo-brokers"]
