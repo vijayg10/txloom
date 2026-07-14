@@ -11,6 +11,9 @@ importers:
       '@eslint/js':
         specifier: ^9.17.0
         version: 9.39.5
+      '@txloom/agent-tools':
+        specifier: workspace:*
+        version: link:packages/agent-tools
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1
@@ -203,6 +206,9 @@ importers:
       '@txloom/spec':
         specifier: workspace:*
         version: link:../spec
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       typescript:
         specifier: ^5.7.2

@@ -8,6 +8,7 @@ import ajvPlugin from "./plugins/ajv.js";
 import healthRoutes from "./routes/health.js";
 import capabilitiesRoutes from "./routes/capabilities.js";
 import specRoutes from "./routes/spec.js";
+import specDocsRoutes from "./routes/spec-docs.js";
 import scenarioRoutes from "./routes/scenarios.js";
 import specVersionRoutes from "./routes/spec-versions.js";
 import runsLaunchRoutes from "./routes/runs-launch.js";
@@ -15,6 +16,8 @@ import runsReadRoutes from "./routes/runs-read.js";
 import runReportRoutes from "./routes/run-report.js";
 import truthEventsRoutes from "./routes/truth-events.js";
 import exportRoutes from "./routes/exports.js";
+import templatesRoutes from "./routes/templates.js";
+import mcpRoutes from "./mcp/server.js";
 
 export interface BuildAppOptions {
   /** Skip DB-touching plugin registration — used by contract tests that only
@@ -39,6 +42,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       await api.register(healthRoutes);
       await api.register(capabilitiesRoutes);
       await api.register(specRoutes);
+      await api.register(specDocsRoutes);
 
       if (!options.skipDb) {
         await api.register(scenarioRoutes);
@@ -48,10 +52,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         await api.register(runReportRoutes);
         await api.register(truthEventsRoutes);
         await api.register(exportRoutes);
+        await api.register(templatesRoutes);
       }
     },
     { prefix: API_PREFIX },
   );
+
+  // /mcp lives outside /api/v1 — one endpoint on the same process, not a new
+  // service (contracts/api.md § MCP server, D13).
+  await app.register(mcpRoutes);
 
   const spaDir = path.join(import.meta.dirname, "../../web/dist");
   if (existsSync(spaDir)) {

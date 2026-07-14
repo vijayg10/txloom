@@ -319,42 +319,42 @@ scenario appears in the studio for inspection, and agent edits land as new versi
 
 ### Tests for User Story 2 (write first, Constitution Principle III) ⚠️
 
-- [ ] T112 [P] [US2] Contract test: each tool in `packages/agent-tools` maps 1:1 onto its REST
+- [X] T112 [P] [US2] Contract test: each tool in `packages/agent-tools` maps 1:1 onto its REST
       endpoint response shape in `apps/api/tests/contract/test_mcp_parity.ts` (FR-008/012)
-- [ ] T113 [P] [US2] Integration test: full MCP loop (schema → validate → create → save version →
+- [X] T113 [P] [US2] Integration test: full MCP loop (schema → validate → create → save version →
       launch run → get status → get report → export) in
       `apps/api/tests/integration/mcp-loop.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T114 [US2] Shared agent tool definitions (names, schemas, descriptions) for all v1 tools in
+- [X] T114 [US2] Shared agent tool definitions (names, schemas, descriptions) for all v1 tools in
       `packages/agent-tools/src/tools.ts` (FR-012)
-- [ ] T115 [US2] MCP server mounted at `/mcp` via `@modelcontextprotocol/sdk` streamable-HTTP
+- [X] T115 [US2] MCP server mounted at `/mcp` via `@modelcontextprotocol/sdk` streamable-HTTP
       transport in `apps/api/src/mcp/server.ts` (depends on T114; D13)
-- [ ] T116 [P] [US2] MCP tool handlers: `get_spec_schema`, `get_authoring_docs`, `list_templates` in
+- [X] T116 [P] [US2] MCP tool handlers: `get_spec_schema`, `get_authoring_docs`, `list_templates` in
       `apps/api/src/mcp/tools/read-tools.ts`
-- [ ] T117 [P] [US2] MCP tool handler: `validate_spec` in
+- [X] T117 [P] [US2] MCP tool handler: `validate_spec` in
       `apps/api/src/mcp/tools/validate-spec.ts` (reuses the located violation model verbatim;
       depends on T030)
-- [ ] T118 [P] [US2] MCP tool handlers: `create_scenario`, `save_spec_version` in
+- [X] T118 [P] [US2] MCP tool handlers: `create_scenario`, `save_spec_version` in
       `apps/api/src/mcp/tools/scenario-tools.ts` (depends on T099, T100)
-- [ ] T119 [P] [US2] MCP tool handlers: `launch_run`, `get_run_status`, `get_realism_report` in
+- [X] T119 [P] [US2] MCP tool handlers: `launch_run`, `get_run_status`, `get_realism_report` in
       `apps/api/src/mcp/tools/run-tools.ts` (depends on T103, T104, T105)
-- [ ] T120 [P] [US2] MCP tool handlers: `create_export`, `get_export` in
+- [X] T120 [P] [US2] MCP tool handlers: `create_export`, `get_export` in
       `apps/api/src/mcp/tools/export-tools.ts` (depends on T107)
-- [ ] T121 [US2] Per-field annotated spec-schema reference doc source in
+- [X] T121 [US2] Per-field annotated spec-schema reference doc source in
       `packages/agent-tools/src/docs/schema-reference.ts`
-- [ ] T122 [US2] Semantic-invariant catalog doc source (error code + remedy per invariant) in
+- [X] T122 [US2] Semantic-invariant catalog doc source (error code + remedy per invariant) in
       `packages/agent-tools/src/docs/invariant-catalog.ts` (depends on T023–T029)
-- [ ] T123 [US2] Worked example spec per gallery template in
+- [X] T123 [US2] Worked example spec per gallery template in
       `packages/agent-tools/src/docs/worked-examples/{upi,card-present,mobile-money,marketplace}.ts`
-- [ ] T124 [US2] `GET /spec/docs` route assembling doc sources into the agent-facing response in
+- [X] T124 [US2] `GET /spec/docs` route assembling doc sources into the agent-facing response in
       `apps/api/src/routes/spec-docs.ts` (depends on T121–T123)
-- [ ] T125 [US2] `docs/agent/` publish script generating repo-committed markdown from
+- [X] T125 [US2] `docs/agent/` publish script generating repo-committed markdown from
       `packages/agent-tools` sources in `scripts/build-agent-docs.ts` (depends on T121–T123)
-- [ ] T126 [US2] Connections & settings: agent-integration connection-details panel (server address,
+- [X] T126 [US2] Connections & settings: agent-integration connection-details panel (server address,
       authoring-docs links) in `apps/web/src/surfaces/settings/agent-connection.tsx`
-- [ ] T126a [US2] Agent-convergence eval harness: drive a corpus of plain-English scenario
+- [X] T126a [US2] Agent-convergence eval harness: drive a corpus of plain-English scenario
       descriptions (scoped to the four gallery templates) through a real MCP client against
       `validate_spec`/`save_spec_version`, and report the percentage that converge to a valid spec
       without human hand-editing in `apps/api/tests/eval/agent-convergence.ts` — gates against the
