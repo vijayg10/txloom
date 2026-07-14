@@ -17,6 +17,12 @@ import runReportRoutes from "./routes/run-report.js";
 import truthEventsRoutes from "./routes/truth-events.js";
 import exportRoutes from "./routes/exports.js";
 import templatesRoutes from "./routes/templates.js";
+import runControlRoutes from "./routes/run-control.js";
+import runRegenerateRoutes from "./routes/run-regenerate.js";
+import runOutputsRoutes from "./routes/run-outputs.js";
+import inspectorRoutes from "./routes/inspector.js";
+import runCompareRoutes from "./routes/run-compare.js";
+import runProgressWs from "./ws/run-progress.js";
 import mcpRoutes from "./mcp/server.js";
 
 export interface BuildAppOptions {
@@ -53,6 +59,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         await api.register(truthEventsRoutes);
         await api.register(exportRoutes);
         await api.register(templatesRoutes);
+        await api.register(runControlRoutes);
+        await api.register(runRegenerateRoutes);
+        await api.register(runOutputsRoutes);
+        await api.register(inspectorRoutes);
+        await api.register(runCompareRoutes);
+        await api.register(runProgressWs);
       }
     },
     { prefix: API_PREFIX },

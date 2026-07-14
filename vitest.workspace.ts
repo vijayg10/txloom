@@ -17,9 +17,16 @@ export default defineWorkspace([
       name: "contract",
       environment: "node",
       include: ["apps/api/tests/contract/test_*.ts"],
-      // These three spin up Testcontainers and belong to the `integration`
-      // project below instead, so `pnpm test` stays fast and Docker-free.
-      exclude: ["**/test_scenarios.ts", "**/test_runs.ts", "**/test_exports.ts"],
+      // These spin up Testcontainers and belong to the `integration` project
+      // below instead, so `pnpm test` stays fast and Docker-free.
+      exclude: [
+        "**/test_scenarios.ts",
+        "**/test_runs.ts",
+        "**/test_exports.ts",
+        "**/test_run_control.ts",
+        "**/test_inspector.ts",
+        "**/test_ws_progress.ts",
+      ],
     },
   },
   {
@@ -38,6 +45,9 @@ export default defineWorkspace([
         "apps/api/tests/contract/test_scenarios.ts",
         "apps/api/tests/contract/test_runs.ts",
         "apps/api/tests/contract/test_exports.ts",
+        "apps/api/tests/contract/test_run_control.ts",
+        "apps/api/tests/contract/test_inspector.ts",
+        "apps/api/tests/contract/test_ws_progress.ts",
         "apps/worker/tests/integration/**/*.test.ts",
         "packages/sinks/tests/integration/**/*.test.ts",
         "benchmarks/smoke/**/*.test.ts",

@@ -3,14 +3,26 @@ import { CommandRegistry } from "./registry.js";
 import { validateCommand } from "./commands/validate.js";
 import { runCommand } from "./commands/run.js";
 import { exportCommand } from "./commands/export.js";
+import {
+  runPauseCommand,
+  runResumeCommand,
+  runCancelCommand,
+  runRegenerateCommand,
+  runStatusCommand,
+} from "./commands/run-control.js";
 
 const registry = new CommandRegistry();
 registry.register(validateCommand);
 registry.register(runCommand);
 registry.register(exportCommand);
+registry.register(runPauseCommand);
+registry.register(runResumeCommand);
+registry.register(runCancelCommand);
+registry.register(runRegenerateCommand);
+registry.register(runStatusCommand);
 
-// Further story-specific commands (stream, sinks, truth, run-control) register
-// here as each later user story lands.
+// Further story-specific commands (stream, sinks, truth) register here as
+// each later user story lands.
 
 async function main() {
   const [, , commandName, ...args] = process.argv;

@@ -1,11 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import type { SimulationSpec } from "@txloom/spec";
-import { defaultPartitionCount, generateMerchantPool } from "@txloom/engine";
 import { getDb } from "../db/knex.js";
 import { ScenarioRepository } from "../db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../db/repositories/spec-versions.js";
 import { RunRepository, RunPartitionRepository } from "../db/repositories/runs.js";
-import { getQueues } from "../services/queues.js";
+import { launchGeneration } from "../services/run-launch-service.js";
 
 interface LaunchRunBody {
   seed?: number;
@@ -47,10 +46,10 @@ export default async function runsLaunchRoutes(app: FastifyInstance) {
     const seed = BigInt(body.seed ?? Math.floor(Math.random() * 1_000_000_000));
     const mode = body.mode ?? "batch";
 
-    const run = await runs.create({
+    const run = await launchGeneration(runs, runPartitions, dataDir, {
       scenario_id: id,
       spec_version_id: version.id,
-      spec_snapshot: spec,
+      spec,
       seed,
       params: {
         sink_connection_ids: body.sink_connection_ids ?? [],
@@ -60,29 +59,7 @@ export default async function runsLaunchRoutes(app: FastifyInstance) {
       mode,
     });
 
-    const partitionCount = defaultPartitionCount(spec.population.consumers.count);
-    await runPartitions.createPending(run.id, partitionCount);
-    const merchants = generateMerchantPool(spec, seed);
-
-    const queues = getQueues();
-    for (let partitionNo = 0; partitionNo < partitionCount; partitionNo++) {
-      await queues.generatePartition.add(
-        `gen-${run.id}-${partitionNo}`,
-        {
-          runId: run.id,
-          spec,
-          seed: seed.toString(),
-          partitionNo,
-          partitionCount,
-          merchants,
-          dataDir,
-        },
-        { jobId: `${run.id}:${partitionNo}` },
-      );
-    }
-    await runs.setStatus(run.id, "running");
-
     reply.status(201);
-    return runs.getById(run.id);
+    return run;
   });
 }

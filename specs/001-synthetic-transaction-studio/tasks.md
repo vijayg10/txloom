@@ -377,61 +377,61 @@ side by side.
 
 ### Tests for User Story 3 (write first, Constitution Principle III) ⚠️
 
-- [ ] T127 [P] [US3] Contract test: run pause/resume/cancel/regenerate, `DELETE .../outputs` in
+- [X] T127 [P] [US3] Contract test: run pause/resume/cancel/regenerate, `DELETE .../outputs` in
       `apps/api/tests/contract/test_run_control.ts`
-- [ ] T128 [P] [US3] Contract test: `GET /runs/:id/inspector/*` aggregates, `GET /runs/compare` in
+- [X] T128 [P] [US3] Contract test: `GET /runs/:id/inspector/*` aggregates, `GET /runs/compare` in
       `apps/api/tests/contract/test_inspector.ts`
-- [ ] T129 [P] [US3] Integration test: pause/resume mid-run resumes with zero duplicated or missing
+- [X] T129 [P] [US3] Integration test: pause/resume mid-run resumes with zero duplicated or missing
       truth events in `apps/worker/tests/integration/pause-resume.test.ts` (FR-018, SC-011)
-- [ ] T130 [P] [US3] WS contract test: `runs/:id/progress` channel message shapes in
+- [X] T130 [P] [US3] WS contract test: `runs/:id/progress` channel message shapes in
       `apps/api/tests/contract/test_ws_progress.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T131 [US3] `POST /runs/:id/pause|resume|cancel` routes + worker job control signals in
+- [X] T131 [US3] `POST /runs/:id/pause|resume|cancel` routes + worker job control signals in
       `apps/api/src/routes/run-control.ts` and `apps/worker/src/jobs/control.ts` (depends on T096)
-- [ ] T132 [US3] `POST /runs/:id/regenerate` route (launch new run from stored snapshot+seed) in
+- [X] T132 [US3] `POST /runs/:id/regenerate` route (launch new run from stored snapshot+seed) in
       `apps/api/src/routes/run-regenerate.ts` (depends on T103)
-- [ ] T133 [US3] `DELETE /runs/:id/outputs` route (remove volume dir, stamp
+- [X] T133 [US3] `DELETE /runs/:id/outputs` route (remove volume dir, stamp
       `outputs_deleted_at`) in `apps/api/src/routes/run-outputs.ts` (FR-033a)
-- [ ] T134 [P] [US3] Inspector aggregate: volume-over-time + seasonality overlay in
+- [X] T134 [P] [US3] Inspector aggregate: volume-over-time + seasonality overlay in
       `apps/api/src/services/inspector/volume-over-time.ts`
-- [ ] T135 [P] [US3] Inspector aggregate: per-category amount distributions in
+- [X] T135 [P] [US3] Inspector aggregate: per-category amount distributions in
       `apps/api/src/services/inspector/amount-distributions.ts`
-- [ ] T136 [P] [US3] Inspector aggregate: persona activity heatmap in
+- [X] T136 [P] [US3] Inspector aggregate: persona activity heatmap in
       `apps/api/src/services/inspector/persona-heatmap.ts`
-- [ ] T137 [P] [US3] Inspector aggregate: fraud-injection timeline in
+- [X] T137 [P] [US3] Inspector aggregate: fraud-injection timeline in
       `apps/api/src/services/inspector/fraud-timeline.ts`
-- [ ] T138 [P] [US3] Inspector aggregate: imperfection audit in
+- [X] T138 [P] [US3] Inspector aggregate: imperfection audit in
       `apps/api/src/services/inspector/imperfection-audit.ts`
-- [ ] T139 [US3] `GET /runs/:id/inspector/*` routes wiring T134–T138 in
+- [X] T139 [US3] `GET /runs/:id/inspector/*` routes wiring T134–T138 in
       `apps/api/src/routes/inspector.ts`
-- [ ] T140 [US3] `GET /runs/compare` route in `apps/api/src/routes/run-compare.ts`
-- [ ] T141 [US3] WS `runs/:id/progress` channel (per-partition tick + status transitions) in
+- [X] T140 [US3] `GET /runs/compare` route in `apps/api/src/routes/run-compare.ts`
+- [X] T141 [US3] WS `runs/:id/progress` channel (per-partition tick + status transitions) in
       `apps/api/src/ws/run-progress.ts` (depends on T094)
-- [ ] T142 [US3] Run list + run detail UI (status, progress bars, throughput, ETA, logs,
+- [X] T142 [US3] Run list + run detail UI (status, progress bars, throughput, ETA, logs,
       pause/cancel controls) in `apps/web/src/surfaces/run-control/run-list.tsx` and `run-detail.tsx`
       (depends on T141)
-- [ ] T143 [US3] Immutable run-record view (spec snapshot + seed + report + outputs links,
+- [X] T143 [US3] Immutable run-record view (spec snapshot + seed + report + outputs links,
       regenerate button) in `apps/web/src/surfaces/run-control/run-record.tsx` (depends on T132)
-- [ ] T144 [P] [US3] World inspector: volume-over-time + seasonality overlay chart (Recharts) in
+- [X] T144 [P] [US3] World inspector: volume-over-time + seasonality overlay chart (Recharts) in
       `apps/web/src/surfaces/world-inspector/volume-chart.tsx`
-- [ ] T145 [P] [US3] World inspector: amount-distributions-per-category chart in
+- [X] T145 [P] [US3] World inspector: amount-distributions-per-category chart in
       `apps/web/src/surfaces/world-inspector/amount-distributions.tsx`
-- [ ] T146 [P] [US3] World inspector: persona activity heatmap in
+- [X] T146 [P] [US3] World inspector: persona activity heatmap in
       `apps/web/src/surfaces/world-inspector/persona-heatmap.tsx`
-- [ ] T147 [P] [US3] World inspector: fraud-injection timeline in
+- [X] T147 [P] [US3] World inspector: fraud-injection timeline in
       `apps/web/src/surfaces/world-inspector/fraud-timeline.tsx`
-- [ ] T148 [P] [US3] World inspector: imperfection audit view in
+- [X] T148 [P] [US3] World inspector: imperfection audit view in
       `apps/web/src/surfaces/world-inspector/imperfection-audit.tsx`
-- [ ] T149 [US3] Realism-report rendering (distribution summaries, inter-arrival stats,
+- [X] T149 [US3] Realism-report rendering (distribution summaries, inter-arrival stats,
       achieved-vs-target, seasonality effect sizes, benchmark comparisons with sources) in
       `apps/web/src/surfaces/world-inspector/realism-report.tsx` (depends on T090)
-- [ ] T150 [US3] Side-by-side run comparison view in
+- [X] T150 [US3] Side-by-side run comparison view in
       `apps/web/src/surfaces/world-inspector/run-compare.tsx` (depends on T140)
-- [ ] T151 [US3] Version-history per-version comparison UI in the scenario workspace in
+- [X] T151 [US3] Version-history per-version comparison UI in the scenario workspace in
       `apps/web/src/surfaces/scenario-workspace/version-history.tsx` (depends on T032, T100)
-- [ ] T152 [US3] CLI commands `txloom run pause|resume|cancel|regenerate|status` in
+- [X] T152 [US3] CLI commands `txloom run pause|resume|cancel|regenerate|status` in
       `apps/cli/src/commands/run-control.ts`
 
 **Checkpoint**: User Stories 1–3 all independently functional.
