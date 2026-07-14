@@ -15,6 +15,7 @@ import runsLaunchRoutes from "./routes/runs-launch.js";
 import runsReadRoutes from "./routes/runs-read.js";
 import runReportRoutes from "./routes/run-report.js";
 import truthEventsRoutes from "./routes/truth-events.js";
+import actorStoryRoutes from "./routes/actor-story.js";
 import exportRoutes from "./routes/exports.js";
 import templatesRoutes from "./routes/templates.js";
 import runControlRoutes from "./routes/run-control.js";
@@ -58,6 +59,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         await api.register(runsReadRoutes);
         await api.register(runReportRoutes);
         await api.register(truthEventsRoutes);
+        await api.register(actorStoryRoutes);
         await api.register(exportRoutes);
         await api.register(templatesRoutes);
         await api.register(runControlRoutes);

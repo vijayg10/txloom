@@ -504,26 +504,26 @@ separate answer key and verify no label fields leak into the main export.
 
 ### Tests for User Story 5 (write first, Constitution Principle III) ⚠️
 
-- [ ] T170 [P] [US5] Contract test: `GET /runs/:id/truth/actors/:actorId/story` ordered campaign
+- [X] T170 [P] [US5] Contract test: `GET /runs/:id/truth/actors/:actorId/story` ordered campaign
       steps in `apps/api/tests/contract/test_actor_story.ts`
-- [ ] T171 [P] [US5] Contract test: export with `include_labels:true` requires
+- [X] T171 [P] [US5] Contract test: export with `include_labels:true` requires
       `acknowledged_warning:true` else `422` in
       `apps/api/tests/contract/test_export_warning.ts` (FR-022)
-- [ ] T172 [P] [US5] Component test: export controls surface the label-inclusion warning and block
+- [X] T172 [P] [US5] Component test: export controls surface the label-inclusion warning and block
       submit without acknowledgment in `apps/web/tests/export-controls.test.tsx`
 
 ### Implementation for User Story 5
 
-- [ ] T173 [US5] `GET /runs/:id/truth/actors/:actorId/story` route: ordered `campaign_step`
+- [X] T173 [US5] `GET /runs/:id/truth/actors/:actorId/story` route: ordered `campaign_step`
       sequence per actor in `apps/api/src/routes/actor-story.ts` (depends on T088)
-- [ ] T174 [US5] Ground-truth explorer UI: typology filter + matching events/actors list in
+- [X] T174 [US5] Ground-truth explorer UI: typology filter + matching events/actors list in
       `apps/web/src/surfaces/ground-truth/explorer.tsx` (depends on T106)
-- [ ] T175 [US5] Actor-story timeline UI (multi-step sequence, e.g. dormancy → credential-change →
+- [X] T175 [US5] Actor-story timeline UI (multi-step sequence, e.g. dormancy → credential-change →
       drain) in `apps/web/src/surfaces/ground-truth/actor-story.tsx` (depends on T173)
-- [ ] T176 [US5] Export controls UI: format selection, include-labels toggle with explicit-warning
+- [X] T176 [US5] Export controls UI: format selection, include-labels toggle with explicit-warning
       acknowledgment gate in `apps/web/src/surfaces/ground-truth/export-controls.tsx` (depends on
       T107, T171)
-- [ ] T177 [US5] CLI command `txloom truth filter|actor-story` in
+- [X] T177 [US5] CLI command `txloom truth filter|actor-story` in
       `apps/cli/src/commands/truth.ts`
 
 **Checkpoint**: User Stories 1–5 all independently functional.

@@ -11,7 +11,7 @@ async function listParquetFiles(dir: string): Promise<string[]> {
   }
 }
 
-async function loadRunTruthAndLabels(dataDir: string, runId: string) {
+export async function loadRunTruthAndLabels(dataDir: string, runId: string) {
   const truthDir = path.join(dataDir, "runs", runId, "truth");
   const labelsDir = path.join(dataDir, "runs", runId, "labels");
 
