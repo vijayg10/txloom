@@ -1,0 +1,6 @@
+{
+  "target_tps": 100,
+  "duration_s": 10,
+  "min_achieved_tps": 90,
+  "note": "Initial conservative baseline (90% of a 100 TPS target over 10s) — regenerate after the first real CI run establishes an observed number, per T194."
+}

@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.env
+.env.local
+
+# run outputs + instance key (data-model.md volume layout) — never committed.
+# Root-only: packages/engine/data/ (name-dictionary packs) is source data and
+# must stay tracked.
+/data/
+
+# editor/OS cruft
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# vite
+apps/web/.vite/

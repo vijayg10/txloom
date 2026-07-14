@@ -1,0 +1,31 @@
+{
+  "locale": "en-US",
+  "source": "Curated starter list drawn from publicly documented common-surname patterns (US Census Bureau surname frequency data is public domain, D18). Intentionally small for v1 bootstrap.",
+  "entries": [
+    { "name": "Smith", "weight": 3 },
+    { "name": "Johnson", "weight": 2 },
+    { "name": "Williams", "weight": 2 },
+    { "name": "Brown", "weight": 2 },
+    { "name": "Jones", "weight": 2 },
+    { "name": "Garcia", "weight": 2 },
+    { "name": "Miller", "weight": 2 },
+    { "name": "Davis", "weight": 2 },
+    { "name": "Rodriguez", "weight": 2 },
+    { "name": "Martinez", "weight": 2 },
+    { "name": "Hernandez", "weight": 1 },
+    { "name": "Lopez", "weight": 1 },
+    { "name": "Gonzalez", "weight": 1 },
+    { "name": "Wilson", "weight": 2 },
+    { "name": "Anderson", "weight": 2 },
+    { "name": "Thomas", "weight": 1 },
+    { "name": "Taylor", "weight": 2 },
+    { "name": "Moore", "weight": 1 },
+    { "name": "Jackson", "weight": 1 },
+    { "name": "Martin", "weight": 1 },
+    { "name": "Lee", "weight": 1 },
+    { "name": "Perez", "weight": 1 },
+    { "name": "Thompson", "weight": 1 },
+    { "name": "White", "weight": 1 },
+    { "name": "Harris", "weight": 1 }
+  ]
+}

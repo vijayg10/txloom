@@ -1,0 +1,36 @@
+{
+  "locale": "en-IN",
+  "source": "Hand-written merchant naming grammars per category (D18) — pattern strings with placeholder word lists, sampled via the same per-partition RNG substreams as all other generation.",
+  "grammars": [
+    {
+      "category": "grocery",
+      "patterns": ["{family} Kirana Store", "{place} General Store", "{family} Provisions", "New {place} Grocers"]
+    },
+    {
+      "category": "electronics",
+      "patterns": ["{family} Electronics", "{place} Mobile World", "{family} Digital Hub", "{place} Electronics Corner"]
+    },
+    {
+      "category": "restaurant",
+      "patterns": ["{place} Tiffin Center", "{family}'s Kitchen", "{place} Sweets & Snacks", "Hotel {place}"]
+    },
+    {
+      "category": "pharmacy",
+      "patterns": ["{family} Medicals", "{place} Pharmacy", "{family} Chemist & Druggist"]
+    },
+    {
+      "category": "fuel",
+      "patterns": ["{place} Fuel Station", "{family} Petroleum", "{place} Filling Station"]
+    },
+    {
+      "category": "apparel",
+      "patterns": ["{family} Garments", "{place} Fashion House", "{family} Textiles"]
+    }
+  ],
+  "words": {
+    "place": [
+      "Shakti", "Ganesh", "Krishna", "Laxmi", "Shivam", "Annapurna", "Ashirwad", "Sai",
+      "Vijay", "Ambika", "Om", "Sundar", "Nagar", "Bazaar", "Central", "City", "Star", "Royal"
+    ]
+  }
+}

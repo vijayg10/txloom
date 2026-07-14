@@ -1,0 +1,23 @@
+{
+  "name": "@txloom/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@txloom/spec": "workspace:*",
+    "d3-random": "^3.0.1",
+    "pure-rand": "^6.1.0",
+    "ulid": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/d3-random": "^3.0.3",
+    "fast-check": "^3.23.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

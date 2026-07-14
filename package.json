@@ -1,0 +1,41 @@
+{
+  "name": "txloom",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "TxLoom — Synthetic Transaction Studio",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @txloom/api --filter @txloom/worker --filter @txloom/web dev",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "test": "vitest run --project unit --project contract --project component",
+    "test:watch": "vitest --project unit --project contract --project component",
+    "test:integration": "vitest run --project integration",
+    "bench:smoke": "tsx benchmarks/kafka/bench-smoke.ts",
+    "bench:kafka": "tsx benchmarks/kafka/bench.ts",
+    "build:agent-docs": "tsx scripts/build-agent-docs.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@txloom/agent-tools": "workspace:*",
+    "@txloom/engine": "workspace:*",
+    "@txloom/sinks": "workspace:*",
+    "@txloom/spec": "workspace:*",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "testcontainers": "^10.16.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.0",
+    "vitest": "^2.1.8"
+  }
+}

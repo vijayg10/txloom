@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://txloom.dev/schema/simulation-spec.json",
+  "title": "SimulationSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "seed",
+    "currency",
+    "locale",
+    "channel",
+    "clock",
+    "population",
+    "seasonality",
+    "fraud",
+    "outcomes",
+    "imperfections",
+    "output"
+  ],
+  "properties": {
+    "seed": { "type": "integer" },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "locale": { "type": "string", "minLength": 1 },
+    "channel": { "type": "string", "minLength": 1 },
+    "clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "days"],
+      "properties": {
+        "start": { "type": "string", "format": "date" },
+        "days": { "type": "integer", "minimum": 1 },
+        "then_stream_tps": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "population": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consumers", "merchants"],
+      "properties": {
+        "consumers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["count", "archetypes"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 1 },
+            "archetypes": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/consumerArchetype" }
+            }
+          }
+        },
+        "merchants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["count", "categories"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 1 },
+            "categories": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": { "$ref": "#/$defs/merchantCategory" }
+            }
+          }
+        }
+      }
+    },
+    "seasonality": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/seasonalityWindow" }
+    },
+    "fraud": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_rate", "typologies"],
+      "properties": {
+        "target_rate": { "type": "number", "minimum": 0, "maximum": 0.5 },
+        "typologies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fraudTypology" }
+        }
+      }
+    },
+    "outcomes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_decline_rate"],
+      "properties": {
+        "baseline_decline_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "imperfections": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "duplicate_delivery": { "$ref": "#/$defs/imperfectionRate" },
+        "late_arrival": { "$ref": "#/$defs/lateArrival" },
+        "out_of_order": { "$ref": "#/$defs/imperfectionRate" },
+        "clock_skew": { "$ref": "#/$defs/clockSkew" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sinks", "labels"],
+      "properties": {
+        "sinks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/outputSink" }
+        },
+        "labels": { "enum": ["separate_export", "merged_with_warning"] },
+        "stream_label_channel": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "incomePattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "amount_mean", "amount_stddev"],
+      "properties": {
+        "kind": { "enum": ["fixed_credit_day", "irregular_weekly"] },
+        "day_of_month": { "type": "integer", "minimum": 1, "maximum": 28 },
+        "amount_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "amount_stddev": { "type": "number", "minimum": 0 }
+      }
+    },
+    "spendRhythm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "daily_transaction_count_mean",
+        "daily_transaction_count_stddev",
+        "weekend_multiplier"
+      ],
+      "properties": {
+        "daily_transaction_count_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "daily_transaction_count_stddev": { "type": "number", "minimum": 0 },
+        "weekend_multiplier": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "consumerArchetype": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "weight", "income_pattern", "spend_rhythm"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "income_pattern": { "$ref": "#/$defs/incomePattern" },
+        "spend_rhythm": { "$ref": "#/$defs/spendRhythm" }
+      }
+    },
+    "amountDistribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "mean"],
+      "properties": {
+        "kind": { "enum": ["lognormal", "normal", "exponential"] },
+        "mean": { "type": "number", "exclusiveMinimum": 0 },
+        "stddev": { "type": "number", "minimum": 0 }
+      }
+    },
+    "merchantCategory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "weight", "amount_distribution"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "amount_distribution": { "$ref": "#/$defs/amountDistribution" }
+      }
+    },
+    "seasonalityWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event", "window", "volume_multiplier"],
+      "properties": {
+        "event": { "type": "string", "minLength": 1 },
+        "window": {
+          "type": "array",
+          "items": { "type": "string", "format": "date" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "volume_multiplier": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "fraudTypology": {
+      "type": "object",
+      "required": ["type", "share", "params"],
+      "properties": {
+        "type": { "enum": ["card_testing", "account_takeover", "refund_abuse"] },
+        "share": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "params": { "type": "object" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "card_testing" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "burst_size_min",
+                  "burst_size_max",
+                  "burst_window_minutes",
+                  "amount_min",
+                  "amount_max"
+                ],
+                "properties": {
+                  "burst_size_min": { "type": "integer", "minimum": 1 },
+                  "burst_size_max": { "type": "integer", "minimum": 1 },
+                  "burst_window_minutes": { "type": "number", "exclusiveMinimum": 0 },
+                  "amount_min": { "type": "number", "exclusiveMinimum": 0 },
+                  "amount_max": { "type": "number", "exclusiveMinimum": 0 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "account_takeover" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["dormancy_days", "drain_step_count"],
+                "properties": {
+                  "dormancy_days": { "type": "integer", "minimum": 1 },
+                  "drain_step_count": { "type": "integer", "minimum": 1 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "refund_abuse" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["refund_rate", "max_refunds_per_actor"],
+                "properties": {
+                  "refund_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "max_refunds_per_actor": { "type": "integer", "minimum": 1 }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "imperfectionRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rate"],
+      "properties": {
+        "rate": { "type": "number", "minimum": 0, "maximum": 0.2 },
+        "sinks": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "lateArrival": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rate", "delay_seconds_mean", "delay_seconds_stddev"],
+      "properties": {
+        "rate": { "type": "number", "minimum": 0, "maximum": 0.2 },
+        "sinks": { "type": "array", "items": { "type": "string" } },
+        "delay_seconds_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "delay_seconds_stddev": { "type": "number", "minimum": 0 }
+      }
+    },
+    "clockSkew": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rate", "sources"],
+      "properties": {
+        "rate": { "type": "number", "minimum": 0, "maximum": 0.2 },
+        "sinks": { "type": "array", "items": { "type": "string" } },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "offset_seconds"],
+            "properties": {
+              "source": { "type": "string", "minLength": 1 },
+              "offset_seconds": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "outputSink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "name"],
+      "properties": {
+        "type": { "enum": ["file", "kafka", "rabbitmq", "webhook"] },
+        "name": { "type": "string", "minLength": 1 },
+        "format": { "enum": ["csv", "parquet", "json"] }
+      }
+    }
+  }
+}
