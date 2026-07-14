@@ -14,6 +14,15 @@ importers:
       '@txloom/agent-tools':
         specifier: workspace:*
         version: link:packages/agent-tools
+      '@txloom/engine':
+        specifier: workspace:*
+        version: link:packages/engine
+      '@txloom/sinks':
+        specifier: workspace:*
+        version: link:packages/sinks
+      '@txloom/spec':
+        specifier: workspace:*
+        version: link:packages/spec
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1

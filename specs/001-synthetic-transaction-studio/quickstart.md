@@ -38,11 +38,12 @@ pnpm --filter @txloom/api db:migrate # Knex migrations
 pnpm dev                             # api + worker + web (Vite) in watch mode
 ```
 
-Quality gates (constitution v1.0.2 — all must pass before merge):
+Quality gates (constitution v1.1.0 — all must pass before merge):
 
 ```bash
 pnpm typecheck   # strict TS, zero errors
 pnpm lint        # zero warnings
+pnpm format      # Prettier check
 pnpm test        # Vitest: unit + property + contract + golden-master
 pnpm test:integration  # Testcontainers: MySQL, Redis, Kafka, RabbitMQ
 pnpm bench:smoke # CI-scale benchmark, fails on regression threshold
@@ -56,8 +57,12 @@ Key invariants for contributors:
 - No language model ships in the product. Agent integration lives in `packages/agent-tools`
   (tool definitions + authoring-docs source) and the API's `/mcp` endpoint; MCP tools must map
   1:1 onto REST endpoints — agents author specs only, never events.
-- New sinks/typologies/imperfections implement the plugin interfaces in `packages/sinks` /
-  `packages/engine`; do not thread conditionals through the core.
+- New sinks implement the `Sink`/`SinkFactory` plugin interface in
+  `packages/sinks/src/interface.ts`. Typologies and imperfections currently
+  extend by adding a branch to `fraud/orchestrator.ts` /
+  `imperfections/pipeline.ts` respectively — see `docs/extending.md` for the
+  exact steps and the honest note that formalizing them into a plugin
+  registry (like sinks already have) is a documented follow-up, not done yet.
 
 Full benchmark (publishes the README number — 1,000 TPS sustained to Kafka, flat memory):
 

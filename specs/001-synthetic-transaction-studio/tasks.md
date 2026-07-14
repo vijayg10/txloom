@@ -584,20 +584,20 @@ confirmed.
 
 **Purpose**: Definition-of-done items spanning every story.
 
-- [ ] T193 [P] 1,000 TPS sustained Kafka benchmark script + published README numbers in
+- [X] T193 [P] 1,000 TPS sustained Kafka benchmark script + published README numbers in
       `benchmarks/kafka/bench.ts` (FR-041, D8)
-- [ ] T194 [P] CI smoke benchmark (reduced scale) with regression threshold in
+- [X] T194 [P] CI smoke benchmark (reduced scale) with regression threshold in
       `benchmarks/kafka/bench-smoke.ts`, wired into `pnpm bench:smoke`
-- [ ] T195 [P] Golden-master CI job failing on output drift (wired into CI config / `pnpm test`)
-- [ ] T196 [P] Extension/contribution guidance for sinks/typologies/imperfections plugin interfaces
+- [X] T195 [P] Golden-master CI job failing on output drift (wired into CI config / `pnpm test`)
+- [X] T196 [P] Extension/contribution guidance for sinks/typologies/imperfections plugin interfaces
       in `CONTRIBUTING.md` and `docs/extending.md` (FR-027)
-- [ ] T197 [P] Apache-2.0 `LICENSE` + README competitive-positioning section (FR-040)
-- [ ] T198 [P] Security-hardening doc: secrets never echoed, instance-key rotation, no-auth
+- [X] T197 [P] Apache-2.0 `LICENSE` + README competitive-positioning section (FR-040)
+- [X] T198 [P] Security-hardening doc: secrets never echoed, instance-key rotation, no-auth
       trust-boundary statement in `docs/security.md` (depends on T047)
-- [ ] T199 Run `quickstart.md` validation end-to-end (manual QA pass matching its documented steps)
-- [ ] T200 [P] Additional React component tests for version-history and template-gallery surfaces
+- [X] T199 Run `quickstart.md` validation end-to-end (manual QA pass matching its documented steps)
+- [X] T200 [P] Additional React component tests for version-history and template-gallery surfaces
       in `apps/web/tests/version-history.test.tsx` and `template-gallery.test.tsx`
-- [ ] T201 [P] Review published `docs/agent/` output against the FR-009 sufficiency bar (an agent
+- [X] T201 [P] Review published `docs/agent/` output against the FR-009 sufficiency bar (an agent
       must author a valid spec without reading product source code)
 
 ---
