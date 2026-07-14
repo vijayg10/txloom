@@ -1,0 +1,40 @@
+#!/usr/bin/env node
+import { CommandRegistry } from "./registry.js";
+import { validateCommand } from "./commands/validate.js";
+import { runCommand } from "./commands/run.js";
+import { exportCommand } from "./commands/export.js";
+
+const registry = new CommandRegistry();
+registry.register(validateCommand);
+registry.register(runCommand);
+registry.register(exportCommand);
+
+// Further story-specific commands (stream, sinks, truth, run-control) register
+// here as each later user story lands.
+
+async function main() {
+  const [, , commandName, ...args] = process.argv;
+
+  if (!commandName) {
+    console.log("Usage: txloom <command> [...args]\n\nAvailable commands:");
+    for (const command of registry.list()) {
+      console.log(`  ${command.name.padEnd(20)} ${command.description}`);
+    }
+    process.exit(registry.list().length === 0 ? 0 : 1);
+  }
+
+  const command = registry.get(commandName);
+  if (!command) {
+    console.error(
+      `Unknown command "${commandName}". Run "txloom" with no arguments to list commands.`,
+    );
+    process.exit(1);
+  }
+
+  await command.run(args);
+}
+
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});

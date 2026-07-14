@@ -44,35 +44,35 @@ implementation and testing of each story, after a shared Setup and Foundational 
 
 **Purpose**: Monorepo scaffold — no product behavior yet.
 
-- [ ] T001 Create pnpm workspace monorepo skeleton: `apps/{api,worker,web,cli}`,
+- [X] T001 Create pnpm workspace monorepo skeleton: `apps/{api,worker,web,cli}`,
       `packages/{spec,engine,sinks,agent-tools}`, `docs/agent/`, `benchmarks/` directories per
       plan.md § Project Structure
-- [ ] T002 [P] Root `package.json` + `pnpm-workspace.yaml` with workspace-wide scripts
+- [X] T002 [P] Root `package.json` + `pnpm-workspace.yaml` with workspace-wide scripts
       (`typecheck`, `lint`, `test`, `test:integration`, `bench:smoke`, `bench:kafka`, `dev`)
-- [ ] T003 [P] Shared strict root `tsconfig.base.json` (strict mode, no implicit any) referenced by
+- [X] T003 [P] Shared strict root `tsconfig.base.json` (strict mode, no implicit any) referenced by
       every app/package `tsconfig.json`
-- [ ] T004 [P] Shared ESLint + Prettier config at workspace root; lint rule banning `Math.random`
+- [X] T004 [P] Shared ESLint + Prettier config at workspace root; lint rule banning `Math.random`
       and `Date.now`/wall-clock reads inside `packages/engine/**` (constitution Principle II)
-- [ ] T005 [P] `apps/api/package.json` + `tsconfig.json` with Fastify, `@fastify/websocket`, Ajv,
+- [X] T005 [P] `apps/api/package.json` + `tsconfig.json` with Fastify, `@fastify/websocket`, Ajv,
       Knex, `mysql2`, BullMQ, `@modelcontextprotocol/sdk` dependencies
-- [ ] T006 [P] `apps/worker/package.json` + `tsconfig.json` with BullMQ, `ioredis`, `piscina`
+- [X] T006 [P] `apps/worker/package.json` + `tsconfig.json` with BullMQ, `ioredis`, `piscina`
       dependencies
-- [ ] T007 [P] `apps/web/package.json` + `tsconfig.json` with React 18, Vite, Recharts,
+- [X] T007 [P] `apps/web/package.json` + `tsconfig.json` with React 18, Vite, Recharts,
       `@monaco-editor/react` dependencies
-- [ ] T008 [P] `apps/cli/package.json` + `tsconfig.json` (thin HTTP client, no framework deps)
-- [ ] T009 [P] `packages/spec/package.json` + `tsconfig.json` with Ajv as its only runtime
+- [X] T008 [P] `apps/cli/package.json` + `tsconfig.json` (thin HTTP client, no framework deps)
+- [X] T009 [P] `packages/spec/package.json` + `tsconfig.json` with Ajv as its only runtime
       dependency
-- [ ] T010 [P] `packages/engine/package.json` + `tsconfig.json` with `pure-rand`, `d3-random`
+- [X] T010 [P] `packages/engine/package.json` + `tsconfig.json` with `pure-rand`, `d3-random`
       dependencies
-- [ ] T011 [P] `packages/sinks/package.json` + `tsconfig.json` with `@confluentinc/kafka-javascript`,
+- [X] T011 [P] `packages/sinks/package.json` + `tsconfig.json` with `@confluentinc/kafka-javascript`,
       `amqplib`, `@dsnp/parquetjs` dependencies
-- [ ] T012 [P] `packages/agent-tools/package.json` + `tsconfig.json` depending on
+- [X] T012 [P] `packages/agent-tools/package.json` + `tsconfig.json` depending on
       `@modelcontextprotocol/sdk` and `packages/spec`
-- [ ] T013 `docker-compose.yml` at repo root: `api`, `worker`, `mysql`, `redis` services plus an
+- [X] T013 `docker-compose.yml` at repo root: `api`, `worker`, `mysql`, `redis` services plus an
       optional `demo-brokers` profile (local Kafka + RabbitMQ) per plan.md § Target Platform
-- [ ] T014 [P] Root `.env.example` and a documented Docker volume mount for `data/` (run outputs,
+- [X] T014 [P] Root `.env.example` and a documented Docker volume mount for `data/` (run outputs,
       `data/keys/instance.key`) per data-model.md § Run-output volume layout
-- [ ] T015 Vitest workspace config (`vitest.workspace.ts`) wiring every app/package into
+- [X] T015 Vitest workspace config (`vitest.workspace.ts`) wiring every app/package into
       `pnpm test`, with a separate `vitest.integration.config.ts` for Testcontainers suites
 
 ---
@@ -86,91 +86,91 @@ that every user story depends on.
 
 ### Tests for Foundational (validator + engine-core scope — write first, Constitution Principle III) ⚠️
 
-- [ ] T016 [P] Invariant-battery harness test in `packages/spec/tests/invariants/harness.test.ts`:
+- [X] T016 [P] Invariant-battery harness test in `packages/spec/tests/invariants/harness.test.ts`:
       each invariant function returns a located violation for a known-bad fixture and no violation
       for a known-good fixture (both-cases requirement, FR-003/004)
-- [ ] T017 [P] RNG determinism test in `packages/engine/tests/rng.test.ts`: identical seed produces
+- [X] T017 [P] RNG determinism test in `packages/engine/tests/rng.test.ts`: identical seed produces
       an identical stream; per-partition substream derivation is deterministic and collision-free
       across partition indices (D7)
-- [ ] T018 [P] Knex migration round-trip test in `apps/api/tests/integration/db-migrate.test.ts`
+- [X] T018 [P] Knex migration round-trip test in `apps/api/tests/integration/db-migrate.test.ts`
       (Testcontainers MySQL): every foundational table migrates up and down cleanly
-- [ ] T019 [P] Contract test for `GET /health` and `GET /capabilities` in
+- [X] T019 [P] Contract test for `GET /health` and `GET /capabilities` in
       `apps/api/tests/contract/test_health_capabilities.ts`
 
 ### Implementation for Foundational
 
-- [ ] T020 [P] `SimulationSpec` TS types in `packages/spec/src/types.ts` (seed, currency, locale,
+- [X] T020 [P] `SimulationSpec` TS types in `packages/spec/src/types.ts` (seed, currency, locale,
       clock, population, seasonality, fraud, outcomes, imperfections, output) per data-model.md
-- [ ] T021 [P] JSON Schema 2020-12 for `SimulationSpec` in `packages/spec/src/schema.json` mirroring
+- [X] T021 [P] JSON Schema 2020-12 for `SimulationSpec` in `packages/spec/src/schema.json` mirroring
       T020's top-level keys
-- [ ] T022 Ajv structural validator in `packages/spec/src/ajv-validate.ts` loading `schema.json`,
+- [X] T022 Ajv structural validator in `packages/spec/src/ajv-validate.ts` loading `schema.json`,
       returning `{path, code, message}` structural violations (depends on T021)
-- [ ] T023 [P] Invariant: seasonality windows intersect the clock window in
+- [X] T023 [P] Invariant: seasonality windows intersect the clock window in
       `packages/spec/src/invariants/seasonality-window.ts`
-- [ ] T024 [P] Invariant: archetype weights and typology shares sum to 1±ε in
+- [X] T024 [P] Invariant: archetype weights and typology shares sum to 1±ε in
       `packages/spec/src/invariants/weights-sum.ts`
-- [ ] T025 [P] Invariant: fraud `target_rate ∈ [0, 0.5]` in
+- [X] T025 [P] Invariant: fraud `target_rate ∈ [0, 0.5]` in
       `packages/spec/src/invariants/fraud-rate-bounds.ts`
-- [ ] T026 [P] Invariant: account-takeover dormancy precondition satisfiable within `clock.days` in
+- [X] T026 [P] Invariant: account-takeover dormancy precondition satisfiable within `clock.days` in
       `packages/spec/src/invariants/dormancy-satisfiable.ts`
-- [ ] T027 [P] Invariant: imperfection rates `∈ [0, 0.2]` and imperfection sink targeting refers to
+- [X] T027 [P] Invariant: imperfection rates `∈ [0, 0.2]` and imperfection sink targeting refers to
       selected output sinks in `packages/spec/src/invariants/imperfection-bounds.ts`
-- [ ] T028 [P] Invariant: `clock_skew` sources reference declared sources; `locale` references a
+- [X] T028 [P] Invariant: `clock_skew` sources reference declared sources; `locale` references a
       shipped name-dictionary pack in `packages/spec/src/invariants/reference-integrity.ts`
-- [ ] T029 [P] Invariant: `then_stream_tps` and population sizes fall within the documented scale
+- [X] T029 [P] Invariant: `then_stream_tps` and population sizes fall within the documented scale
       envelope (warn above reference scale) in `packages/spec/src/invariants/scale-envelope.ts`
-- [ ] T030 Compose `validateSpec(spec) → {valid, violations[]}` entry point combining Ajv (T022) and
+- [X] T030 Compose `validateSpec(spec) → {valid, violations[]}` entry point combining Ajv (T022) and
       all invariants (T023–T029) in `packages/spec/src/index.ts` — the one located-violation model
       shared by editor, API, and MCP (FR-004/010)
-- [ ] T031 [P] JSON-Pointer location helpers in `packages/spec/src/json-pointer.ts`
-- [ ] T032 [P] Spec differ for version comparison in `packages/spec/src/diff.ts`
-- [ ] T033 Knex connection + config in `apps/api/src/db/knex.ts` (MySQL 8, `utf8mb4`, JSON columns)
-- [ ] T034 [P] Migration: `scenarios` table in `apps/api/src/db/migrations/001_scenarios.ts`
-- [ ] T035 [P] Migration: `spec_versions` table (append-only) in
+- [X] T031 [P] JSON-Pointer location helpers in `packages/spec/src/json-pointer.ts`
+- [X] T032 [P] Spec differ for version comparison in `packages/spec/src/diff.ts`
+- [X] T033 Knex connection + config in `apps/api/src/db/knex.ts` (MySQL 8, `utf8mb4`, JSON columns)
+- [X] T034 [P] Migration: `scenarios` table in `apps/api/src/db/migrations/001_scenarios.ts`
+- [X] T035 [P] Migration: `spec_versions` table (append-only) in
       `apps/api/src/db/migrations/002_spec_versions.ts`
-- [ ] T036 [P] Migration: `runs` table in `apps/api/src/db/migrations/003_runs.ts`
-- [ ] T037 [P] Migration: `run_partitions` table in
+- [X] T036 [P] Migration: `runs` table in `apps/api/src/db/migrations/003_runs.ts`
+- [X] T037 [P] Migration: `run_partitions` table in
       `apps/api/src/db/migrations/004_run_partitions.ts`
-- [ ] T038 [P] Migration: `streams` table in `apps/api/src/db/migrations/005_streams.ts`
-- [ ] T039 [P] Migration: `sink_connections` table in
+- [X] T038 [P] Migration: `streams` table in `apps/api/src/db/migrations/005_streams.ts`
+- [X] T039 [P] Migration: `sink_connections` table in
       `apps/api/src/db/migrations/006_sink_connections.ts`
-- [ ] T040 [P] Migration: `templates` table (read-only, seeded) in
+- [X] T040 [P] Migration: `templates` table (read-only, seeded) in
       `apps/api/src/db/migrations/007_templates.ts`
-- [ ] T041 [P] Migration: `settings` table in `apps/api/src/db/migrations/008_settings.ts`
-- [ ] T042 Fastify app bootstrap in `apps/api/src/app.ts`: plugin registration order, built-SPA
+- [X] T041 [P] Migration: `settings` table in `apps/api/src/db/migrations/008_settings.ts`
+- [X] T042 Fastify app bootstrap in `apps/api/src/app.ts`: plugin registration order, built-SPA
       static serving (depends on T033)
-- [ ] T043 [P] Error-envelope plugin in `apps/api/src/plugins/error-envelope.ts`:
+- [X] T043 [P] Error-envelope plugin in `apps/api/src/plugins/error-envelope.ts`:
       `{error:{code,message,details?}}` for all non-2xx responses
-- [ ] T044 [P] Ajv request-body validation plugin wiring `packages/spec` schema in
+- [X] T044 [P] Ajv request-body validation plugin wiring `packages/spec` schema in
       `apps/api/src/plugins/ajv.ts`
-- [ ] T045 [P] `GET /health` route in `apps/api/src/routes/health.ts`
-- [ ] T046 [P] `GET /capabilities` route in `apps/api/src/routes/capabilities.ts` returning
+- [X] T045 [P] `GET /health` route in `apps/api/src/routes/health.ts`
+- [X] T046 [P] `GET /capabilities` route in `apps/api/src/routes/capabilities.ts` returning
       `{modules: {ai_assist: false, ...}}` (FR-012)
-- [ ] T047 AES-256-GCM instance-key secrets helper in `apps/api/src/services/secrets.ts`: generates
+- [X] T047 AES-256-GCM instance-key secrets helper in `apps/api/src/services/secrets.ts`: generates
       `data/keys/instance.key` on first boot, encrypts/decrypts sink credentials (D14)
-- [ ] T048 BullMQ queue wiring in `apps/api/src/services/queues.ts`: `generate-partition`,
+- [X] T048 BullMQ queue wiring in `apps/api/src/services/queues.ts`: `generate-partition`,
       `stream-drive`, `report-build` queues over Redis
-- [ ] T049 [P] Piscina worker-pool wiring in `apps/worker/src/pool/piscina-pool.ts`
-- [ ] T050 Pure-rand seeded RNG core + per-partition substream derivation in
+- [X] T049 [P] Piscina worker-pool wiring in `apps/worker/src/pool/piscina-pool.ts`
+- [X] T050 Pure-rand seeded RNG core + per-partition substream derivation in
       `packages/engine/src/rng.ts` (D7)
-- [ ] T051 [P] Virtual clock in `packages/engine/src/clock.ts` (injected clock; no wall-clock reads)
-- [ ] T052 [P] RNG-checkpoint serialize/restore for idempotent resume in
+- [X] T051 [P] Virtual clock in `packages/engine/src/clock.ts` (injected clock; no wall-clock reads)
+- [X] T052 [P] RNG-checkpoint serialize/restore for idempotent resume in
       `packages/engine/src/rng-checkpoint.ts`
-- [ ] T053 [P] Sink plugin interface in `packages/sinks/src/interface.ts` — the documented extension
+- [X] T053 [P] Sink plugin interface in `packages/sinks/src/interface.ts` — the documented extension
       contract for file/Kafka/RabbitMQ/webhook and future community sinks (FR-027)
-- [ ] T054 [P] Name-dictionary-pack loader + schema in
+- [X] T054 [P] Name-dictionary-pack loader + schema in
       `packages/engine/src/naming/pack-loader.ts` (D18)
-- [ ] T055 [P] `en-IN` name-dictionary pack data files (given/family name lists, merchant naming
+- [X] T055 [P] `en-IN` name-dictionary pack data files (given/family name lists, merchant naming
       grammars, sources recorded) in `packages/engine/data/name-packs/en-IN/*.json` (D18)
-- [ ] T056 CLI skeleton in `apps/cli/src/index.ts`: command registry, typed HTTP client base over
+- [X] T056 CLI skeleton in `apps/cli/src/index.ts`: command registry, typed HTTP client base over
       `contracts/api.md`
-- [ ] T057 [P] Typed API client for the web SPA in `apps/web/src/api/client.ts`, generated/typed
+- [X] T057 [P] Typed API client for the web SPA in `apps/web/src/api/client.ts`, generated/typed
       from `contracts/api.md`
-- [ ] T058 React app shell + routing + theme in `apps/web/src/app/shell.tsx`, stub routes for the
+- [X] T058 React app shell + routing + theme in `apps/web/src/app/shell.tsx`, stub routes for the
       six surfaces (FR-036)
-- [ ] T059 [P] Capability-gated surface wrapper reading `GET /capabilities` in
+- [X] T059 [P] Capability-gated surface wrapper reading `GET /capabilities` in
       `apps/web/src/app/capability-gate.tsx` (depends on T046)
-- [ ] T060 Multi-stage Dockerfiles for `api` and `worker` (native `kafka-javascript` build) wired
+- [X] T060 Multi-stage Dockerfiles for `api` and `worker` (native `kafka-javascript` build) wired
       into `docker-compose.yml` (D8 consequence)
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
@@ -189,119 +189,119 @@ same seed/spec is byte-identical.
 
 ### Tests for User Story 1 (write first, Constitution Principle III) ⚠️
 
-- [ ] T061 [P] [US1] Contract test for `POST/GET /scenarios`, `GET /scenarios/:id`,
+- [X] T061 [P] [US1] Contract test for `POST/GET /scenarios`, `GET /scenarios/:id`,
       `POST /scenarios/:id/versions` in `apps/api/tests/contract/test_scenarios.ts`
-- [ ] T062 [P] [US1] Contract test for `POST /spec/validate`, `GET /spec/schema` in
+- [X] T062 [P] [US1] Contract test for `POST /spec/validate`, `GET /spec/schema` in
       `apps/api/tests/contract/test_spec_validate.ts`
-- [ ] T063 [P] [US1] Contract test for `POST /scenarios/:id/runs`, `GET /runs`, `GET /runs/:id` in
+- [X] T063 [P] [US1] Contract test for `POST /scenarios/:id/runs`, `GET /runs`, `GET /runs/:id` in
       `apps/api/tests/contract/test_runs.ts`
-- [ ] T064 [P] [US1] Contract test for `GET /runs/:id/truth/events`, `POST /runs/:id/exports`,
+- [X] T064 [P] [US1] Contract test for `GET /runs/:id/truth/events`, `POST /runs/:id/exports`,
       `GET /runs/:id/exports/:exportId/download` in `apps/api/tests/contract/test_exports.ts`
-- [ ] T065 [P] [US1] Golden-master test: reference-scenario spec + fixed seed against a committed
+- [X] T065 [P] [US1] Golden-master test: reference-scenario spec + fixed seed against a committed
       reference truth-event sample in
       `packages/engine/tests/golden-master/reference-scenario.test.ts`
-- [ ] T066 [P] [US1] Property test (fast-check): identical spec+seed under parallel partitioning
+- [X] T066 [P] [US1] Property test (fast-check): identical spec+seed under parallel partitioning
       produces byte-identical output, always in
       `packages/engine/tests/property/determinism.test.ts` (SC-001)
-- [ ] T067 [P] [US1] Property test: achieved fraud rate converges to the configured target across
+- [X] T067 [P] [US1] Property test: achieved fraud rate converges to the configured target across
       typology shares within tolerance in `packages/engine/tests/property/fraud-rate.test.ts`
       (SC-005)
-- [ ] T068 [P] [US1] Property test: imperfections corrupt only delivered copies, never the truth
+- [X] T068 [P] [US1] Property test: imperfections corrupt only delivered copies, never the truth
       record, and every corruption is enumerated in labels in
       `packages/engine/tests/property/imperfections.test.ts` (FR-024/025)
-- [ ] T069 [P] [US1] Integration test: full generate → file-export → label-reconciliation loop in
+- [X] T069 [P] [US1] Integration test: full generate → file-export → label-reconciliation loop in
       `apps/worker/tests/integration/generate-run.test.ts` (Testcontainers MySQL)
 
 ### Implementation for User Story 1
 
-- [ ] T070 [P] [US1] Consumer archetype model + weighted sampling in
+- [X] T070 [P] [US1] Consumer archetype model + weighted sampling in
       `packages/engine/src/population/consumer-archetypes.ts`
-- [ ] T071 [P] [US1] Income-pattern generators (fixed credit day + statistical distribution,
+- [X] T071 [P] [US1] Income-pattern generators (fixed credit day + statistical distribution,
       irregular weekly income) in `packages/engine/src/population/income-patterns.ts`
-- [ ] T072 [P] [US1] Spend-rhythm generators (daily transaction-count distribution, weekend
+- [X] T072 [P] [US1] Spend-rhythm generators (daily transaction-count distribution, weekend
       multiplier) in `packages/engine/src/population/spend-rhythms.ts`
-- [ ] T073 [P] [US1] Merchant category model + weighted sampling + per-category amount
+- [X] T073 [P] [US1] Merchant category model + weighted sampling + per-category amount
       distributions in `packages/engine/src/population/merchants.ts`
-- [ ] T074 [US1] Party naming assignment at world instantiation from name-dictionary packs in
+- [X] T074 [US1] Party naming assignment at world instantiation from name-dictionary packs in
       `packages/engine/src/naming/assign-names.ts` (depends on T054/T055; FR-014a)
-- [ ] T075 [US1] Deterministic partitioning of persona space across workers in
+- [X] T075 [US1] Deterministic partitioning of persona space across workers in
       `packages/engine/src/partitioning.ts` (depends on T050; FR-013/018)
-- [ ] T076 [P] [US1] Seasonality application (date windows × volume multipliers over the virtual
+- [X] T076 [P] [US1] Seasonality application (date windows × volume multipliers over the virtual
       clock) in `packages/engine/src/seasonality.ts`
-- [ ] T077 [P] [US1] Card-testing typology (burst size ranges, burst windows, small-amount ranges)
+- [X] T077 [P] [US1] Card-testing typology (burst size ranges, burst windows, small-amount ranges)
       in `packages/engine/src/fraud/card-testing.ts`
-- [ ] T078 [P] [US1] Account-takeover typology (dormancy precondition, multi-step script, P2P-drain
+- [X] T078 [P] [US1] Account-takeover typology (dormancy precondition, multi-step script, P2P-drain
       behavior) in `packages/engine/src/fraud/account-takeover.ts`
-- [ ] T079 [P] [US1] Refund-abuse typology in `packages/engine/src/fraud/refund-abuse.ts`
-- [ ] T080 [US1] Fraud-actor orchestration: typology share allocation against the target rate,
+- [X] T079 [P] [US1] Refund-abuse typology in `packages/engine/src/fraud/refund-abuse.ts`
+- [X] T080 [US1] Fraud-actor orchestration: typology share allocation against the target rate,
       multi-step scripts woven into legitimate traffic, achieved-rate reporting in
       `packages/engine/src/fraud/orchestrator.ts` (depends on T077–T079; FR-017/020)
-- [ ] T081 [P] [US1] Outcome-status model (approved/declined/reversed, baseline decline rate,
+- [X] T081 [P] [US1] Outcome-status model (approved/declined/reversed, baseline decline rate,
       typology-driven decline/refund patterns) in `packages/engine/src/outcomes.ts` (FR-015a)
-- [ ] T082 [P] [US1] Imperfection: duplicate delivery (per-sink targeting) in
+- [X] T082 [P] [US1] Imperfection: duplicate delivery (per-sink targeting) in
       `packages/engine/src/imperfections/duplicate.ts`
-- [ ] T083 [P] [US1] Imperfection: late arrival (statistical delay distribution) in
+- [X] T083 [P] [US1] Imperfection: late arrival (statistical delay distribution) in
       `packages/engine/src/imperfections/late-arrival.ts`
-- [ ] T084 [P] [US1] Imperfection: out-of-order delivery in
+- [X] T084 [P] [US1] Imperfection: out-of-order delivery in
       `packages/engine/src/imperfections/out-of-order.ts`
-- [ ] T085 [P] [US1] Imperfection: clock skew (per-source timestamp offset) in
+- [X] T085 [P] [US1] Imperfection: clock skew (per-source timestamp offset) in
       `packages/engine/src/imperfections/clock-skew.ts`
-- [ ] T086 [US1] Imperfection pipeline applying configured imperfections to delivered copies only,
+- [X] T086 [US1] Imperfection pipeline applying configured imperfections to delivered copies only,
       labeling each in the answer key in `packages/engine/src/imperfections/pipeline.ts` (depends
       on T082–T085; FR-024/025)
-- [ ] T087 [US1] TruthEvent emission (ULID `event_id` derivation, causal traceability) writing
+- [X] T087 [US1] TruthEvent emission (ULID `event_id` derivation, causal traceability) writing
       Parquet partitions to `runs/<run_id>/truth/` in `packages/engine/src/truth-emit.ts` (depends
       on T070–T086)
-- [ ] T088 [US1] LabelRecord emission to `runs/<run_id>/labels/` in
+- [X] T088 [US1] LabelRecord emission to `runs/<run_id>/labels/` in
       `packages/engine/src/label-emit.ts` (depends on T087)
-- [ ] T089 [P] [US1] Per-partition streaming realism aggregators (counts, moments, t-digest
+- [X] T089 [P] [US1] Per-partition streaming realism aggregators (counts, moments, t-digest
       quantiles, inter-arrival histograms) in `packages/engine/src/realism/aggregators.ts` (D17)
-- [ ] T090 [US1] Realism-report merge at run completion + reference-benchmark comparison against
+- [X] T090 [US1] Realism-report merge at run completion + reference-benchmark comparison against
       template `benchmark_refs` in `packages/engine/src/realism/merge-report.ts` → `report.json`
       (depends on T089)
-- [ ] T091 [P] [US1] File sink: CSV writer in `packages/sinks/src/file/csv.ts`
-- [ ] T092 [P] [US1] File sink: Parquet writer via `@dsnp/parquetjs` in
+- [X] T091 [P] [US1] File sink: CSV writer in `packages/sinks/src/file/csv.ts`
+- [X] T092 [P] [US1] File sink: Parquet writer via `@dsnp/parquetjs` in
       `packages/sinks/src/file/parquet.ts`
-- [ ] T093 [P] [US1] File sink: JSON writer in `packages/sinks/src/file/json.ts`
-- [ ] T094 [US1] `generate-partition` BullMQ job: drives the engine per partition, checkpoints
+- [X] T093 [P] [US1] File sink: JSON writer in `packages/sinks/src/file/json.ts`
+- [X] T094 [US1] `generate-partition` BullMQ job: drives the engine per partition, checkpoints
       RNG+clock state, reports progress in `apps/worker/src/jobs/generate-partition.ts` (depends on
       T075, T087, T088; FR-018)
-- [ ] T095 [US1] `report-build` BullMQ job triggering the realism-report merge on partition
+- [X] T095 [US1] `report-build` BullMQ job triggering the realism-report merge on partition
       completion in `apps/worker/src/jobs/report-build.ts` (depends on T090)
-- [ ] T096 [US1] Idempotent resume from `run_partitions.rng_checkpoint` on worker restart in
+- [X] T096 [US1] Idempotent resume from `run_partitions.rng_checkpoint` on worker restart in
       `apps/worker/src/pool/resume.ts` (FR-018, SC-011)
-- [ ] T097 [US1] Scenario repository (Knex queries) in
+- [X] T097 [US1] Scenario repository (Knex queries) in
       `apps/api/src/db/repositories/scenarios.ts`
-- [ ] T098 [US1] Spec-version repository, append-only + rollback-as-new-head in
+- [X] T098 [US1] Spec-version repository, append-only + rollback-as-new-head in
       `apps/api/src/db/repositories/spec-versions.ts` (FR-005)
-- [ ] T099 [US1] `POST/GET /scenarios`, `GET /scenarios/:id`, `PATCH/DELETE /scenarios/:id` routes
+- [X] T099 [US1] `POST/GET /scenarios`, `GET /scenarios/:id`, `PATCH/DELETE /scenarios/:id` routes
       in `apps/api/src/routes/scenarios.ts` (depends on T097)
-- [ ] T100 [US1] `GET /scenarios/:id/versions`, `POST /scenarios/:id/versions`,
+- [X] T100 [US1] `GET /scenarios/:id/versions`, `POST /scenarios/:id/versions`,
       `POST .../rollback` routes in `apps/api/src/routes/spec-versions.ts` (depends on T098, T030)
-- [ ] T101 [US1] `POST /spec/validate`, `GET /spec/schema` routes in
+- [X] T101 [US1] `POST /spec/validate`, `GET /spec/schema` routes in
       `apps/api/src/routes/spec.ts` (depends on T030)
-- [ ] T102 [US1] Run repository + run-partitions repository in
+- [X] T102 [US1] Run repository + run-partitions repository in
       `apps/api/src/db/repositories/runs.ts`
-- [ ] T103 [US1] `POST /scenarios/:id/runs` (snapshot spec verbatim, enqueue `generate-partition`
+- [X] T103 [US1] `POST /scenarios/:id/runs` (snapshot spec verbatim, enqueue `generate-partition`
       jobs) in `apps/api/src/routes/runs-launch.ts` (depends on T102, T048, T094)
-- [ ] T104 [US1] `GET /runs`, `GET /runs/:id`, `GET /runs/:id/logs` routes in
+- [X] T104 [US1] `GET /runs`, `GET /runs/:id`, `GET /runs/:id/logs` routes in
       `apps/api/src/routes/runs-read.ts` (depends on T102)
-- [ ] T105 [US1] `GET /runs/:id/report` route in `apps/api/src/routes/run-report.ts` (depends on
+- [X] T105 [US1] `GET /runs/:id/report` route in `apps/api/src/routes/run-report.ts` (depends on
       T090)
-- [ ] T106 [US1] `GET /runs/:id/truth/events` route with typology/actor/status/cursor filters in
+- [X] T106 [US1] `GET /runs/:id/truth/events` route with typology/actor/status/cursor filters in
       `apps/api/src/routes/truth-events.ts` (depends on T088)
-- [ ] T107 [US1] Export service + `POST /runs/:id/exports`, `GET .../exports/:exportId`,
+- [X] T107 [US1] Export service + `POST /runs/:id/exports`, `GET .../exports/:exportId`,
       `GET .../download` routes in `apps/api/src/routes/exports.ts` and
       `apps/api/src/services/export-service.ts` (label-exclusion by default; FR-021)
-- [ ] T108 [US1] CLI commands `txloom validate|run|export` in
+- [X] T108 [US1] CLI commands `txloom validate|run|export` in
       `apps/cli/src/commands/{validate,run,export}.ts` (depends on T101, T103, T107)
-- [ ] T109 [US1] Scenario workspace: Monaco spec editor with schema-aware autocomplete + inline
+- [X] T109 [US1] Scenario workspace: Monaco spec editor with schema-aware autocomplete + inline
       invariant errors in `apps/web/src/surfaces/scenario-workspace/spec-editor.tsx` (depends on
       T021, T030)
-- [ ] T110 [US1] Live structural preview panel (population summary, typology list, imperfection
+- [X] T110 [US1] Live structural preview panel (population summary, typology list, imperfection
       profile, estimated volume) in
       `apps/web/src/surfaces/scenario-workspace/structural-preview.tsx`
-- [ ] T111 [US1] Minimal run-launch UI + run-detail view (status, download links) in
+- [X] T111 [US1] Minimal run-launch UI + run-detail view (status, download links) in
       `apps/web/src/surfaces/run-control/run-launch.tsx` (full run control arrives in US3)
 
 **Checkpoint**: User Story 1 fully functional and independently testable.

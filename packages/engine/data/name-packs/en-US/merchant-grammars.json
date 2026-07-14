@@ -1,0 +1,36 @@
+{
+  "locale": "en-US",
+  "source": "Hand-written merchant naming grammars per category (D18).",
+  "grammars": [
+    {
+      "category": "grocery",
+      "patterns": ["{family}'s Grocery", "{place} Market", "{place} Foods", "{family} & Sons Grocers"]
+    },
+    {
+      "category": "electronics",
+      "patterns": ["{place} Electronics", "{family} Tech", "{place} Digital Outlet"]
+    },
+    {
+      "category": "restaurant",
+      "patterns": ["{family}'s Diner", "{place} Grill", "{place} Bistro"]
+    },
+    {
+      "category": "pharmacy",
+      "patterns": ["{family} Pharmacy", "{place} Drugstore"]
+    },
+    {
+      "category": "fuel",
+      "patterns": ["{place} Fuel Stop", "{family} Gas & Go"]
+    },
+    {
+      "category": "apparel",
+      "patterns": ["{family} Apparel", "{place} Fashion Outlet"]
+    }
+  ],
+  "words": {
+    "place": [
+      "Main Street", "Downtown", "Riverside", "Oakwood", "Maple", "Liberty", "Union",
+      "Cedar", "Highland", "Lakeside", "Sunset", "Broadway", "Elm Street", "Franklin"
+    ]
+  }
+}

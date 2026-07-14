@@ -1,0 +1,27 @@
+{
+  "name": "@txloom/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@txloom/engine": "workspace:*",
+    "@txloom/sinks": "workspace:*",
+    "@txloom/spec": "workspace:*",
+    "bullmq": "^5.34.5",
+    "ioredis": "^5.4.2",
+    "knex": "^3.1.0",
+    "mysql2": "^3.12.0",
+    "piscina": "^4.7.0"
+  },
+  "devDependencies": {
+    "testcontainers": "^10.16.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
