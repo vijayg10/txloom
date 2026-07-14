@@ -354,6 +354,11 @@ scenario appears in the studio for inspection, and agent edits land as new versi
       `packages/agent-tools` sources in `scripts/build-agent-docs.ts` (depends on T121–T123)
 - [ ] T126 [US2] Connections & settings: agent-integration connection-details panel (server address,
       authoring-docs links) in `apps/web/src/surfaces/settings/agent-connection.tsx`
+- [ ] T126a [US2] Agent-convergence eval harness: drive a corpus of plain-English scenario
+      descriptions (scoped to the four gallery templates) through a real MCP client against
+      `validate_spec`/`save_spec_version`, and report the percentage that converge to a valid spec
+      without human hand-editing in `apps/api/tests/eval/agent-convergence.ts` — gates against the
+      documented 90% bar (SC-009; depends on T113, T116–T118)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently.
 

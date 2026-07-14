@@ -36,6 +36,29 @@ Amendment 1.0.2 (2026-07-11): stack decisions finalized by user interview —
 Fastify (NestJS option dropped); Postgres replaced by MySQL accessed via Knex
 (no ORM); UI confirmed as Vite SPA. Technology & Architecture Constraints
 updated. PATCH bump.
+
+Amendment 1.1.0 (2026-07-14): agent-first architecture pivot reconciled —
+spec.md's 2026-07-13 clarification session removed the embedded natural-
+language/LLM compiler from v1 entirely and moved the MCP agent-integration
+server from a v1.1 deferral into v1 core (research.md D13); the constitution
+had not been updated to match, which /speckit-analyze flagged as three
+CRITICAL findings. Principle II's "LLM compiles and patches specs" language
+replaced with the external-MCP-agent-plus-full-validation model (no principle
+removed or reversed — the "no LLM generates transactions" guarantee is
+unchanged and now applies equally to external agents and any future AI-assist
+plugin). Principle III's "diff-review" surface reference replaced with the
+scenario workspace's version-history/per-version-comparison surface, which is
+what spec.md's FR-036 actually ships. Principle IV's "future MCP server" and
+"diff-review flow"/"NL edits" language replaced with present-tense MCP-server
+wording and a validate-then-save-as-new-version flow description. The Scope
+discipline bullet's "MCP deferred to v1.1" was removed (MCP ships in v1); the
+embedded AI-assist module and multi-perspective reconciliation views are now
+named as the actual v1.1+ candidates, matching spec.md's Scope Boundaries.
+MINOR bump: no principle added, removed, or reversed — stale mechanism
+descriptions were corrected to match a product decision already ratified and
+reflected in spec.md/plan.md/research.md. Templates in .specify/templates/
+checked for the same stale references (diff-review, MCP, LLM) — none found;
+no template changes required.
 -->
 
 # TxLoom Constitution
@@ -65,8 +88,12 @@ surface is the project's community-growth mechanism — it must stay clean.
 Same seed + same spec = byte-identical truth output, always. Every source of
 randomness MUST flow from the seeded, per-partition RNG streams; `Math.random`,
 wall-clock reads inside generation logic, and iteration-order-dependent
-behavior are forbidden in the engine. The LLM compiles and patches specs; it
-MUST NEVER generate transactions or influence engine output. The imperfection
+behavior are forbidden in the engine. v1 embeds no language model at all: an
+external, user-supplied MCP-capable AI agent may propose specs through the
+agent-integration server, but every proposal is subject to the full
+validation battery before it ever runs, and no agent or language model —
+external now, or an optional in-process AI-assist plugin later — may ever
+generate transactions or influence engine output. The imperfection
 layer corrupts only the labeled delivery copy — the truth record is immutable.
 Completed runs are immutable records permanently linking spec snapshot, seed,
 realism report, and outputs. Any change that alters generated output for an
@@ -93,21 +120,24 @@ code: red → green → refactor. Required coverage by construct:
   (Kafka, RabbitMQ, webhook) MUST have integration tests against real or
   containerized dependencies.
 
-UI component tests are required for the diff-review, spec-editor, and export
-surfaces; visual polish iterations are exempt from test-first ordering.
+UI component tests are required for the scenario workspace's version history
+(per-version comparison), spec-editor, and export surfaces; visual polish
+iterations are exempt from test-first ordering.
 
 **Rationale**: The product sells ground truth. A generator whose own
 correctness is unverified has no credible answer key.
 
 ### IV. User Experience Consistency
 
-The UI, CLI, and future MCP server are pure clients of one REST/WebSocket
+The UI, CLI, and MCP server are pure clients of one REST/WebSocket
 API — no capability may exist in one client without an API endpoint the
 others can reach. Every error shown to a user MUST state what is wrong, where
 (spec path or field), and how to fix it: the Diwali-outside-clock class of
 mistake is an inline explanation at edit time, never a failed run. All spec
-mutations — human or LLM — go through the same validate-and-diff-review flow;
-NL edits produce reviewable spec diffs, never silent regeneration. Label
+mutations — hand-edited or agent-saved via MCP — go through the same
+validate-then-save-as-new-version flow; every mutation lands as a new,
+reviewable, rollbackable entry in the scenario's version history, never
+silent regeneration. Label
 export defaults to the separate answer key, and any path that includes labels
 in the main export MUST warn explicitly. Setup is `docker compose up` with
 zero required config-file editing; all configuration is operable from the
@@ -115,8 +145,8 @@ Connections & settings surface. Terminology (scenario, spec, run, world,
 typology, sink) MUST be used identically across UI, CLI, API, and docs.
 
 **Rationale**: One API surface, three clients is the architecture; consistent
-mental models (spec-as-source-of-truth, diff-as-review) are the product's
-differentiator against prompt-in/rows-out competitors.
+mental models (spec-as-source-of-truth, version-history-as-review) are the
+product's differentiator against prompt-in/rows-out competitors.
 
 ### V. Performance as a Measured Requirement
 
@@ -152,8 +182,10 @@ promise and the ShadowTraffic comparison; an unmeasured budget is a slogan.
   closed-source or hosted-only component for core functionality; the engine
   MUST work without any LLM configured.
 - **Scope discipline**: v1 boundaries (3 typologies, 4 sinks, 4 imperfection
-  types; recon views and MCP deferred to v1.1) are binding. Scope additions
-  require a constitution-level decision, not a PR.
+  types; the agent-integration MCP server ships in v1) are binding.
+  Multi-perspective reconciliation views and an embedded AI-assist module are
+  v1.1+ candidates, not v1 scope. Scope additions require a
+  constitution-level decision, not a PR.
 
 ## Development Workflow & Quality Gates
 
@@ -196,4 +228,4 @@ Complexity Tracking table or the approach MUST be simplified. Runtime
 development guidance lives in `CLAUDE.md` and MUST NOT contradict this
 document.
 
-**Version**: 1.0.2 | **Ratified**: 2026-07-11 | **Last Amended**: 2026-07-11
+**Version**: 1.1.0 | **Ratified**: 2026-07-11 | **Last Amended**: 2026-07-14
