@@ -1,3 +1,4 @@
+import { createServer } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import { Queue, type ConnectionOptions } from "bullmq";
@@ -10,6 +11,21 @@ import {
   type StreamDriveJobData,
   type StreamMetrics,
 } from "../../src/jobs/stream-drive.js";
+
+// Kafka's advertised listener has to match the port clients can actually reach.
+// Testcontainers normally assigns a random host port only *after* the container
+// starts, which is too late to bake into KAFKA_ADVERTISED_LISTENERS — so reserve
+// a free port ourselves first and bind the container to that fixed port.
+async function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.on("error", reject);
+    srv.listen(0, () => {
+      const { port } = srv.address() as { port: number };
+      srv.close(() => resolve(port));
+    });
+  });
+}
 
 const spec: SimulationSpec = {
   seed: 11,
@@ -65,13 +81,14 @@ describe("stream-drive job: sustained Kafka delivery", () => {
   let redis: StartedTestContainer;
 
   beforeAll(async () => {
+    const kafkaPort = await getFreePort();
     kafka = await new GenericContainer("apache/kafka:3.9.0")
-      .withExposedPorts(9092)
+      .withExposedPorts({ container: 9092, host: kafkaPort })
       .withEnvironment({
         KAFKA_NODE_ID: "1",
         KAFKA_PROCESS_ROLES: "broker,controller",
         KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093",
-        KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092",
+        KAFKA_ADVERTISED_LISTENERS: `PLAINTEXT://localhost:${kafkaPort}`,
         KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER",
         KAFKA_CONTROLLER_QUORUM_VOTERS: "1@localhost:9093",
         KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT",

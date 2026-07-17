@@ -118,7 +118,7 @@ export default async function streamControlRoutes(app: FastifyInstance) {
         sink: body.sink,
         labelChannelEnabled: body.label_channel_enabled ?? false,
       },
-      { jobId: `stream:${runId}` },
+      { jobId: `stream-${runId}` },
     );
 
     const started = await streams.getById(stream.id);

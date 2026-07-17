@@ -13,13 +13,10 @@ export default async function settingsRoutes(app: FastifyInstance) {
   const db = getDb();
 
   app.get("/settings", async () => {
+    // `value` is a JSON column — mysql2 already decodes it to a native JS
+    // value (including plain strings), so no JSON.parse step is needed here.
     const rows = await db<SettingRow>("settings").select("key", "value");
-    return Object.fromEntries(
-      rows.map((row) => [
-        row.key,
-        typeof row.value === "string" ? JSON.parse(row.value) : row.value,
-      ]),
-    );
+    return Object.fromEntries(rows.map((row) => [row.key, row.value]));
   });
 
   app.put("/settings", async (request) => {
@@ -34,11 +31,6 @@ export default async function settingsRoutes(app: FastifyInstance) {
     }
 
     const rows = await db<SettingRow>("settings").select("key", "value");
-    return Object.fromEntries(
-      rows.map((row) => [
-        row.key,
-        typeof row.value === "string" ? JSON.parse(row.value) : row.value,
-      ]),
-    );
+    return Object.fromEntries(rows.map((row) => [row.key, row.value]));
   });
 }

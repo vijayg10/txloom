@@ -83,12 +83,19 @@ describe("world inspector & run compare contract", () => {
   let runIdA: string;
   let runIdB: string;
 
+  let seedRunCount = 0;
+
   async function seedRun(): Promise<string> {
     const db = getDb();
     const scenarios = new ScenarioRepository(db);
     const versions = new SpecVersionRepository(db);
     const runs = new RunRepository(db);
-    const scenario = await scenarios.create({ name: "Inspector test", currency: "INR" });
+    // Scenario names are unique — this helper is called more than once per
+    // test (runIdA, runIdB) so each call needs its own name.
+    const scenario = await scenarios.create({
+      name: `Inspector test ${++seedRunCount}`,
+      currency: "INR",
+    });
     const version = await versions.create({ scenario_id: scenario.id, spec, author_type: "user" });
     const run = await runs.create({
       scenario_id: scenario.id,

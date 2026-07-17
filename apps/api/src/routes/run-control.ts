@@ -23,7 +23,7 @@ export default async function runControlRoutes(app: FastifyInstance) {
     const queues = getQueues();
     for (const partition of partitions) {
       if (partition.state !== "pending") continue;
-      const job = await queues.generatePartition.getJob(`${runId}:${partition.partition_no}`);
+      const job = await queues.generatePartition.getJob(`${runId}-${partition.partition_no}`);
       await job?.remove();
     }
   }
@@ -86,7 +86,7 @@ export default async function runControlRoutes(app: FastifyInstance) {
           merchants,
           dataDir,
         },
-        { jobId: `${id}:${partition.partition_no}` },
+        { jobId: `${id}-${partition.partition_no}` },
       );
     }
     await runs.setStatus(id, "running");

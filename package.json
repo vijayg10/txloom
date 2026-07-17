@@ -17,7 +17,7 @@
     "format:write": "prettier --write .",
     "test": "vitest run --project unit --project contract --project component",
     "test:watch": "vitest --project unit --project contract --project component",
-    "test:integration": "vitest run --project integration",
+    "test:integration": "NODE_OPTIONS=--import=tsx vitest run --project integration",
     "bench:smoke": "tsx benchmarks/kafka/bench-smoke.ts",
     "bench:kafka": "tsx benchmarks/kafka/bench.ts",
     "build:agent-docs": "tsx scripts/build-agent-docs.ts"

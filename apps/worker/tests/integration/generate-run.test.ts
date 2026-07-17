@@ -100,19 +100,25 @@ describe("generate-partition worker: full loop", () => {
     const queue = new Queue<GeneratePartitionJobData>("generate-partition", { connection });
     const merchants = generateMerchantPool(spec, seed);
 
-    const done = new Promise<void>((resolve, reject) => {
-      const worker = startGeneratePartitionWorker({
-        connection,
-        onPartitionRunning: async () => {},
-        onPartitionDone: async () => {
-          await worker.close();
-          resolve();
-        },
-        onPartitionFailed: async (_data, error) => {
-          await worker.close();
-          reject(error);
-        },
-      });
+    // Don't await worker.close() from inside onPartitionDone/onPartitionFailed —
+    // those callbacks run inside the job processor's own call stack, and
+    // Worker.close() waits for the active job to finish before resolving, which
+    // deadlocks against itself. Resolve/reject here and close afterward instead.
+    let resolve!: () => void;
+    let reject!: (error: Error) => void;
+    const done = new Promise<void>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    const worker = startGeneratePartitionWorker({
+      connection,
+      onPartitionRunning: async () => {},
+      onPartitionDone: async () => {
+        resolve();
+      },
+      onPartitionFailed: async (_data, error) => {
+        reject(error);
+      },
     });
 
     await queue.add("gen", {
@@ -125,6 +131,7 @@ describe("generate-partition worker: full loop", () => {
       dataDir,
     });
     await done;
+    await worker.close();
     await queue.close();
   }
 
@@ -171,19 +178,21 @@ describe("generate-partition worker: full loop", () => {
     const queue = new Queue<GeneratePartitionJobData>("generate-partition", { connection });
     const merchants = generateMerchantPool(spec, BigInt(spec.seed));
 
-    const done = new Promise<void>((resolve, reject) => {
-      const worker = startGeneratePartitionWorker({
-        connection,
-        onPartitionRunning: async () => {},
-        onPartitionDone: async () => {
-          await worker.close();
-          resolve();
-        },
-        onPartitionFailed: async (_data, error) => {
-          await worker.close();
-          reject(error);
-        },
-      });
+    let resolve!: () => void;
+    let reject!: (error: Error) => void;
+    const done = new Promise<void>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    const worker = startGeneratePartitionWorker({
+      connection,
+      onPartitionRunning: async () => {},
+      onPartitionDone: async () => {
+        resolve();
+      },
+      onPartitionFailed: async (_data, error) => {
+        reject(error);
+      },
     });
     await queue.add("gen2", {
       runId: secondRunId,
@@ -195,6 +204,7 @@ describe("generate-partition worker: full loop", () => {
       dataDir,
     });
     await done;
+    await worker.close();
     await queue.close();
 
     async function readAll(runId2: string): Promise<Record<string, unknown>[]> {

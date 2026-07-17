@@ -50,7 +50,10 @@ export async function launchGeneration(
         merchants,
         dataDir,
       },
-      { jobId: `${run.id}:${partitionNo}` },
+      // BullMQ rejects custom job IDs containing ":" (used internally as a Redis
+      // key delimiter) — keep this separator in sync with run-control.ts and
+      // worker/pool/resume.ts, which look up the same job IDs.
+      { jobId: `${run.id}-${partitionNo}` },
     );
   }
   await runs.setStatus(run.id, "running");

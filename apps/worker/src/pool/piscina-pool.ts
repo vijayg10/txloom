@@ -11,11 +11,9 @@ export function getPartitionPool(): Piscina {
 
   const configuredMax = Number(process.env.TXLOOM_MAX_WORKER_THREADS ?? "");
   const options: ConstructorParameters<typeof Piscina>[0] = {
-    filename: path.join(import.meta.dirname, "partition-worker.ts"),
-    // Spawned worker_threads need the same TS-execution loader as the parent
-    // process (started via `tsx watch src/index.ts`) since nothing here is
-    // precompiled to plain JS.
-    execArgv: ["--import", "tsx"],
+    // worker-entry.mjs loads partition-worker.ts itself via tsx's `tsImport` API —
+    // see its header comment for why `execArgv: ["--import", "tsx"]` doesn't work.
+    filename: path.join(import.meta.dirname, "worker-entry.mjs"),
   };
   if (Number.isFinite(configuredMax) && configuredMax > 0) {
     options.maxThreads = configuredMax;

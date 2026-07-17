@@ -85,16 +85,21 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(mcpRoutes);
 
   const spaDir = path.join(import.meta.dirname, "../../web/dist");
-  if (existsSync(spaDir)) {
+  const serveSpa = existsSync(spaDir);
+  if (serveSpa) {
     await app.register(fastifyStatic, { root: spaDir });
-    app.setNotFoundHandler((request, reply) => {
-      if (request.url.startsWith(API_PREFIX)) {
-        reply.status(404).send({ error: { code: "not_found", message: "Route not found" } });
-        return;
-      }
-      reply.sendFile("index.html");
-    });
   }
+
+  // The one setNotFoundHandler() for this instance (Fastify allows only one):
+  // API routes always get the JSON error envelope; other routes fall back to
+  // the SPA's index.html when the built SPA is present (production/Docker).
+  app.setNotFoundHandler((request, reply) => {
+    if (!serveSpa || request.url.startsWith(API_PREFIX)) {
+      reply.status(404).send({ error: { code: "not_found", message: "Route not found" } });
+      return;
+    }
+    reply.sendFile("index.html");
+  });
 
   return app;
 }

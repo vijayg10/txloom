@@ -1,6 +1,11 @@
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import knexFactory, { type Knex } from "knex";
+
+// Relative to this file, not `process.cwd()` — see the comment in
+// apps/api/src/db/knexfile.ts for why a bare relative path is wrong here.
+const migrationsDir = fileURLToPath(new URL("../../src/db/migrations", import.meta.url));
 
 // Testcontainers MySQL — every foundational table must migrate up and down cleanly.
 // Run via `pnpm test:integration` (requires a local Docker daemon).
@@ -36,7 +41,7 @@ describe("Knex migration round-trip (Testcontainers MySQL)", () => {
         database: "txloom_test",
         charset: "utf8mb4",
       },
-      migrations: { directory: "../src/db/migrations" },
+      migrations: { directory: migrationsDir },
     });
   }, 120_000);
 

@@ -19,7 +19,7 @@ export async function resumeIncompletePartitions(
 ): Promise<void> {
   for (const { jobData } of incomplete) {
     await generatePartitionQueue.add(`resume-${jobData.runId}-${jobData.partitionNo}`, jobData, {
-      jobId: `${jobData.runId}:${jobData.partitionNo}`,
+      jobId: `${jobData.runId}-${jobData.partitionNo}`,
     });
   }
 }

@@ -10,7 +10,12 @@ import {
   type NamedMerchant,
   type TruthEvent,
 } from "@txloom/engine";
-import { writeParquet, TRUTH_EVENT_SCHEMA, LABEL_RECORD_SCHEMA } from "@txloom/sinks";
+// Deep import, not the `@txloom/sinks` barrel: that barrel re-exports the Kafka
+// producer too, which loads a native addon at module top level. Piscina spawns
+// one fresh worker thread per partition, and multiple threads dlopen'ing the
+// same native addon for the first time concurrently races and throws "Module
+// did not self-register" — this worker only ever needs the parquet writer.
+import { writeParquet, TRUTH_EVENT_SCHEMA, LABEL_RECORD_SCHEMA } from "@txloom/sinks/src/file/parquet.js";
 
 export interface PartitionWorkerInput {
   spec: SimulationSpec;

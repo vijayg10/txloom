@@ -9,7 +9,10 @@ export interface ErrorEnvelopeBody {
   };
 }
 
-/** Every non-2xx response uses one shape (contracts/api.md § Error envelope). */
+/** Every non-2xx response uses one shape (contracts/api.md § Error envelope).
+ * The not-found handler lives in app.ts, not here — Fastify only allows one
+ * setNotFoundHandler() per instance, and app.ts needs to serve the SPA's
+ * index.html for non-API routes when the built SPA is present. */
 export default fp(async function errorEnvelope(app: FastifyInstance) {
   app.setErrorHandler((error: FastifyError, _request, reply) => {
     const statusCode = error.statusCode ?? 500;
@@ -22,11 +25,5 @@ export default fp(async function errorEnvelope(app: FastifyInstance) {
       },
     };
     reply.status(statusCode).send(body);
-  });
-
-  app.setNotFoundHandler((_request, reply) => {
-    reply.status(404).send({
-      error: { code: "not_found", message: "Route not found" },
-    } satisfies ErrorEnvelopeBody);
   });
 });
