@@ -60,6 +60,10 @@ export class RunRepository {
     return query;
   }
 
+  listByStatus(status: RunStatus): Promise<RunRow[]> {
+    return this.db<RunRow>("runs").where({ status });
+  }
+
   async setStatus(
     id: string,
     status: RunStatus,
