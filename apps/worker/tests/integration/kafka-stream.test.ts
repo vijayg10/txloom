@@ -92,6 +92,13 @@ describe("stream-drive job: sustained Kafka delivery", () => {
         KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER",
         KAFKA_CONTROLLER_QUORUM_VOTERS: "1@localhost:9093",
         KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT",
+        // Single-broker cluster — the internal __consumer_offsets/transaction
+        // logs default to a replication factor of 3, which a lone broker can
+        // never satisfy, so consumer group coordination fails forever
+        // (COORDINATOR_NOT_AVAILABLE) unless these are pinned to 1.
+        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1",
+        KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1",
+        KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1",
       })
       .start();
     brokers = [`${kafka.getHost()}:${kafka.getMappedPort(9092)}`];
@@ -127,6 +134,31 @@ describe("stream-drive job: sustained Kafka delivery", () => {
       tickMs: 100,
     });
 
+    // Create the topic explicitly, before anything subscribes to or produces
+    // on it — relying on the producer's auto-create races the consumer's
+    // subscribe (subscribing to a not-yet-created topic throws "Unknown
+    // topic or partition"), and subscribing only *after* production starts
+    // defaults to the "latest" offset, missing whatever was already sent.
+    const adminKafka = new KafkaJS.Kafka({ kafkaJS: { brokers } });
+    const admin = adminKafka.admin();
+    await admin.connect();
+    await admin.createTopics({ topics: [{ topic, numPartitions: 1 }] });
+    await admin.disconnect();
+
+    const consumerKafka = new KafkaJS.Kafka({ kafkaJS: { brokers } });
+    const consumer = consumerKafka.consumer({
+      kafkaJS: { groupId: "test-group", fromBeginning: true },
+    });
+    await consumer.connect();
+    await consumer.subscribe({ topics: [topic] });
+
+    let received = 0;
+    await consumer.run({
+      eachMessage: async () => {
+        received++;
+      },
+    });
+
     const seed = BigInt(spec.seed);
     const merchants = generateMerchantPool(spec, seed);
     await queue.add("stream", {
@@ -138,18 +170,6 @@ describe("stream-drive job: sustained Kafka delivery", () => {
       merchants,
       sink: { type: "kafka", config: { brokers, topic } },
       labelChannelEnabled: false,
-    });
-
-    const consumerKafka = new KafkaJS.Kafka({ kafkaJS: { brokers } });
-    const consumer = consumerKafka.consumer({ kafkaJS: { groupId: "test-group" } });
-    await consumer.connect();
-    await consumer.subscribe({ topics: [topic] });
-
-    let received = 0;
-    await consumer.run({
-      eachMessage: async () => {
-        received++;
-      },
     });
 
     // Let the stream run for a sustained window, then stop it.

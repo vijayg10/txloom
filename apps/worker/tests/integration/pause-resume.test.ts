@@ -139,7 +139,10 @@ describe("pause/resume mid-run", () => {
     });
 
     const truthDir = path.join(dataDir, "runs", runId, "truth");
-    const files = await readdir(truthDir);
+    // The same directory also holds each partition's part-N.stats.json
+    // (partition-worker.ts writes both in one pass) — only the .parquet
+    // files are truth-event data.
+    const files = (await readdir(truthDir)).filter((f) => f.endsWith(".parquet"));
     expect(files.length).toBeGreaterThan(0);
 
     const eventIds: string[] = [];

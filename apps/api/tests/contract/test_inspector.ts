@@ -9,7 +9,12 @@ import { closeDb, getDb } from "../../src/db/knex.js";
 import { ScenarioRepository } from "../../src/db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../../src/db/repositories/spec-versions.js";
 import { RunRepository } from "../../src/db/repositories/runs.js";
-import { generateMerchantPool, generatePartition } from "@txloom/engine";
+import {
+  applyImperfections,
+  derivePartitionRng,
+  generateMerchantPool,
+  generatePartition,
+} from "@txloom/engine";
 import { writeParquet, TRUTH_EVENT_SCHEMA, LABEL_RECORD_SCHEMA } from "@txloom/sinks";
 
 const spec = {
@@ -114,16 +119,32 @@ describe("world inspector & run compare contract", () => {
       1,
       merchants,
     );
+    // Mirrors apps/worker/src/pool/partition-worker.ts: corruption labels come
+    // from applyImperfections, not generatePartition — without this the
+    // imperfection-audit endpoint has nothing to find.
+    const deliveryRng = derivePartitionRng(BigInt(spec.seed), 0);
+    const { corruptionLabels } = applyImperfections(
+      truthEvents,
+      spec.output.sinks as never,
+      spec.imperfections as never,
+      deliveryRng,
+    );
     const runDir = path.join(dataDir, "runs", run.id);
     await writeParquet(
       path.join(runDir, "truth", "part-0.parquet"),
       TRUTH_EVENT_SCHEMA,
       truthEvents as unknown as Record<string, unknown>[],
     );
+    // corruption_detail is a JS object on LabelRecord but a UTF8 string in
+    // the parquet schema — matches corruptionRow() in partition-worker.ts.
+    const labelRows = [...labelRecords, ...corruptionLabels].map((label) => ({
+      ...label,
+      corruption_detail: label.corruption_detail ? JSON.stringify(label.corruption_detail) : null,
+    }));
     await writeParquet(
       path.join(runDir, "labels", "part-0.parquet"),
       LABEL_RECORD_SCHEMA,
-      labelRecords as unknown as Record<string, unknown>[],
+      labelRows as unknown as Record<string, unknown>[],
     );
     return run.id;
   }

@@ -67,6 +67,10 @@ describe("WS runs/:id/progress channel contract", () => {
     process.env.DATABASE_URL = `mysql://root:test@${mysql.getHost()}:${mysql.getMappedPort(3306)}/txloom_test`;
     await getDb().migrate.latest();
     app = await buildApp();
+    // injectWS (unlike app.inject()) dispatches straight through the raw
+    // router without ensuring readiness first — without this the 'upgrade'
+    // event has nowhere to route to and injectWS() never resolves.
+    await app.ready();
 
     const db = getDb();
     const scenarios = new ScenarioRepository(db);

@@ -60,6 +60,8 @@ describe("stream control contract", () => {
   let redis: StartedTestContainer;
   let app: FastifyInstance;
   let runId: string;
+  let scenarioId: string;
+  let versionId: string;
 
   beforeAll(async () => {
     [mysql, redis] = await Promise.all([
@@ -81,6 +83,8 @@ describe("stream control contract", () => {
     const scenario = await scenarios.create({ name: "Stream control test", currency: "INR" });
     const version = await versions.create({ scenario_id: scenario.id, spec, author_type: "user" });
     await scenarios.setCurrentVersion(scenario.id, version.id);
+    scenarioId = scenario.id;
+    versionId = version.id;
 
     const launchResponse = await app.inject({
       method: "POST",
@@ -105,8 +109,8 @@ describe("stream control contract", () => {
 
   it("rejects starting a stream for a run that hasn't completed its history phase", async () => {
     const otherRun = await new RunRepository(getDb()).create({
-      scenario_id: "nonexistent",
-      spec_version_id: "nonexistent",
+      scenario_id: scenarioId,
+      spec_version_id: versionId,
       spec_snapshot: spec,
       seed: 1n,
       params: {},
