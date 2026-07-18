@@ -28,14 +28,19 @@ describe("fresh install reaches a healthy studio (SC-003)", () => {
 
       environment = await new DockerComposeEnvironment(REPO_ROOT, "docker-compose.yml")
         .withBuild()
-        .withWaitStrategy("api", Wait.forHttp("/api/v1/health", 3000).forStatusCode(200))
+        // testcontainers keys both withWaitStrategy and getContainer by the
+        // actual Docker Compose v2 container name (`<service>-<index>`, e.g.
+        // "api-1"), not the bare service name — a bare "api" key silently
+        // never matches, so this would fall back to the default
+        // port-is-bound wait instead of actually checking /health.
+        .withWaitStrategy("api-1", Wait.forHttp("/api/v1/health", 3000).forStatusCode(200))
         .withStartupTimeout(TIME_BUDGET_MS)
         .up(["api", "mysql", "redis", "worker"]);
 
       const elapsedMs = Date.now() - startedAt;
       expect(elapsedMs).toBeLessThan(TIME_BUDGET_MS);
 
-      const api = environment.getContainer("api");
+      const api = environment.getContainer("api-1");
       const response = await fetch(
         `http://${api.getHost()}:${api.getMappedPort(3000)}/api/v1/health`,
       );
