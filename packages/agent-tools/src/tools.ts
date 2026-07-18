@@ -120,6 +120,56 @@ export const getExportTool: AgentToolDefinition<typeof getExportInputShape> = {
   restEndpoint: { method: "GET", path: "/runs/:id/exports/:exportId" },
 };
 
+export const getTruthEventsInputShape = {
+  run_id: z.string().min(1),
+  typology: z.string().optional(),
+  actor_id: z.string().optional(),
+  status: z.string().optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().optional(),
+};
+export const getTruthEventsTool: AgentToolDefinition<typeof getTruthEventsInputShape> = {
+  name: "get_truth_events",
+  description:
+    "Filter/browse a completed run's ground truth: labeled events with typology, actor, and status, cursor-paginated.",
+  inputSchema: getTruthEventsInputShape,
+  restEndpoint: { method: "GET", path: "/runs/:id/truth/events" },
+};
+
+const streamSinkSchema = z.union([
+  z.object({
+    type: z.literal("kafka"),
+    config: z.object({ brokers: z.array(z.string()), topic: z.string() }),
+  }),
+  z.object({
+    type: z.literal("rabbitmq"),
+    config: z.object({ url: z.string(), exchange: z.string(), routingKey: z.string() }),
+  }),
+  z.object({ type: z.literal("webhook"), config: z.object({ url: z.string() }) }),
+]);
+
+export const startStreamInputShape = {
+  run_id: z.string().min(1),
+  target_tps: z.number().positive().optional(),
+  sink: streamSinkSchema,
+  label_channel_enabled: z.boolean().optional(),
+};
+export const startStreamTool: AgentToolDefinition<typeof startStreamInputShape> = {
+  name: "start_stream",
+  description:
+    "Continue a completed run's history phase into a live TPS-paced stream, delivered to the given inline sink (kafka/rabbitmq/webhook).",
+  inputSchema: startStreamInputShape,
+  restEndpoint: { method: "POST", path: "/runs/:id/stream/start" },
+};
+
+export const stopStreamInputShape = { run_id: z.string().min(1) };
+export const stopStreamTool: AgentToolDefinition<typeof stopStreamInputShape> = {
+  name: "stop_stream",
+  description: "Stop a run's live stream.",
+  inputSchema: stopStreamInputShape,
+  restEndpoint: { method: "POST", path: "/runs/:id/stream/stop" },
+};
+
 /** The full v1 toolset (contracts/api.md § MCP server). */
 export const ALL_AGENT_TOOLS: readonly AgentToolDefinition[] = [
   getSpecSchemaTool,
@@ -133,4 +183,7 @@ export const ALL_AGENT_TOOLS: readonly AgentToolDefinition[] = [
   getRealismReportTool as AgentToolDefinition,
   createExportTool as AgentToolDefinition,
   getExportTool as AgentToolDefinition,
+  getTruthEventsTool as AgentToolDefinition,
+  startStreamTool as AgentToolDefinition,
+  stopStreamTool as AgentToolDefinition,
 ];

@@ -27,7 +27,7 @@ data-model.md, contracts/, and tasks.md.
   global teardown runs `down -v` plus a scrub of the `./data` bind mount. One stack per suite
   execution; the fixed project name `txloom-e2e` keeps it isolated from any developer's normal
   `docker compose up` stack.
-- **Rationale**: This is the *shipped* compose file — the highest-fidelity blackbox environment
+- **Rationale**: This is the _shipped_ compose file — the highest-fidelity blackbox environment
   (FR-001) — and `--wait` leverages healthchecks so a component that fails to start is named
   precisely (edge case: startup failure). `down -v` + data scrub gives FR-011's clean slate.
 - **Alternatives considered**: Testcontainers-orchestrated equivalent (rejected by user in
@@ -69,7 +69,7 @@ data-model.md, contracts/, and tasks.md.
   addresses (`kafka:29092`, `rabbitmq:5672`) exactly as the shipped compose file documents.
 - **Rationale**: The dual-listener topology already exists in `docker-compose.yml` for this
   precise purpose (worker publishes in-network, host tools consume via localhost) — the suite
-  observes delivery from *outside* the stack, which is the blackbox posture FR-004 wants.
+  observes delivery from _outside_ the stack, which is the blackbox posture FR-004 wants.
 - **Alternatives considered**: `kcat` CLI subprocess (rejected: extra binary dependency breaks
   FR-012's "runs identically everywhere"); exec-ing consumers inside containers (rejected: not
   an external observer).
@@ -103,10 +103,16 @@ data-model.md, contracts/, and tasks.md.
 
 - **Decision**: Run the tiny fixture twice through the full stack (fresh scenario each time,
   same seed+spec). Compare: (a) truth records byte-for-byte via the run-outputs/export files
-  under the `./data` bind mount; (b) webhook-delivered payload bodies (captured by R4's
-  listener) and file-sink output byte-for-byte, after stripping transport envelope fields that
-  identify the delivery attempt (HTTP headers, receive timestamps recorded by the listener
-  itself — the payloads themselves must be identical).
+  under the `./data` bind mount; (b) file-sink delivered output byte-for-byte; (c)
+  webhook-delivered payload bodies (captured by R4's listener) after stripping run-identifying
+  timestamp fields, per spec.md's own acceptance scenario 2 wording ("excluding run-identifying
+  metadata such as timestamps of when the test itself executed"). Confirmed during
+  implementation: live-streamed events intentionally stamp `event_id`/`ts` from the real clock at
+  delivery time (`drawNextLiveEvent` in `packages/engine/src/streaming/live-world.ts` takes
+  `nowMs`) — a live TPS-paced stream's timestamp is supposed to reflect real delivery time, not a
+  virtual one, so those two fields (plus the webhook envelope's `delivery_id`, which mirrors
+  `event_id`) are excluded from the comparison; every other field is compared verbatim. Batch/history
+  truth and file-sink output carry no such wall-clock field and are compared with zero exclusions.
 - **Rationale**: `./data` is bind-mounted to the host by the shipped compose file, so the suite
   reads outputs exactly where an operator would; comparing both truth and delivered layers
   covers FR-007's two assertions without any product-side test hook.

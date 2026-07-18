@@ -20,3 +20,10 @@ Thumbs.db
 
 # vite
 apps/web/.vite/
+
+# Playwright e2e suite outputs — regenerated per run, never committed.
+apps/e2e/playwright-report/
+apps/e2e/test-results/
+apps/e2e/blob-report/
+apps/e2e/.budget-start.json
+apps/e2e/compose-logs.txt

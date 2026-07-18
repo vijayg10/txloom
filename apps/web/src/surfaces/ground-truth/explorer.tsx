@@ -46,7 +46,11 @@ export function GroundTruthExplorer({
     <div className="ground-truth-explorer">
       <label>
         Typology
-        <select value={typology} onChange={(e) => setTypology(e.target.value as Typology | "")}>
+        <select
+          data-testid="ground-truth-typology-filter"
+          value={typology}
+          onChange={(e) => setTypology(e.target.value as Typology | "")}
+        >
           <option value="">All</option>
           {TYPOLOGIES.map((t) => (
             <option key={t} value={t}>
@@ -59,7 +63,7 @@ export function GroundTruthExplorer({
       {!page && <p>Loading events…</p>}
 
       {page && (
-        <table className="truth-events-table">
+        <table className="truth-events-table" data-testid="ground-truth-events-table">
           <thead>
             <tr>
               <th>event</th>
@@ -82,7 +86,11 @@ export function GroundTruthExplorer({
                 <td>{event.label?.typology ?? ""}</td>
                 <td>
                   {event.label?.actor_id ? (
-                    <button type="button" onClick={() => onSelectActor?.(event.label!.actor_id!)}>
+                    <button
+                      type="button"
+                      data-testid="ground-truth-select-actor"
+                      onClick={() => onSelectActor?.(event.label!.actor_id!)}
+                    >
                       {event.label.actor_id}
                     </button>
                   ) : (

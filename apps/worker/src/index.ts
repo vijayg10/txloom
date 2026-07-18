@@ -18,6 +18,13 @@ import { closePartitionPool } from "./pool/piscina-pool.js";
 const dataDir = process.env.DATA_DIR ?? "./data";
 
 const db = getDb();
+// `docker compose up` starts api and worker together with no ordering
+// dependency between them (both only wait on mysql/redis health) — without
+// this, a worker boot that wins the race against the api's own migration
+// crashes immediately on `resumeAfterRestart()`'s first query. Knex's
+// migration lock table makes `migrate.latest()` safe to call from both
+// processes concurrently.
+await db.migrate.latest();
 const runs = new RunRepository(db);
 const runPartitions = new RunPartitionRepository(db);
 const streams = new StreamRepository(db);

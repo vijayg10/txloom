@@ -32,12 +32,17 @@ export function RealismReportView({
   }, [runId]);
 
   if (loading) return <p>Loading realism report…</p>;
-  if (!report) return <p>Realism report not available yet — check back once the run completes.</p>;
+  if (!report)
+    return (
+      <p data-testid="realism-report-unavailable">
+        Realism report not available yet — check back once the run completes.
+      </p>
+    );
 
   return (
-    <div className="realism-report">
+    <div className="realism-report" data-testid="realism-report">
       <h2>Realism report</h2>
-      <p>{report.event_count.toLocaleString()} events</p>
+      <p data-testid="realism-report-event-count">{report.event_count.toLocaleString()} events</p>
 
       <section>
         <h3>Amount distribution</h3>

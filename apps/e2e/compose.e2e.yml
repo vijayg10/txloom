@@ -1,0 +1,29 @@
+services:
+  # `--wait` only watches services with a healthcheck; the shipped compose
+  # file healthchecks mysql/redis but not api, so `up --wait` would return
+  # before the app tier is actually ready without this addition (research.md R3).
+  api:
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  worker:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # tmpfs trades durability for startup/IO speed — acceptable since the suite
+  # tears the whole stack down (`down -v`) after every execution anyway (R3).
+  mysql:
+    tmpfs:
+      - /var/lib/mysql

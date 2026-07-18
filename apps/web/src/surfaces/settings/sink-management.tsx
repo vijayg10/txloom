@@ -71,16 +71,24 @@ export function SinkManagement() {
     <section className="sink-management">
       <h2>Sink connections</h2>
 
-      <ul className="sink-list">
+      <ul className="sink-list" data-testid="sink-list">
         {(sinks ?? []).map((sink) => (
-          <li key={sink.id}>
+          <li key={sink.id} data-testid="sink-list-item">
             <strong>{sink.name}</strong> ({sink.type})
             {sink.has_credentials ? " — credentials set" : ""}
             {sink.last_test_at && <span> — last test: {sink.last_test_ok ? "ok" : "failed"}</span>}
-            <button type="button" onClick={() => void testSink(sink.id)}>
+            <button
+              type="button"
+              data-testid="sink-test-button"
+              onClick={() => void testSink(sink.id)}
+            >
               Test connection
             </button>
-            <button type="button" onClick={() => void removeSink(sink.id)}>
+            <button
+              type="button"
+              data-testid="sink-remove-button"
+              onClick={() => void removeSink(sink.id)}
+            >
               Remove
             </button>
             {testResults[sink.id] && <p>{testResults[sink.id]!.detail}</p>}
@@ -88,11 +96,15 @@ export function SinkManagement() {
         ))}
       </ul>
 
-      <form onSubmit={(e) => void addSink(e)}>
+      <form data-testid="add-sink-form" onSubmit={(e) => void addSink(e)}>
         <h3>Add a sink</h3>
         <label>
           Type
-          <select value={type} onChange={(e) => setType(e.target.value as SinkType)}>
+          <select
+            data-testid="sink-type"
+            value={type}
+            onChange={(e) => setType(e.target.value as SinkType)}
+          >
             <option value="file">File</option>
             <option value="kafka">Kafka</option>
             <option value="rabbitmq">RabbitMQ</option>
@@ -101,30 +113,50 @@ export function SinkManagement() {
         </label>
         <label>
           Name
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
+          <input
+            data-testid="sink-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
         </label>
         <label>
           Config (JSON)
-          <textarea value={configJson} onChange={(e) => setConfigJson(e.target.value)} />
+          <textarea
+            data-testid="sink-config"
+            value={configJson}
+            onChange={(e) => setConfigJson(e.target.value)}
+          />
         </label>
         {(type === "kafka" || type === "rabbitmq") && (
           <>
             <label>
               Username
-              <input value={username} onChange={(e) => setUsername(e.target.value)} />
+              <input
+                data-testid="sink-username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
             </label>
             <label>
               Password
               <input
                 type="password"
+                data-testid="sink-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </label>
           </>
         )}
-        <button type="submit">Add sink</button>
-        {error && <p className="sink-error">{error}</p>}
+        <button type="submit" data-testid="add-sink-submit">
+          Add sink
+        </button>
+        {error && (
+          <p className="sink-error" data-testid="add-sink-error">
+            {error}
+          </p>
+        )}
       </form>
     </section>
   );

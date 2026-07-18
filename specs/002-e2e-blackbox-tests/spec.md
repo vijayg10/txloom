@@ -16,7 +16,7 @@
 - Q: May a failing scenario be automatically retried before the merge-blocking check reports failure? → A: One automatic retry per failed scenario; a pass-on-retry still passes the check but is reported as flaky in the suite output.
 - Q: Which browser(s) must the suite drive for the Web UI scenarios? → A: A single Chromium-family browser engine; cross-browser coverage is out of scope.
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Full golden-path verification through the Web UI (Priority: P1)
 
@@ -146,7 +146,7 @@ stories to pass.
   UI regression changed a surface's structure)? The failure must clearly identify which surface
   and step failed, not just that "a step timed out."
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -203,7 +203,7 @@ stories to pass.
   including any pass-on-retry scenarios flagged as flaky, plus captured diagnostic detail on
   failure, surfaced as the required CI check.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

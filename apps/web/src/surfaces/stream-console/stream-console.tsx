@@ -93,14 +93,17 @@ export function StreamConsole({ runId }: { runId: string }) {
       <h2>
         Stream for run <code>{runId}</code>
       </h2>
-      <p>state: {stream.state}</p>
+      <p data-testid="stream-state">state: {stream.state}</p>
 
-      <div className="stream-dial">
-        <span>
+      <div className="stream-dial" data-testid="stream-dial">
+        <span data-testid="stream-achieved-tps">
           achieved {achievedTps.toFixed(1)} / target {stream.target_tps} tps
         </span>
-        <span>sink lag: {sinkLag}ms</span>
-        <span className={backpressure ? "backpressure-active" : ""}>
+        <span data-testid="stream-sink-lag">sink lag: {sinkLag}ms</span>
+        <span
+          data-testid="stream-backpressure"
+          className={backpressure ? "backpressure-active" : ""}
+        >
           backpressure: {backpressure ? "yes" : "no"}
         </span>
       </div>
@@ -108,14 +111,21 @@ export function StreamConsole({ runId }: { runId: string }) {
       <form onSubmit={(e) => void submitRate(e)}>
         <label>
           target tps
-          <input value={rateInput} onChange={(e) => setRateInput(e.target.value)} />
+          <input
+            data-testid="stream-rate-input"
+            value={rateInput}
+            onChange={(e) => setRateInput(e.target.value)}
+          />
         </label>
-        <button type="submit">Set rate</button>
+        <button type="submit" data-testid="stream-set-rate">
+          Set rate
+        </button>
       </form>
 
       <div className="stream-controls">
         <button
           type="button"
+          data-testid="stream-pause"
           onClick={() => void control("pause")}
           disabled={stream.state !== "streaming"}
         >
@@ -123,6 +133,7 @@ export function StreamConsole({ runId }: { runId: string }) {
         </button>
         <button
           type="button"
+          data-testid="stream-resume"
           onClick={() => void control("resume")}
           disabled={stream.state !== "paused"}
         >
@@ -130,6 +141,7 @@ export function StreamConsole({ runId }: { runId: string }) {
         </button>
         <button
           type="button"
+          data-testid="stream-stop"
           onClick={() => void control("stop")}
           disabled={stream.state === "stopped"}
         >
@@ -137,7 +149,7 @@ export function StreamConsole({ runId }: { runId: string }) {
         </button>
       </div>
 
-      <ul className="stream-ticker">
+      <ul className="stream-ticker" data-testid="stream-ticker">
         {ticker.map((event) => (
           <li key={event.event_id}>
             {event.ts} — {event.type} {event.amount} ({event.consumer_name}

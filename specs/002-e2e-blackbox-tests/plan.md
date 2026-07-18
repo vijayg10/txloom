@@ -59,17 +59,17 @@ CI job, 1 compose overlay file
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 Constitution v1.1.0 — five gates instantiated for this feature:
 
-| # | Gate | How this plan satisfies it | Status |
-|---|------|---------------------------|--------|
-| 1 | Static (strict TS, zero warnings) | `apps/e2e` joins the workspace tsconfig/eslint/prettier roots; Playwright specs and helpers are strict TS; no `any` (MCP tool results parsed through typed helpers) | PASS |
-| 2 | Test gate (test-first) | The feature *is* tests; red→green applies literally — specs are written against the running stack and fail until selectors/fixtures are wired. No engine/validator/API logic is added, so no new unit/property/golden-master obligations arise; existing suites unaffected | PASS |
-| 3 | Determinism gate | No engine changes, golden masters untouched. The suite *strengthens* this gate: US4 verifies byte-identical truth output through the full deployed stack, a layer no existing test covers | PASS |
-| 4 | Performance gate | No generation/delivery-path changes, so no benchmark obligation triggers. The suite declares its own measured budget (<5 min, SC-002) and the CI job fails if exceeded (job-level timeout) | PASS |
-| 5 | Review gate | PR review checklist references this table; the one product-code touch (adding `data-testid` attributes to `apps/web`) is behavior-neutral and reviewed under the same gate | PASS |
+| #   | Gate                              | How this plan satisfies it                                                                                                                                                                                                                                                 | Status |
+| --- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | Static (strict TS, zero warnings) | `apps/e2e` joins the workspace tsconfig/eslint/prettier roots; Playwright specs and helpers are strict TS; no `any` (MCP tool results parsed through typed helpers)                                                                                                        | PASS   |
+| 2   | Test gate (test-first)            | The feature _is_ tests; red→green applies literally — specs are written against the running stack and fail until selectors/fixtures are wired. No engine/validator/API logic is added, so no new unit/property/golden-master obligations arise; existing suites unaffected | PASS   |
+| 3   | Determinism gate                  | No engine changes, golden masters untouched. The suite _strengthens_ this gate: US4 verifies byte-identical truth output through the full deployed stack, a layer no existing test covers                                                                                  | PASS   |
+| 4   | Performance gate                  | No generation/delivery-path changes, so no benchmark obligation triggers. The suite declares its own measured budget (<5 min, SC-002) and the CI job fails if exceeded (job-level timeout)                                                                                 | PASS   |
+| 5   | Review gate                       | PR review checklist references this table; the one product-code touch (adding `data-testid` attributes to `apps/web`) is behavior-neutral and reviewed under the same gate                                                                                                 | PASS   |
 
 Principle-level checks: distribution constraint honored — no new service in `docker-compose.yml`;
 the e2e overlay (`apps/e2e/compose.e2e.yml`) is applied only by the suite via `-f`, and end-user
@@ -147,5 +147,5 @@ runnable (`--grep`), matching the spec's independent-test requirement.
 > No constitution violations — table intentionally empty.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| — | — | — |
+| --------- | ---------- | ------------------------------------ |
+| —         | —          | —                                    |
