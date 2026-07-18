@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
 
 interface ActorStoryStep {
   campaign_step: number;
@@ -37,30 +38,56 @@ export function ActorStory({ runId, actorId }: { runId: string; actorId: string 
       .catch(() => setNotFound(true));
   }, [runId, actorId]);
 
-  if (notFound) return <p>No campaign found for actor {actorId}.</p>;
-  if (!story) return <p>Loading actor story…</p>;
+  if (notFound) {
+    return (
+      <Card>
+        <CardBody>
+          <p className="text-text-secondary text-sm">No campaign found for actor {actorId}.</p>
+        </CardBody>
+      </Card>
+    );
+  }
+  if (!story) {
+    return (
+      <Card>
+        <CardBody>
+          <p className="text-text-secondary text-sm">Loading actor story…</p>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
-    <div className="actor-story">
-      <h3>
-        Actor <code>{story.actor_id}</code> — {story.typology}
-      </h3>
-      <ol className="actor-story-steps">
-        {story.steps.map((step) => (
-          <li key={step.event.event_id}>
-            <span className="campaign-step">step {step.campaign_step}</span>
-            <span>{step.event.ts}</span>
-            <span>{step.event.type}</span>
-            <span>{step.event.status}</span>
-            <span>{step.event.amount}</span>
-            <span>
-              {step.event.consumer_name}
-              {step.event.counterparty_name ? ` → ${step.event.counterparty_name}` : ""}
-              {step.event.merchant_name ? ` → ${step.event.merchant_name}` : ""}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          Actor <code className="font-mono text-base font-normal">{story.actor_id}</code> —{" "}
+          {story.typology}
+        </CardTitle>
+      </CardHeader>
+      <CardBody>
+        <ol className="flex flex-col gap-2">
+          {story.steps.map((step) => (
+            <li
+              key={step.event.event_id}
+              className="border-border text-text-secondary flex flex-wrap items-center gap-3 rounded-xl border px-3.5 py-2.5 text-sm"
+            >
+              <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
+                step {step.campaign_step}
+              </span>
+              <span>{step.event.ts}</span>
+              <span>{step.event.type}</span>
+              <span>{step.event.status}</span>
+              <span className="tabular-nums">{step.event.amount}</span>
+              <span className="text-text">
+                {step.event.consumer_name}
+                {step.event.counterparty_name ? ` → ${step.event.counterparty_name}` : ""}
+                {step.event.merchant_name ? ` → ${step.event.merchant_name}` : ""}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </CardBody>
+    </Card>
   );
 }

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineWorkspace } from "vitest/config";
 
 // One workspace, four named projects. `pnpm test` runs unit+contract+component
@@ -34,10 +35,16 @@ export default defineWorkspace([
     },
   },
   {
+    resolve: {
+      alias: {
+        "@": fileURLToPath(new URL("./apps/web/src", import.meta.url)),
+      },
+    },
     test: {
       name: "component",
       environment: "jsdom",
       include: ["apps/web/tests/**/*.test.tsx"],
+      setupFiles: ["apps/web/tests/setup.ts"],
     },
   },
   {

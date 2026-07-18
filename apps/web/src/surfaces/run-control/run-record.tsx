@@ -1,15 +1,27 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Button } from "../../components/ui/button.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
+import type { RunStatus } from "./run-status.js";
 
 interface RunRow {
   id: string;
   scenario_id: string;
   spec_snapshot: unknown;
   seed: string;
-  status: string;
+  status: RunStatus;
   outputs_deleted_at: string | null;
   created_at: string;
   completed_at: string | null;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-text-secondary text-xs font-medium">{label}</dt>
+      <dd className="text-text mt-0.5 text-sm">{children}</dd>
+    </div>
+  );
 }
 
 /** Immutable run-record view: spec snapshot + seed + report + outputs links,
@@ -35,38 +47,56 @@ export function RunRecord({ runId }: { runId: string }) {
     }
   }
 
-  if (!run) return <p>Loading…</p>;
+  if (!run) {
+    return (
+      <Card>
+        <CardBody>
+          <p className="text-text-secondary text-sm">Loading…</p>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
-    <div className="run-record" data-testid="run-record">
-      <h2>Immutable run record</h2>
-      <dl>
-        <dt>Run</dt>
-        <dd>
-          <code>{run.id}</code>
-        </dd>
-        <dt>Scenario</dt>
-        <dd>
-          <a href={`/scenarios/${run.scenario_id}`}>{run.scenario_id}</a>
-        </dd>
-        <dt>Seed</dt>
-        <dd data-testid="run-record-seed">{run.seed}</dd>
-        <dt>Status</dt>
-        <dd>{run.status}</dd>
-        <dt>Created</dt>
-        <dd>{new Date(run.created_at).toLocaleString()}</dd>
-      </dl>
-      {run.outputs_deleted_at ? (
-        <p>Outputs deleted — use Regenerate to recreate this exact dataset.</p>
-      ) : (
-        <p>
-          <a href={`/api/v1/runs/${run.id}/report`}>Realism report</a> ·{" "}
-          <a href={`/runs/${run.id}/exports`}>Exports</a>
-        </p>
-      )}
-      <button type="button" onClick={() => void regenerate()} disabled={regenerating}>
-        {regenerating ? "Regenerating…" : "Regenerate exactly this dataset"}
-      </button>
-    </div>
+    <Card data-testid="run-record">
+      <CardHeader>
+        <CardTitle>Immutable run record</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <dl className="mb-4 grid gap-4 sm:grid-cols-2">
+          <Field label="Run">
+            <code className="font-mono">{run.id}</code>
+          </Field>
+          <Field label="Scenario">
+            <a href={`/scenarios/${run.scenario_id}`} className="text-primary hover:underline">
+              {run.scenario_id}
+            </a>
+          </Field>
+          <Field label="Seed">
+            <span data-testid="run-record-seed">{run.seed}</span>
+          </Field>
+          <Field label="Status">{run.status}</Field>
+          <Field label="Created">{new Date(run.created_at).toLocaleString()}</Field>
+        </dl>
+        {run.outputs_deleted_at ? (
+          <p className="text-text-secondary mb-4 text-sm">
+            Outputs deleted — use Regenerate to recreate this exact dataset.
+          </p>
+        ) : (
+          <p className="mb-4 text-sm">
+            <a href={`/api/v1/runs/${run.id}/report`} className="text-primary hover:underline">
+              Realism report
+            </a>{" "}
+            ·{" "}
+            <a href={`/runs/${run.id}/exports`} className="text-primary hover:underline">
+              Exports
+            </a>
+          </p>
+        )}
+        <Button variant="secondary" onClick={() => void regenerate()} loading={regenerating}>
+          {regenerating ? "Regenerating…" : "Regenerate exactly this dataset"}
+        </Button>
+      </CardBody>
+    </Card>
   );
 }

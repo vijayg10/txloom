@@ -1,5 +1,10 @@
 import { useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Button } from "../../components/ui/button.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
+import { FormField } from "../../components/ui/form-field.js";
+import { Input } from "../../components/ui/input.js";
+import { Select } from "../../components/ui/select.js";
 
 type SinkType = "kafka" | "rabbitmq" | "webhook";
 
@@ -58,100 +63,114 @@ export function StreamLauncher({ runId, onStarted }: { runId: string; onStarted?
   }
 
   return (
-    <form className="stream-launcher" onSubmit={(e) => void start(e)}>
-      <h2>Start stream</h2>
-      <label>
-        Sink type
-        <select
-          data-testid="stream-sink-type"
-          value={type}
-          onChange={(e) => setType(e.target.value as SinkType)}
-        >
-          <option value="webhook">Webhook</option>
-          <option value="kafka">Kafka</option>
-          <option value="rabbitmq">RabbitMQ</option>
-        </select>
-      </label>
+    <Card>
+      <CardHeader>
+        <CardTitle>Start stream</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <form onSubmit={(e) => void start(e)} className="flex flex-col gap-4">
+          <div className="max-w-xs">
+            <FormField label="Sink type">
+              <Select
+                data-testid="stream-sink-type"
+                value={type}
+                onChange={(e) => setType(e.target.value as SinkType)}
+              >
+                <option value="webhook">Webhook</option>
+                <option value="kafka">Kafka</option>
+                <option value="rabbitmq">RabbitMQ</option>
+              </Select>
+            </FormField>
+          </div>
 
-      {type === "kafka" && (
-        <>
-          <label>
-            Brokers
-            <input
-              data-testid="stream-kafka-brokers"
-              value={kafkaBrokers}
-              onChange={(e) => setKafkaBrokers(e.target.value)}
-            />
-          </label>
-          <label>
-            Topic
-            <input
-              data-testid="stream-kafka-topic"
-              value={kafkaTopic}
-              onChange={(e) => setKafkaTopic(e.target.value)}
-            />
-          </label>
-        </>
-      )}
+          {type === "kafka" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Brokers">
+                <Input
+                  data-testid="stream-kafka-brokers"
+                  value={kafkaBrokers}
+                  onChange={(e) => setKafkaBrokers(e.target.value)}
+                />
+              </FormField>
+              <FormField label="Topic">
+                <Input
+                  data-testid="stream-kafka-topic"
+                  value={kafkaTopic}
+                  onChange={(e) => setKafkaTopic(e.target.value)}
+                />
+              </FormField>
+            </div>
+          )}
 
-      {type === "rabbitmq" && (
-        <>
-          <label>
-            URL
-            <input
-              data-testid="stream-rabbitmq-url"
-              value={rabbitUrl}
-              onChange={(e) => setRabbitUrl(e.target.value)}
-            />
-          </label>
-          <label>
-            Exchange
-            <input
-              data-testid="stream-rabbitmq-exchange"
-              value={rabbitExchange}
-              onChange={(e) => setRabbitExchange(e.target.value)}
-            />
-          </label>
-          <label>
-            Routing key
-            <input
-              data-testid="stream-rabbitmq-routing-key"
-              value={rabbitRoutingKey}
-              onChange={(e) => setRabbitRoutingKey(e.target.value)}
-            />
-          </label>
-        </>
-      )}
+          {type === "rabbitmq" && (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField label="URL">
+                <Input
+                  data-testid="stream-rabbitmq-url"
+                  value={rabbitUrl}
+                  onChange={(e) => setRabbitUrl(e.target.value)}
+                />
+              </FormField>
+              <FormField label="Exchange">
+                <Input
+                  data-testid="stream-rabbitmq-exchange"
+                  value={rabbitExchange}
+                  onChange={(e) => setRabbitExchange(e.target.value)}
+                />
+              </FormField>
+              <FormField label="Routing key">
+                <Input
+                  data-testid="stream-rabbitmq-routing-key"
+                  value={rabbitRoutingKey}
+                  onChange={(e) => setRabbitRoutingKey(e.target.value)}
+                />
+              </FormField>
+            </div>
+          )}
 
-      {type === "webhook" && (
-        <label>
-          URL
-          <input
-            data-testid="stream-webhook-url"
-            value={webhookUrl}
-            onChange={(e) => setWebhookUrl(e.target.value)}
-            required
-          />
-        </label>
-      )}
+          {type === "webhook" && (
+            <div className="max-w-md">
+              <FormField label="URL">
+                <Input
+                  data-testid="stream-webhook-url"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  required
+                />
+              </FormField>
+            </div>
+          )}
 
-      <label>
-        Target TPS (optional — falls back to the spec's then_stream_tps)
-        <input
-          data-testid="stream-target-tps"
-          value={targetTps}
-          onChange={(e) => setTargetTps(e.target.value)}
-        />
-      </label>
+          <div className="max-w-xs">
+            <FormField
+              label="Target TPS"
+              hint="Optional — falls back to the spec's then_stream_tps"
+            >
+              <Input
+                data-testid="stream-target-tps"
+                value={targetTps}
+                onChange={(e) => setTargetTps(e.target.value)}
+              />
+            </FormField>
+          </div>
 
-      <button type="submit" data-testid="stream-start-button" disabled={starting}>
-        {starting ? "Starting…" : "Start stream"}
-      </button>
-      {error && (
-        <p role="alert" data-testid="stream-start-error">
-          {error}
-        </p>
-      )}
-    </form>
+          <div>
+            <Button
+              type="submit"
+              data-testid="stream-start-button"
+              disabled={starting}
+              loading={starting}
+            >
+              {starting ? "Starting…" : "Start stream"}
+            </Button>
+          </div>
+          {error && (
+            <p role="alert" data-testid="stream-start-error" className="text-danger text-sm">
+              {error}
+            </p>
+          )}
+        </form>
+      </CardBody>
+    </Card>
   );
 }

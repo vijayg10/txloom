@@ -10,6 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { apiClient } from "../../api/client.js";
+import { CHART_COLORS } from "../../components/data/chart-card.js";
 
 interface VolumeOverTimeResult {
   points: { date: string; count: number }[];
@@ -27,14 +28,14 @@ export function VolumeChart({ runId }: { runId: string }) {
       .catch(() => setData(null));
   }, [runId]);
 
-  if (!data) return <p>Loading volume…</p>;
+  if (!data) return <p className="text-text-secondary text-sm">Loading volume…</p>;
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data.points}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="date" />
-        <YAxis />
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+        <XAxis dataKey="date" stroke={CHART_COLORS.axis} fontSize={12} tickLine={false} />
+        <YAxis stroke={CHART_COLORS.axis} fontSize={12} tickLine={false} />
         <Tooltip />
         {data.seasonality.map((window) => (
           <ReferenceArea
@@ -45,7 +46,13 @@ export function VolumeChart({ runId }: { runId: string }) {
             fillOpacity={0.1}
           />
         ))}
-        <Line type="monotone" dataKey="count" stroke="#6ea8fe" dot={false} />
+        <Line
+          type="monotone"
+          dataKey="count"
+          stroke={CHART_COLORS.primary}
+          strokeWidth={2}
+          dot={false}
+        />
       </LineChart>
     </ResponsiveContainer>
   );

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Button } from "../../components/ui/button.js";
+import { Card, CardBody } from "../../components/ui/card.js";
 
 interface Template {
   slug: string;
@@ -43,27 +45,35 @@ export function TemplateGallery({ onCloned }: { onCloned?: (scenarioId: string) 
     }
   }
 
-  if (!templates) return <p>Loading templates…</p>;
+  if (!templates) return <p className="text-text-secondary text-sm">Loading templates…</p>;
 
   return (
-    <section className="template-gallery">
-      <h2>Template gallery</h2>
-      <ul>
+    <section>
+      <h3 className="text-text mb-3 text-sm font-semibold">Template gallery</h3>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {templates.map((template) => (
-          <li key={template.slug}>
-            <h3>{template.name}</h3>
-            <p>{template.description}</p>
-            <button
-              type="button"
-              onClick={() => void clone(template)}
-              disabled={cloning === template.slug}
-            >
-              {cloning === template.slug ? "Cloning…" : "New from template"}
-            </button>
-          </li>
+          <Card key={template.slug} className="flex flex-col">
+            <CardBody className="flex flex-1 flex-col">
+              <h4 className="text-text font-semibold">{template.name}</h4>
+              <p className="text-text-secondary mt-1 flex-1">{template.description}</p>
+              <div className="mt-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => void clone(template)}
+                  loading={cloning === template.slug}
+                >
+                  {cloning === template.slug ? "Cloning…" : "New from template"}
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
         ))}
-      </ul>
-      {error && <p className="template-gallery-error">{error}</p>}
+      </div>
+      {error && (
+        <p role="alert" className="text-danger mt-3 text-sm">
+          {error}
+        </p>
+      )}
     </section>
   );
 }

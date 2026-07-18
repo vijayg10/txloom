@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Button } from "../../components/ui/button.js";
+import { Card, CardBody } from "../../components/ui/card.js";
+import { StatusBadge, runStatusTone } from "../../components/ui/status-badge.js";
+import type { RunStatus } from "./run-status.js";
 
 interface RunRow {
   id: string;
-  status: string;
+  status: RunStatus;
   seed: string;
   created_at: string;
 }
@@ -30,26 +34,34 @@ export function RunLaunch({ scenarioId }: { scenarioId: string }) {
   }
 
   return (
-    <div className="run-launch">
-      <button
-        type="button"
-        data-testid="launch-run-button"
-        onClick={() => void launch()}
-        disabled={launching}
-      >
-        {launching ? "Launching…" : "Run"}
-      </button>
-      {error && <p role="alert">{error}</p>}
+    <div className="flex flex-col gap-4">
+      <div>
+        <Button data-testid="launch-run-button" onClick={() => void launch()} loading={launching}>
+          {launching ? "Launching…" : "Run"}
+        </Button>
+      </div>
+      {error && (
+        <p role="alert" className="text-danger text-sm">
+          {error}
+        </p>
+      )}
       {run && (
-        <div className="run-detail" data-testid="run-launch-result">
-          <p data-testid="run-status">
-            Run <code>{run.id}</code> — status: <strong>{run.status}</strong>
-          </p>
-          <p>seed: {run.seed}</p>
-          <a data-testid="view-run-link" href={`/runs/${run.id}`}>
-            View run
-          </a>
-        </div>
+        <Card data-testid="run-launch-result">
+          <CardBody className="flex flex-col gap-2">
+            <p data-testid="run-status" className="flex items-center gap-2">
+              Run <code className="font-mono">{run.id}</code> — status:{" "}
+              <StatusBadge tone={runStatusTone(run.status)}>{run.status}</StatusBadge>
+            </p>
+            <p className="text-text-secondary">seed: {run.seed}</p>
+            <a
+              data-testid="view-run-link"
+              href={`/runs/${run.id}`}
+              className="text-primary hover:underline"
+            >
+              View run
+            </a>
+          </CardBody>
+        </Card>
       )}
     </div>
   );

@@ -1,5 +1,10 @@
 import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { apiClient } from "../../api/client.js";
+import { Button } from "../../components/ui/button.js";
+import { Checkbox } from "../../components/ui/checkbox.js";
+import { FormField } from "../../components/ui/form-field.js";
+import { Select } from "../../components/ui/select.js";
 
 type ExportFormat = "csv" | "parquet" | "json";
 
@@ -43,65 +48,81 @@ export function ExportControls({ runId }: { runId: string }) {
   }
 
   return (
-    <form className="export-controls" onSubmit={(e) => void submit(e)}>
-      <label>
-        Format
-        <select
-          data-testid="export-format"
-          value={format}
-          onChange={(e) => setFormat(e.target.value as ExportFormat)}
-        >
-          <option value="csv">CSV</option>
-          <option value="parquet">Parquet</option>
-          <option value="json">JSON</option>
-        </select>
-      </label>
+    <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+      <div className="max-w-xs">
+        <FormField label="Format">
+          <Select
+            data-testid="export-format"
+            value={format}
+            onChange={(e) => setFormat(e.target.value as ExportFormat)}
+          >
+            <option value="csv">CSV</option>
+            <option value="parquet">Parquet</option>
+            <option value="json">JSON</option>
+          </Select>
+        </FormField>
+      </div>
 
-      <label>
-        <input
-          type="checkbox"
+      <label className="text-text flex cursor-pointer items-center gap-2.5 text-sm">
+        <Checkbox
           data-testid="export-include-labels"
           checked={includeLabels}
-          onChange={(e) => toggleIncludeLabels(e.target.checked)}
+          onCheckedChange={(checked) => toggleIncludeLabels(checked === true)}
         />
         Include ground-truth labels in this export
       </label>
 
       {includeLabels && (
-        <div role="alert" className="label-warning" data-testid="export-label-warning">
-          <p>
-            Merging labels into the main export means downstream consumers can see the answer key
-            alongside the data — fraud/typology/actor fields will not be held back in a separate
-            file. Only do this if that&apos;s what you intend.
+        <div
+          role="alert"
+          data-testid="export-label-warning"
+          className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3"
+        >
+          <p className="text-text flex gap-2 text-sm">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+            <span>
+              Merging labels into the main export means downstream consumers can see the answer key
+              alongside the data — fraud/typology/actor fields will not be held back in a separate
+              file. Only do this if that&apos;s what you intend.
+            </span>
           </p>
-          <label>
-            <input
-              type="checkbox"
+          <label className="text-text flex cursor-pointer items-center gap-2.5 pl-6 text-sm">
+            <Checkbox
               data-testid="export-acknowledge-warning"
               checked={acknowledged}
-              onChange={(e) => setAcknowledged(e.target.checked)}
+              onCheckedChange={(checked) => setAcknowledged(checked === true)}
             />
             I understand labels will be merged into the main export
           </label>
         </div>
       )}
 
-      <button type="submit" data-testid="export-submit" disabled={blocked}>
-        Export
-      </button>
+      <div>
+        <Button type="submit" data-testid="export-submit" disabled={blocked}>
+          Export
+        </Button>
+      </div>
 
-      {error && <p className="export-error">{error}</p>}
+      {error && (
+        <p role="alert" className="text-danger text-sm">
+          {error}
+        </p>
+      )}
 
       {manifest && (
-        <div className="export-result" data-testid="export-result">
+        <div
+          data-testid="export-result"
+          className="border-border bg-hover rounded-xl border px-4 py-3 text-sm"
+        >
           <a
             data-testid="export-download-link"
             href={`/api/v1/runs/${runId}/exports/${manifest.export_id}/download`}
+            className="text-primary hover:underline"
           >
             Download {manifest.file_name}
           </a>
           {manifest.answer_key_file_name && (
-            <p data-testid="export-answer-key-name">
+            <p data-testid="export-answer-key-name" className="text-text-secondary mt-1">
               Answer key exported separately: {manifest.answer_key_file_name}
             </p>
           )}

@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Button } from "../../components/ui/button.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
+import { FormField } from "../../components/ui/form-field.js";
+import { Input, Textarea } from "../../components/ui/input.js";
+import { Select } from "../../components/ui/select.js";
+import { StatusBadge, booleanTone } from "../../components/ui/status-badge.js";
 
 type SinkType = "file" | "kafka" | "rabbitmq" | "webhook";
 
@@ -68,96 +74,126 @@ export function SinkManagement() {
   }
 
   return (
-    <section className="sink-management">
-      <h2>Sink connections</h2>
-
-      <ul className="sink-list" data-testid="sink-list">
-        {(sinks ?? []).map((sink) => (
-          <li key={sink.id} data-testid="sink-list-item">
-            <strong>{sink.name}</strong> ({sink.type})
-            {sink.has_credentials ? " — credentials set" : ""}
-            {sink.last_test_at && <span> — last test: {sink.last_test_ok ? "ok" : "failed"}</span>}
-            <button
-              type="button"
-              data-testid="sink-test-button"
-              onClick={() => void testSink(sink.id)}
+    <Card>
+      <CardHeader>
+        <CardTitle>Sink connections</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <ul className="divide-border mb-6 divide-y" data-testid="sink-list">
+          {(sinks ?? []).map((sink) => (
+            <li
+              key={sink.id}
+              data-testid="sink-list-item"
+              className="flex flex-wrap items-center gap-3 py-3"
             >
-              Test connection
-            </button>
-            <button
-              type="button"
-              data-testid="sink-remove-button"
-              onClick={() => void removeSink(sink.id)}
-            >
-              Remove
-            </button>
-            {testResults[sink.id] && <p>{testResults[sink.id]!.detail}</p>}
-          </li>
-        ))}
-      </ul>
+              <div className="flex-1">
+                <p className="text-text font-medium">
+                  {sink.name} <span className="text-text-secondary font-normal">({sink.type})</span>
+                </p>
+                <p className="text-text-secondary text-xs">
+                  {sink.has_credentials ? "Credentials set" : "No credentials"}
+                  {sink.last_test_at ? (
+                    <>
+                      {" — last test: "}
+                      <StatusBadge
+                        tone={booleanTone(sink.last_test_ok)}
+                        className="ml-1 align-middle"
+                      >
+                        {sink.last_test_ok ? "ok" : "failed"}
+                      </StatusBadge>
+                    </>
+                  ) : null}
+                </p>
+                {testResults[sink.id] ? (
+                  <p className="text-text-secondary mt-1 text-xs">{testResults[sink.id]!.detail}</p>
+                ) : null}
+              </div>
+              <Button
+                variant="secondary"
+                data-testid="sink-test-button"
+                onClick={() => void testSink(sink.id)}
+              >
+                Test connection
+              </Button>
+              <Button
+                variant="secondary"
+                data-testid="sink-remove-button"
+                onClick={() => void removeSink(sink.id)}
+              >
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
 
-      <form data-testid="add-sink-form" onSubmit={(e) => void addSink(e)}>
-        <h3>Add a sink</h3>
-        <label>
-          Type
-          <select
-            data-testid="sink-type"
-            value={type}
-            onChange={(e) => setType(e.target.value as SinkType)}
-          >
-            <option value="file">File</option>
-            <option value="kafka">Kafka</option>
-            <option value="rabbitmq">RabbitMQ</option>
-            <option value="webhook">Webhook</option>
-          </select>
-        </label>
-        <label>
-          Name
-          <input
-            data-testid="sink-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Config (JSON)
-          <textarea
-            data-testid="sink-config"
-            value={configJson}
-            onChange={(e) => setConfigJson(e.target.value)}
-          />
-        </label>
-        {(type === "kafka" || type === "rabbitmq") && (
-          <>
-            <label>
-              Username
-              <input
-                data-testid="sink-username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+        <form
+          data-testid="add-sink-form"
+          onSubmit={(e) => void addSink(e)}
+          className="border-border flex flex-col gap-4 border-t pt-6"
+        >
+          <h3 className="text-text text-sm font-semibold">Add a sink</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Type">
+              <Select
+                data-testid="sink-type"
+                value={type}
+                onChange={(e) => setType(e.target.value as SinkType)}
+              >
+                <option value="file">File</option>
+                <option value="kafka">Kafka</option>
+                <option value="rabbitmq">RabbitMQ</option>
+                <option value="webhook">Webhook</option>
+              </Select>
+            </FormField>
+            <FormField label="Name">
+              <Input
+                data-testid="sink-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
               />
-            </label>
-            <label>
-              Password
-              <input
-                type="password"
-                data-testid="sink-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
-          </>
-        )}
-        <button type="submit" data-testid="add-sink-submit">
-          Add sink
-        </button>
-        {error && (
-          <p className="sink-error" data-testid="add-sink-error">
-            {error}
-          </p>
-        )}
-      </form>
-    </section>
+            </FormField>
+          </div>
+          <FormField label="Config (JSON)">
+            <Textarea
+              data-testid="sink-config"
+              value={configJson}
+              onChange={(e) => setConfigJson(e.target.value)}
+              rows={4}
+              className="font-mono"
+            />
+          </FormField>
+          {(type === "kafka" || type === "rabbitmq") && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Username">
+                <Input
+                  data-testid="sink-username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </FormField>
+              <FormField label="Password">
+                <Input
+                  type="password"
+                  data-testid="sink-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </FormField>
+            </div>
+          )}
+          <div>
+            <Button type="submit" data-testid="add-sink-submit">
+              Add sink
+            </Button>
+          </div>
+          {error && (
+            <p role="alert" data-testid="add-sink-error" className="text-danger text-sm">
+              {error}
+            </p>
+          )}
+        </form>
+      </CardBody>
+    </Card>
   );
 }
