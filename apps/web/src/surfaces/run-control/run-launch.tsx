@@ -31,17 +31,24 @@ export function RunLaunch({ scenarioId }: { scenarioId: string }) {
 
   return (
     <div className="run-launch">
-      <button type="button" onClick={() => void launch()} disabled={launching}>
+      <button
+        type="button"
+        data-testid="launch-run-button"
+        onClick={() => void launch()}
+        disabled={launching}
+      >
         {launching ? "Launching…" : "Run"}
       </button>
       {error && <p role="alert">{error}</p>}
       {run && (
-        <div className="run-detail">
-          <p>
+        <div className="run-detail" data-testid="run-launch-result">
+          <p data-testid="run-status">
             Run <code>{run.id}</code> — status: <strong>{run.status}</strong>
           </p>
           <p>seed: {run.seed}</p>
-          <a href={`/runs/${run.id}`}>View run</a>
+          <a data-testid="view-run-link" href={`/runs/${run.id}`}>
+            View run
+          </a>
         </div>
       )}
     </div>

@@ -91,7 +91,7 @@ export function SpecEditor({
         options={{ minimap: { enabled: false } }}
       />
       {violations.length > 0 && (
-        <ul className="spec-editor-violations">
+        <ul className="spec-editor-violations" data-testid="spec-editor-violations">
           {violations.map((v) => (
             <li key={`${v.path}-${v.code}`} data-severity={v.severity ?? "error"}>
               <code>{v.path || "(root)"}</code> — {v.message}

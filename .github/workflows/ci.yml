@@ -90,3 +90,46 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: KAFKA_BROKERS=localhost:9092 pnpm bench:smoke
+
+  e2e:
+    name: E2E blackbox suite
+    runs-on: ubuntu-latest
+    # FR-010/SC-002: warm-cache target is <5 minutes end to end; this is the
+    # hard stop for a cold cache on a new cache key (contracts/suite-interface.md).
+    # Sustained warm-cache overruns are caught by the suite-internal budget
+    # assertion in global-teardown.ts instead of silently drifting.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: docker/setup-buildx-action@v3
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm --filter @txloom/e2e exec playwright install chromium --with-deps
+      - name: Build stack images (buildx GHA layer cache)
+        env:
+          COMPOSE_BAKE: "true"
+        run: docker compose -f docker-compose.yml -f apps/e2e/compose.e2e.yml --profile demo-brokers build
+      - name: Run e2e suite
+        run: pnpm test:e2e
+      - name: Upload e2e artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            apps/e2e/playwright-report/
+            apps/e2e/test-results/
+            apps/e2e/compose-logs.txt
+          retention-days: 7
+          if-no-files-found: ignore

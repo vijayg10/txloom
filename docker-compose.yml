@@ -91,6 +91,14 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # Single-broker cluster — the internal __consumer_offsets/transaction
+      # logs default to a replication factor of 3, which a lone broker can
+      # never satisfy, so consumer group coordination fails forever
+      # (COORDINATOR_NOT_AVAILABLE) unless these are pinned to 1. Without
+      # this, no consumer group can ever read from this broker.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
 
   # RabbitMQ needs no such split: `worker`/`api` reach it at `rabbitmq:5672`
   # (compose DNS) and the host reaches it at `localhost:5672`, both valid —

@@ -46,7 +46,11 @@ export function ExportControls({ runId }: { runId: string }) {
     <form className="export-controls" onSubmit={(e) => void submit(e)}>
       <label>
         Format
-        <select value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)}>
+        <select
+          data-testid="export-format"
+          value={format}
+          onChange={(e) => setFormat(e.target.value as ExportFormat)}
+        >
           <option value="csv">CSV</option>
           <option value="parquet">Parquet</option>
           <option value="json">JSON</option>
@@ -56,6 +60,7 @@ export function ExportControls({ runId }: { runId: string }) {
       <label>
         <input
           type="checkbox"
+          data-testid="export-include-labels"
           checked={includeLabels}
           onChange={(e) => toggleIncludeLabels(e.target.checked)}
         />
@@ -63,7 +68,7 @@ export function ExportControls({ runId }: { runId: string }) {
       </label>
 
       {includeLabels && (
-        <div role="alert" className="label-warning">
+        <div role="alert" className="label-warning" data-testid="export-label-warning">
           <p>
             Merging labels into the main export means downstream consumers can see the answer key
             alongside the data — fraud/typology/actor fields will not be held back in a separate
@@ -72,6 +77,7 @@ export function ExportControls({ runId }: { runId: string }) {
           <label>
             <input
               type="checkbox"
+              data-testid="export-acknowledge-warning"
               checked={acknowledged}
               onChange={(e) => setAcknowledged(e.target.checked)}
             />
@@ -80,19 +86,24 @@ export function ExportControls({ runId }: { runId: string }) {
         </div>
       )}
 
-      <button type="submit" disabled={blocked}>
+      <button type="submit" data-testid="export-submit" disabled={blocked}>
         Export
       </button>
 
       {error && <p className="export-error">{error}</p>}
 
       {manifest && (
-        <div className="export-result">
-          <a href={`/api/v1/runs/${runId}/exports/${manifest.export_id}/download`}>
+        <div className="export-result" data-testid="export-result">
+          <a
+            data-testid="export-download-link"
+            href={`/api/v1/runs/${runId}/exports/${manifest.export_id}/download`}
+          >
             Download {manifest.file_name}
           </a>
           {manifest.answer_key_file_name && (
-            <p>Answer key exported separately: {manifest.answer_key_file_name}</p>
+            <p data-testid="export-answer-key-name">
+              Answer key exported separately: {manifest.answer_key_file_name}
+            </p>
           )}
         </div>
       )}

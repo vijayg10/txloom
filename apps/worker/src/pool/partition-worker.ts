@@ -15,7 +15,11 @@ import {
 // one fresh worker thread per partition, and multiple threads dlopen'ing the
 // same native addon for the first time concurrently races and throws "Module
 // did not self-register" — this worker only ever needs the parquet writer.
-import { writeParquet, TRUTH_EVENT_SCHEMA, LABEL_RECORD_SCHEMA } from "@txloom/sinks/src/file/parquet.js";
+import {
+  writeParquet,
+  TRUTH_EVENT_SCHEMA,
+  LABEL_RECORD_SCHEMA,
+} from "@txloom/sinks/src/file/parquet.js";
 
 export interface PartitionWorkerInput {
   spec: SimulationSpec;

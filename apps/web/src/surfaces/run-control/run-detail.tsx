@@ -57,7 +57,7 @@ export function RunDetail({ runId }: { runId: string }) {
       <h2>
         Run <code>{run.id}</code>
       </h2>
-      <p>status: {run.status}</p>
+      <p data-testid="run-status">status: {run.status}</p>
       <div className="run-controls">
         <button
           type="button"
@@ -81,7 +81,7 @@ export function RunDetail({ runId }: { runId: string }) {
           Cancel
         </button>
       </div>
-      <ul className="partition-progress">
+      <ul className="partition-progress" data-testid="run-progress">
         {Object.values(ticks)
           .sort((a, b) => a.partition_no - b.partition_no)
           .map((tick) => (

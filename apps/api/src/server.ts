@@ -1,7 +1,14 @@
 import { buildApp } from "./app.js";
+import { getDb, migrateWithLock } from "./db/knex.js";
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "0.0.0.0";
+
+// Setup is `docker compose up` with zero required config-file editing
+// (constitution Principle IV) — that promise only holds if the schema is
+// there when the server starts, so run pending migrations here rather than
+// requiring an out-of-band `db:migrate` step.
+await migrateWithLock(getDb());
 
 const app = await buildApp({ logger: true });
 

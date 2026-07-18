@@ -38,7 +38,7 @@ export function RunRecord({ runId }: { runId: string }) {
   if (!run) return <p>Loading…</p>;
 
   return (
-    <div className="run-record">
+    <div className="run-record" data-testid="run-record">
       <h2>Immutable run record</h2>
       <dl>
         <dt>Run</dt>
@@ -50,7 +50,7 @@ export function RunRecord({ runId }: { runId: string }) {
           <a href={`/scenarios/${run.scenario_id}`}>{run.scenario_id}</a>
         </dd>
         <dt>Seed</dt>
-        <dd>{run.seed}</dd>
+        <dd data-testid="run-record-seed">{run.seed}</dd>
         <dt>Status</dt>
         <dd>{run.status}</dd>
         <dt>Created</dt>

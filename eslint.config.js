@@ -12,6 +12,9 @@ export default tseslint.config(
       "**/coverage/**",
       "data/**",
       "docs/agent/**",
+      "apps/e2e/playwright-report/**",
+      "apps/e2e/test-results/**",
+      "apps/e2e/blob-report/**",
     ],
   },
   js.configs.recommended,
@@ -23,6 +26,14 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_", ignoreRestSiblings: true },
       ],
+    },
+  },
+  {
+    // Plain Node ESM entry point (no tsconfig/type info, so Node globals
+    // aren't picked up automatically the way they are for .ts files).
+    files: ["apps/worker/src/pool/worker-entry.mjs"],
+    languageOptions: {
+      globals: { URL: "readonly" },
     },
   },
   {

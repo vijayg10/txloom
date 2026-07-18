@@ -4,7 +4,7 @@
 // by a previous crash, and shuts down cleanly on SIGTERM/SIGINT.
 import { generateMerchantPool } from "@txloom/engine";
 import type { SimulationSpec } from "@txloom/spec";
-import { getDb, closeDb } from "../../api/src/db/knex.js";
+import { getDb, closeDb, migrateWithLock } from "../../api/src/db/knex.js";
 import { getQueues, closeQueues } from "../../api/src/services/queues.js";
 import { RunRepository, RunPartitionRepository } from "../../api/src/db/repositories/runs.js";
 import { StreamRepository } from "../../api/src/db/repositories/streams.js";
@@ -18,6 +18,14 @@ import { closePartitionPool } from "./pool/piscina-pool.js";
 const dataDir = process.env.DATA_DIR ?? "./data";
 
 const db = getDb();
+// `docker compose up` starts api and worker together with no ordering
+// dependency between them (both only wait on mysql/redis health) — without
+// this, a worker boot that wins the race against the api's own migration
+// crashes immediately on `resumeAfterRestart()`'s first query.
+// `migrateWithLock` serializes this against the api's own boot-time
+// migration (see its doc comment for why Knex's own lock isn't enough on a
+// fresh database).
+await migrateWithLock(db);
 const runs = new RunRepository(db);
 const runPartitions = new RunPartitionRepository(db);
 const streams = new StreamRepository(db);
