@@ -29,6 +29,14 @@ export default tseslint.config(
     },
   },
   {
+    // Plain Node ESM entry point (no tsconfig/type info, so Node globals
+    // aren't picked up automatically the way they are for .ts files).
+    files: ["apps/worker/src/pool/worker-entry.mjs"],
+    languageOptions: {
+      globals: { URL: "readonly" },
+    },
+  },
+  {
     // Constitution Principle II: no Math.random / wall-clock reads in the engine.
     files: ["packages/engine/src/**/*.ts"],
     rules: {

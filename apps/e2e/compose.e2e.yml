@@ -25,5 +25,6 @@ services:
   # tmpfs trades durability for startup/IO speed — acceptable since the suite
   # tears the whole stack down (`down -v`) after every execution anyway (R3).
   mysql:
+    volumes: !reset []
     tmpfs:
       - /var/lib/mysql

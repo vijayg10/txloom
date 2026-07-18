@@ -1,5 +1,5 @@
 import { buildApp } from "./app.js";
-import { getDb } from "./db/knex.js";
+import { getDb, migrateWithLock } from "./db/knex.js";
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -8,7 +8,7 @@ const host = process.env.HOST ?? "0.0.0.0";
 // (constitution Principle IV) — that promise only holds if the schema is
 // there when the server starts, so run pending migrations here rather than
 // requiring an out-of-band `db:migrate` step.
-await getDb().migrate.latest();
+await migrateWithLock(getDb());
 
 const app = await buildApp({ logger: true });
 
