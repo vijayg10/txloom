@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import type { SimulationSpec } from "@txloom/spec";
+import { ArrowRight, CheckCircle2, XCircle } from "lucide-react";
 import { apiClient } from "../../api/client.js";
+import { PageHeader } from "../../components/layout/page-header.js";
+import { Button } from "../../components/ui/button.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
+import { FormField } from "../../components/ui/form-field.js";
+import { Input } from "../../components/ui/input.js";
+import { cn } from "../../lib/cn.js";
 import { SpecEditor } from "./spec-editor.js";
 import { StructuralPreview } from "./structural-preview.js";
 import { TemplateGallery } from "./template-gallery.js";
@@ -40,45 +47,74 @@ function ScenarioListView() {
   }
 
   return (
-    <section>
-      <h1>Scenario workspace</h1>
-      <ul data-testid="scenario-list">
-        {(scenarios ?? []).map((scenario) => (
-          <li key={scenario.id}>
-            <Link data-testid="scenario-list-item" to={`/scenarios/${scenario.id}`}>
-              {scenario.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <div>
+      <PageHeader title="Scenario workspace" />
+      <div className="flex flex-col gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Scenarios</CardTitle>
+          </CardHeader>
+          <CardBody>
+            {scenarios && scenarios.length === 0 ? (
+              <p className="text-text-secondary text-sm">No scenarios yet — create one below.</p>
+            ) : (
+              <ul className="divide-border flex flex-col divide-y" data-testid="scenario-list">
+                {(scenarios ?? []).map((scenario) => (
+                  <li key={scenario.id} className="py-2.5">
+                    <Link
+                      data-testid="scenario-list-item"
+                      to={`/scenarios/${scenario.id}`}
+                      className="text-primary font-medium hover:underline"
+                    >
+                      {scenario.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardBody>
+        </Card>
 
-      <form data-testid="new-scenario-form" onSubmit={(e) => void createBlank(e)}>
-        <h2>New blank scenario</h2>
-        <label>
-          Name
-          <input
-            data-testid="new-scenario-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Currency
-          <input
-            data-testid="new-scenario-currency"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            required
-          />
-        </label>
-        <button type="submit" data-testid="create-blank-scenario">
-          Create
-        </button>
-      </form>
+        <Card>
+          <CardHeader>
+            <CardTitle>New blank scenario</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <form
+              data-testid="new-scenario-form"
+              onSubmit={(e) => void createBlank(e)}
+              className="flex flex-col gap-4"
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Name">
+                  <Input
+                    data-testid="new-scenario-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </FormField>
+                <FormField label="Currency">
+                  <Input
+                    data-testid="new-scenario-currency"
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    required
+                  />
+                </FormField>
+              </div>
+              <div>
+                <Button type="submit" data-testid="create-blank-scenario">
+                  Create
+                </Button>
+              </div>
+            </form>
+          </CardBody>
+        </Card>
 
-      <TemplateGallery onCloned={(scenarioId) => navigate(`/scenarios/${scenarioId}`)} />
-    </section>
+        <TemplateGallery onCloned={(scenarioId) => navigate(`/scenarios/${scenarioId}`)} />
+      </div>
+    </div>
   );
 }
 
@@ -133,51 +169,83 @@ function ScenarioDetailView() {
   if (!scenarioId) return null;
 
   return (
-    <section>
-      <h1>{scenario?.name ?? "Scenario"}</h1>
-
-      <div data-testid="spec-editor">
-        {initialSpec && (
-          <SpecEditor
-            initialSpec={initialSpec}
-            onValidChange={(spec, isValid) => {
-              setCurrentSpec(isValid ? (spec as SimulationSpec) : null);
-              setValid(isValid);
-              setSaved(false);
-            }}
-          />
-        )}
-      </div>
-
-      <div data-testid="validation-result-panel" data-valid={valid}>
-        {valid ? "Spec is valid." : "Spec has validation errors — see markers above."}
-      </div>
-
-      <button
-        type="button"
-        data-testid="save-spec-version"
-        onClick={() => void save()}
-        disabled={!valid || saving}
-      >
-        {saving ? "Saving…" : "Save version"}
-      </button>
-      {saved && <p data-testid="save-spec-success">Saved.</p>}
-      {error && (
-        <p role="alert" data-testid="save-spec-error">
-          {error}
-        </p>
-      )}
-
-      <StructuralPreview
-        spec={valid ? (currentSpec as Parameters<typeof StructuralPreview>[0]["spec"]) : null}
+    <div>
+      <PageHeader
+        title={scenario?.name ?? "Scenario"}
+        actions={
+          <Link
+            data-testid="launch-run-link"
+            to={`/runs?scenario=${scenarioId}`}
+            className="bg-primary hover:bg-primary-hover inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium text-white shadow-sm transition-all duration-200"
+          >
+            Launch a run
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        }
       />
 
-      <Link data-testid="launch-run-link" to={`/runs?scenario=${scenarioId}`}>
-        Launch a run
-      </Link>
+      <div className="flex flex-col gap-6">
+        <Card>
+          <CardBody>
+            <div data-testid="spec-editor">
+              {initialSpec && (
+                <SpecEditor
+                  initialSpec={initialSpec}
+                  onValidChange={(spec, isValid) => {
+                    setCurrentSpec(isValid ? (spec as SimulationSpec) : null);
+                    setValid(isValid);
+                    setSaved(false);
+                  }}
+                />
+              )}
+            </div>
 
-      <VersionHistory scenarioId={scenarioId} />
-    </section>
+            <div
+              data-testid="validation-result-panel"
+              data-valid={valid}
+              className={cn(
+                "mt-4 flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm",
+                valid ? "bg-success/10 text-success" : "bg-danger/10 text-danger",
+              )}
+            >
+              {valid ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <XCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              )}
+              {valid ? "Spec is valid." : "Spec has validation errors — see markers above."}
+            </div>
+
+            <div className="mt-4 flex items-center gap-3">
+              <Button
+                data-testid="save-spec-version"
+                onClick={() => void save()}
+                disabled={!valid || saving}
+                loading={saving}
+              >
+                {saving ? "Saving…" : "Save version"}
+              </Button>
+              {saved && (
+                <p data-testid="save-spec-success" className="text-success text-sm">
+                  Saved.
+                </p>
+              )}
+              {error && (
+                <p role="alert" data-testid="save-spec-error" className="text-danger text-sm">
+                  {error}
+                </p>
+              )}
+            </div>
+          </CardBody>
+        </Card>
+
+        <StructuralPreview
+          spec={valid ? (currentSpec as Parameters<typeof StructuralPreview>[0]["spec"]) : null}
+        />
+
+        <VersionHistory scenarioId={scenarioId} />
+      </div>
+    </div>
   );
 }
 

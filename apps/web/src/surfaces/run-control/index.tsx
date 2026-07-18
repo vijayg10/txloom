@@ -1,4 +1,5 @@
 import { Route, Routes, useParams, useSearchParams } from "react-router-dom";
+import { PageHeader } from "../../components/layout/page-header.js";
 import { ExportControls } from "../ground-truth/export-controls.js";
 import { RunDetail } from "./run-detail.js";
 import { RunLaunch } from "./run-launch.js";
@@ -11,22 +12,22 @@ function RunControlIndex() {
 
   if (scenarioId) {
     return (
-      <section>
-        <h1>Launch a run</h1>
+      <div>
+        <PageHeader title="Launch a run" />
         <div data-testid="run-launch-control">
           <RunLaunch scenarioId={scenarioId} />
         </div>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section>
-      <h1>Run control</h1>
+    <div>
+      <PageHeader title="Run control" />
       <div data-testid="run-list">
         <RunList />
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -34,15 +35,18 @@ function RunDetailView() {
   const { runId } = useParams<{ runId: string }>();
   if (!runId) return null;
   return (
-    <section>
-      <div data-testid="run-status-panel">
-        <RunDetail runId={runId} />
+    <div>
+      <PageHeader title="Run detail" />
+      <div className="flex flex-col gap-6">
+        <div data-testid="run-status-panel">
+          <RunDetail runId={runId} />
+        </div>
+        <RunRecord runId={runId} />
+        <div data-testid="export-controls">
+          <ExportControls runId={runId} />
+        </div>
       </div>
-      <RunRecord runId={runId} />
-      <div data-testid="export-controls">
-        <ExportControls runId={runId} />
-      </div>
-    </section>
+    </div>
   );
 }
 

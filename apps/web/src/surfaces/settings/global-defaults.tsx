@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Button } from "../../components/ui/button.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
+import { FormField } from "../../components/ui/form-field.js";
+import { Input } from "../../components/ui/input.js";
 
 interface GlobalDefaults {
   "defaults.currency"?: string;
@@ -37,21 +41,45 @@ export function GlobalDefaultsForm() {
     setSaved(true);
   }
 
-  if (!defaults) return <p>Loading settings…</p>;
+  if (!defaults) {
+    return (
+      <Card>
+        <CardBody>
+          <p className="text-text-secondary text-sm">Loading settings…</p>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
-    <form className="global-defaults" onSubmit={(e) => void save(e)}>
-      <h2>Global defaults</h2>
-      <label>
-        Default currency
-        <input value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="INR" />
-      </label>
-      <label>
-        Default locale
-        <input value={locale} onChange={(e) => setLocale(e.target.value)} placeholder="en-IN" />
-      </label>
-      <button type="submit">Save</button>
-      {saved && <p>Saved.</p>}
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle>Global defaults</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <form onSubmit={(e) => void save(e)} className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Default currency">
+              <Input
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                placeholder="INR"
+              />
+            </FormField>
+            <FormField label="Default locale">
+              <Input
+                value={locale}
+                onChange={(e) => setLocale(e.target.value)}
+                placeholder="en-IN"
+              />
+            </FormField>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button type="submit">Save</Button>
+            {saved && <p className="text-success text-sm">Saved.</p>}
+          </div>
+        </form>
+      </CardBody>
+    </Card>
   );
 }

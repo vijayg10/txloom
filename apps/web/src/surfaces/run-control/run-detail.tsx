@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Button } from "../../components/ui/button.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
+import { StatusBadge, runStatusTone } from "../../components/ui/status-badge.js";
+import type { RunStatus } from "./run-status.js";
 
 interface RunRow {
   id: string;
-  status: string;
+  status: RunStatus;
   seed: string;
 }
 
@@ -37,7 +41,7 @@ export function RunDetail({ runId }: { runId: string }) {
     ws.addEventListener("message", (event) => {
       const data = JSON.parse(event.data as string) as { status?: string } & Partial<PartitionTick>;
       if (data.status) {
-        setRun((prev) => (prev ? { ...prev, status: data.status! } : prev));
+        setRun((prev) => (prev ? { ...prev, status: data.status as RunStatus } : prev));
       } else if (data.partition_no !== undefined) {
         setTicks((prev) => ({ ...prev, [data.partition_no!]: data as PartitionTick }));
       }
@@ -50,48 +54,70 @@ export function RunDetail({ runId }: { runId: string }) {
     setRun(updated);
   }
 
-  if (!run) return <p>Loading…</p>;
+  if (!run) {
+    return (
+      <Card>
+        <CardBody>
+          <p className="text-text-secondary text-sm">Loading…</p>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
-    <div className="run-detail">
-      <h2>
-        Run <code>{run.id}</code>
-      </h2>
-      <p data-testid="run-status">status: {run.status}</p>
-      <div className="run-controls">
-        <button
-          type="button"
-          onClick={() => void control("pause")}
-          disabled={run.status !== "running"}
-        >
-          Pause
-        </button>
-        <button
-          type="button"
-          onClick={() => void control("resume")}
-          disabled={run.status !== "paused"}
-        >
-          Resume
-        </button>
-        <button
-          type="button"
-          onClick={() => void control("cancel")}
-          disabled={run.status === "completed" || run.status === "cancelled"}
-        >
-          Cancel
-        </button>
-      </div>
-      <ul className="partition-progress" data-testid="run-progress">
-        {Object.values(ticks)
-          .sort((a, b) => a.partition_no - b.partition_no)
-          .map((tick) => (
-            <li key={tick.partition_no}>
-              partition {tick.partition_no}: {tick.state} — {tick.events_generated.toLocaleString()}{" "}
-              events ({tick.throughput.toFixed(0)}/s
-              {tick.eta !== null ? `, ${tick.eta} partitions remaining` : ""})
-            </li>
-          ))}
-      </ul>
-    </div>
+    <Card>
+      <CardHeader>
+        <div>
+          <CardTitle>
+            Run <code className="font-mono text-base font-normal">{run.id}</code>
+          </CardTitle>
+          <p
+            data-testid="run-status"
+            className="text-text-secondary mt-1 flex items-center gap-2 text-sm"
+          >
+            status: <StatusBadge tone={runStatusTone(run.status)}>{run.status}</StatusBadge>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => void control("pause")}
+            disabled={run.status !== "running"}
+          >
+            Pause
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => void control("resume")}
+            disabled={run.status !== "paused"}
+          >
+            Resume
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => void control("cancel")}
+            disabled={run.status === "completed" || run.status === "cancelled"}
+          >
+            Cancel
+          </Button>
+        </div>
+      </CardHeader>
+      <CardBody>
+        <ul className="flex flex-col gap-2" data-testid="run-progress" aria-live="polite">
+          {Object.values(ticks)
+            .sort((a, b) => a.partition_no - b.partition_no)
+            .map((tick) => (
+              <li
+                key={tick.partition_no}
+                className="border-border text-text-secondary rounded-xl border px-3.5 py-2.5 text-sm tabular-nums"
+              >
+                partition {tick.partition_no}: {tick.state} —{" "}
+                {tick.events_generated.toLocaleString()} events ({tick.throughput.toFixed(0)}/s
+                {tick.eta !== null ? `, ${tick.eta} partitions remaining` : ""})
+              </li>
+            ))}
+        </ul>
+      </CardBody>
+    </Card>
   );
 }

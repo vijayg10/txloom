@@ -81,20 +81,28 @@ export function SpecEditor({
 
   return (
     <div>
-      <Editor
-        height="70vh"
-        defaultLanguage="json"
-        path={MODEL_URI}
-        value={value}
-        onChange={handleChange}
-        onMount={handleMount}
-        options={{ minimap: { enabled: false } }}
-      />
+      <div className="border-border overflow-hidden rounded-2xl border">
+        <Editor
+          height="70vh"
+          theme="light"
+          defaultLanguage="json"
+          path={MODEL_URI}
+          value={value}
+          onChange={handleChange}
+          onMount={handleMount}
+          options={{ minimap: { enabled: false } }}
+        />
+      </div>
       {violations.length > 0 && (
-        <ul className="spec-editor-violations" data-testid="spec-editor-violations">
+        <ul className="mt-3 flex flex-col gap-1.5" data-testid="spec-editor-violations">
           {violations.map((v) => (
-            <li key={`${v.path}-${v.code}`} data-severity={v.severity ?? "error"}>
-              <code>{v.path || "(root)"}</code> — {v.message}
+            <li
+              key={`${v.path}-${v.code}`}
+              data-severity={v.severity ?? "error"}
+              className="border-danger/30 bg-danger/5 text-text rounded-lg border px-3 py-2 text-sm data-[severity=warning]:border-amber-500/30 data-[severity=warning]:bg-amber-500/5"
+            >
+              <code className="text-text-secondary font-mono">{v.path || "(root)"}</code> —{" "}
+              {v.message}
             </li>
           ))}
         </ul>

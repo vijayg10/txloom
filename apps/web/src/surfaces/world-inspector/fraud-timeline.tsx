@@ -10,6 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { apiClient } from "../../api/client.js";
+import { CHART_COLORS } from "../../components/data/chart-card.js";
 
 interface FraudTimelinePoint {
   date: string;
@@ -43,14 +44,14 @@ export function FraudTimeline({ runId }: { runId: string }) {
     return { rows, typologies: [...typologySet] };
   }, [points]);
 
-  if (!points) return <p>Loading fraud timeline…</p>;
+  if (!points) return <p className="text-text-secondary text-sm">Loading fraud timeline…</p>;
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height="100%">
       <LineChart data={rows}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="date" />
-        <YAxis />
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+        <XAxis dataKey="date" stroke={CHART_COLORS.axis} fontSize={12} tickLine={false} />
+        <YAxis stroke={CHART_COLORS.axis} fontSize={12} tickLine={false} />
         <Tooltip />
         <Legend />
         {typologies.map((typology, i) => (
@@ -58,7 +59,8 @@ export function FraudTimeline({ runId }: { runId: string }) {
             key={typology}
             type="monotone"
             dataKey={typology}
-            stroke={["#6ea8fe", "#f5a623", "#e85d75"][i % 3]}
+            stroke={CHART_COLORS.series[i % CHART_COLORS.series.length]}
+            strokeWidth={2}
             dot={false}
           />
         ))}

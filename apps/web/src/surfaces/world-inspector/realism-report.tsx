@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
 
 interface RealismReport {
   event_count: number;
@@ -31,56 +32,84 @@ export function RealismReportView({
       .finally(() => setLoading(false));
   }, [runId]);
 
-  if (loading) return <p>Loading realism report…</p>;
-  if (!report)
+  if (loading) {
     return (
-      <p data-testid="realism-report-unavailable">
-        Realism report not available yet — check back once the run completes.
-      </p>
+      <Card>
+        <CardBody>
+          <p className="text-text-secondary text-sm">Loading realism report…</p>
+        </CardBody>
+      </Card>
     );
+  }
+  if (!report) {
+    return (
+      <Card>
+        <CardBody>
+          <p data-testid="realism-report-unavailable" className="text-text-secondary text-sm">
+            Realism report not available yet — check back once the run completes.
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
-    <div className="realism-report" data-testid="realism-report">
-      <h2>Realism report</h2>
-      <p data-testid="realism-report-event-count">{report.event_count.toLocaleString()} events</p>
-
-      <section>
-        <h3>Amount distribution</h3>
-        <p>
-          mean {report.amount.mean.toFixed(2)} · stddev {report.amount.stddev.toFixed(2)} · range [
-          {report.amount.min.toFixed(2)}, {report.amount.max.toFixed(2)}]
+    <Card data-testid="realism-report">
+      <CardHeader>
+        <CardTitle>Realism report</CardTitle>
+        <p
+          data-testid="realism-report-event-count"
+          className="text-text text-lg font-semibold tabular-nums"
+        >
+          {report.event_count.toLocaleString()} events
         </p>
-      </section>
+      </CardHeader>
+      <CardBody>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <h4 className="text-text-secondary text-xs font-medium">Amount distribution</h4>
+            <p className="text-text mt-1 text-sm tabular-nums">
+              mean {report.amount.mean.toFixed(2)} · stddev {report.amount.stddev.toFixed(2)} ·
+              range [{report.amount.min.toFixed(2)}, {report.amount.max.toFixed(2)}]
+            </p>
+          </div>
 
-      <section>
-        <h3>Inter-arrival time</h3>
-        <p>
-          mean {report.inter_arrival_ms.mean.toFixed(0)}ms · stddev{" "}
-          {report.inter_arrival_ms.stddev.toFixed(0)}ms
-        </p>
-      </section>
+          <div>
+            <h4 className="text-text-secondary text-xs font-medium">Inter-arrival time</h4>
+            <p className="text-text mt-1 text-sm tabular-nums">
+              mean {report.inter_arrival_ms.mean.toFixed(0)}ms · stddev{" "}
+              {report.inter_arrival_ms.stddev.toFixed(0)}ms
+            </p>
+          </div>
 
-      <section>
-        <h3>Fraud — achieved vs. target</h3>
-        <p>
-          achieved {(report.fraud.achieved_rate * 100).toFixed(2)}%
-          {targetFraudRate !== undefined ? ` (target ${(targetFraudRate * 100).toFixed(2)}%)` : ""}
-        </p>
-        <ul>
-          {Object.entries(report.fraud.by_typology).map(([typology, count]) => (
-            <li key={typology}>
-              {typology}: {count.toLocaleString()}
-            </li>
-          ))}
-        </ul>
-      </section>
+          <div className="sm:col-span-2">
+            <h4 className="text-text-secondary text-xs font-medium">Fraud — achieved vs. target</h4>
+            <p className="text-text mt-1 text-sm tabular-nums">
+              achieved {(report.fraud.achieved_rate * 100).toFixed(2)}%
+              {targetFraudRate !== undefined
+                ? ` (target ${(targetFraudRate * 100).toFixed(2)}%)`
+                : ""}
+            </p>
+            <ul className="text-text-secondary mt-2 flex flex-col gap-1 text-sm">
+              {Object.entries(report.fraud.by_typology).map(([typology, count]) => (
+                <li key={typology} className="flex justify-between">
+                  <span>{typology}</span>
+                  <span className="tabular-nums">{count.toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
 
-      {report.benchmark_comparison && (
-        <section>
-          <h3>Benchmark comparison</h3>
-          <pre>{JSON.stringify(report.benchmark_comparison, null, 2)}</pre>
-        </section>
-      )}
-    </div>
+        {report.benchmark_comparison && (
+          <div className="mt-4">
+            <h4 className="text-text-secondary mb-1 text-xs font-medium">Benchmark comparison</h4>
+            <pre className="bg-hover text-text overflow-x-auto rounded-xl p-3 text-xs">
+              {JSON.stringify(report.benchmark_comparison, null, 2)}
+            </pre>
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../../api/client.js";
+import { Button } from "../../components/ui/button.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
 
 interface SpecVersionRow {
   id: string;
@@ -53,37 +55,46 @@ export function VersionHistory({ scenarioId }: { scenarioId: string }) {
   }
 
   return (
-    <div className="version-history">
-      <ul>
-        {versions.map((version) => (
-          <li key={version.id}>
-            v{version.version_no} · {version.author_type} ·{" "}
-            {new Date(version.created_at).toLocaleString()}{" "}
-            <button type="button" onClick={() => void compareToPrevious(version)}>
-              Compare to previous
-            </button>{" "}
-            <button type="button" onClick={() => void rollback(version)}>
-              Rollback to this
-            </button>
-          </li>
-        ))}
-      </ul>
-      {compareWith && diff && (
-        <div className="version-diff">
-          <h3>Diff for v{versions.find((v) => v.id === compareWith)?.version_no}</h3>
-          {diff.length === 0 ? (
-            <p>No prior version to compare against.</p>
-          ) : (
-            <ul>
-              {diff.map((entry) => (
-                <li key={entry.path}>
-                  <code>{entry.path}</code> — {entry.kind}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Version history</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <ul className="divide-border flex flex-col divide-y">
+          {versions.map((version) => (
+            <li key={version.id} className="flex flex-wrap items-center gap-3 py-3">
+              <span className="text-text-secondary flex-1">
+                v{version.version_no} · {version.author_type} ·{" "}
+                {new Date(version.created_at).toLocaleString()}
+              </span>
+              <Button variant="secondary" onClick={() => void compareToPrevious(version)}>
+                Compare to previous
+              </Button>
+              <Button variant="secondary" onClick={() => void rollback(version)}>
+                Rollback to this
+              </Button>
+            </li>
+          ))}
+        </ul>
+        {compareWith && diff && (
+          <div className="border-border mt-4 rounded-xl border p-4">
+            <h4 className="text-text mb-2 text-sm font-semibold">
+              Diff for v{versions.find((v) => v.id === compareWith)?.version_no}
+            </h4>
+            {diff.length === 0 ? (
+              <p className="text-text-secondary text-sm">No prior version to compare against.</p>
+            ) : (
+              <ul className="text-text-secondary flex flex-col gap-1 text-sm">
+                {diff.map((entry) => (
+                  <li key={entry.path}>
+                    <code className="text-text font-mono">{entry.path}</code> — {entry.kind}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }
