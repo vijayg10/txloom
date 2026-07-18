@@ -176,7 +176,10 @@ stories to pass.
 - **FR-009**: The suite MUST run automatically on every pull request as a required check that
   blocks merge on failure.
 - **FR-010**: The suite MUST complete in under 5 minutes end to end (environment provisioning,
-  all acceptance scenarios across all user stories, and teardown) under normal CI conditions.
+  all acceptance scenarios across all user stories, and teardown) under normal CI conditions,
+  where "normal" means a warm Docker layer cache. A cold-cache first run on a new cache key may
+  exceed this and is bounded separately by the CI job's hard timeout (see plan.md); sustained
+  warm-cache runs over 5 minutes are a defect, not accepted drift.
 - **FR-011**: The suite MUST tear down or reset all provisioned environment state (containers,
   volumes, queued jobs, produced files) between executions so that no execution is affected by
   state left over from a previous one.
@@ -214,8 +217,10 @@ stories to pass.
   caught by the suite before the change merges to the main branch.
 - **SC-005**: A divergence between MCP-driven and UI-driven outcomes for an equivalent scenario is
   caught by the suite before the change merges to the main branch.
-- **SC-006**: 100% of changes merged to the main branch have passed this suite as a required,
-  non-bypassable check.
+- **SC-006**: The suite is configured as a required status check on the main branch so that
+  changes cannot merge without it passing. (Enforcement that the check is non-bypassable depends
+  on a branch-protection setting applied by a repository administrator, which is outside what the
+  suite itself can guarantee.)
 
 ## Assumptions
 

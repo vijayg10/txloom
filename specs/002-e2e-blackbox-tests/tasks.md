@@ -81,7 +81,7 @@ MCP client, UI selector infrastructure, and the fixture.
 - [ ] T017 [P] Add behavior-neutral `data-testid` attributes to `apps/web/src/surfaces/stream-console/*` and `apps/web/src/surfaces/world-inspector/*` (post-run data panels)
 - [ ] T018 [P] Add behavior-neutral `data-testid` attributes to `apps/web/src/surfaces/ground-truth/*` and the realism-report panel (truth/label views, report metrics)
 - [ ] T019 [P] Add behavior-neutral `data-testid` attributes to `apps/web/src/surfaces/settings/*` (Connections & settings: sink connection create/edit, label-inclusion toggle/warning)
-- [ ] T020 Create `apps/e2e/src/ui.ts`: role/text-first locator helpers keyed to the test-ids from T015–T019, one helper group per surface (author spec, validate, launch run, wait-for-complete, open inspector/ground-truth, open report, configure sink, trigger export). Depends on T015–T019
+- [ ] T020 Create `apps/e2e/src/ui.ts`: role/text-first locator helpers keyed to the test-ids from T015–T019, one helper group per surface (author spec, validate, launch run, wait-for-complete, open inspector/ground-truth, open report, configure sink, trigger export). Then run `pnpm test && pnpm typecheck && pnpm lint` to confirm the T015–T019 test-id sweep is behavior-neutral and broke no existing unit/contract/component suite (Constitution Static + Test gates). Depends on T015–T019
 
 **Checkpoint**: Harness compiles under strict TS; `global-setup` brings the full stack healthy and `global-teardown` removes it cleanly.
 
@@ -131,9 +131,9 @@ observers confirming delivery.
 **Independent Test**: `pnpm test:e2e --grep @us3` against a fresh stack passes, comparing
 MCP-driven outcomes to their UI equivalents.
 
-- [ ] T031 [US3] Create `apps/e2e/tests/03-mcp-parity.spec.ts` tagged `@us3`; submit the tiny fixture spec via the MCP validate tool and assert validation results match what the UI shows for the same spec (acceptance scenario 1)
-- [ ] T032 [US3] Launch and complete a run via MCP scenario/run tools and assert it reaches the same completed state and equivalent output to the US1 UI-driven run (acceptance scenario 2). Depends on T031
-- [ ] T033 [US3] Retrieve ground truth and realism report via MCP read tools and assert they match the UI-rendered equivalents (acceptance scenario 3). Depends on T032
+- [ ] T031 [US3] Create `apps/e2e/tests/03-mcp-parity.spec.ts` tagged `@us3`. In a `beforeAll`, establish a self-contained UI baseline (author → validate → run the tiny fixture via `ui.ts`, capturing validation result, completion state, ground truth, and realism report) so the story passes under `--grep @us3` with no dependency on US1. Then submit the same fixture spec via the MCP validate tool and assert its validation result matches the baseline (acceptance scenario 1)
+- [ ] T032 [US3] Launch and complete a run via MCP scenario/run tools and assert it reaches the same completed state and equivalent output to the in-spec UI baseline (acceptance scenario 2). Depends on T031
+- [ ] T033 [US3] Retrieve ground truth and realism report via MCP read tools and assert they match the in-spec UI baseline (acceptance scenario 3). Depends on T032
 
 **Checkpoint**: US1–US3 each pass independently.
 
@@ -159,7 +159,7 @@ runs.
 **Purpose**: CI enforcement, budget guard, and diagnostics that span all stories.
 
 - [ ] T036 Add an `e2e` job to `.github/workflows/ci.yml` (runs on every PR and push to main): pnpm install → `playwright install chromium --with-deps` (cached) → compose build with buildx `type=gha` cache → `pnpm test:e2e` → upload Playwright report + compose logs as `e2e-artifacts` on failure (FR-009, FR-013, research.md R9)
-- [ ] T037 Set the CI `e2e` job `timeout-minutes: 10` hard stop and add a suite-internal assertion that the test phase stayed within the <5-minute warm-cache budget (FR-010, SC-002, contracts/suite-interface.md)
+- [ ] T037 Set the CI `e2e` job `timeout-minutes: 10` hard stop and add a suite-internal assertion that the test phase stayed within the <5-minute warm-cache budget; scope this timing assertion to CI only (gate on a CI env flag) so cold-cache local runs do not fail spuriously (FR-010, FR-012, SC-002, contracts/suite-interface.md)
 - [ ] T038 [P] Verify flake reporting end-to-end: confirm a pass-on-retry scenario surfaces as `flaky` (not silently `passed`) in both the Playwright report and CI summary (FR-014)
 - [ ] T039 [P] Document in quickstart.md the one-time repo-admin step to mark `e2e` a required status check in `main` branch protection (SC-006), and confirm the `E2E_KEEP_STACK` / `E2E_BASE_URL` env vars behave as the contract states
 - [ ] T040 Run the full `pnpm test:e2e` locally per quickstart.md and confirm green end-to-end within budget, then confirm `CLAUDE.md` still points at this feature's plan

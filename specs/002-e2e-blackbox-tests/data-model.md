@@ -63,11 +63,13 @@ is a passing terminal state that must remain visible in the report (never collap
 provision (compose up --wait, project txloom-e2e)
   → US1 golden path (UI)            — creates scenario A, run A1
   → US2 sinks (UI/API-configured)   — creates run A2 with all four sinks attached
-  → US3 MCP parity                  — creates scenario B via MCP, run B1; compares vs A1 outcomes
+  → US3 MCP parity                  — establishes its own UI baseline in beforeAll, then creates
+                                       scenario B via MCP, run B1; compares MCP vs that baseline
   → US4 determinism                 — creates runs C1, C2 (same seed+spec); byte-diffs outputs
 teardown (compose down -v, scrub ./data)
 ```
 
-Stories are sequential (`workers: 1`) — they share one stack, and US3 reads US1's outcomes.
-Each story remains independently runnable via `--grep` against a fresh stack, satisfying the
-spec's independent-test requirement.
+Stories are sequential (`workers: 1`) and share one stack. US3 does not read US1's run; it
+establishes its own UI baseline in `beforeAll` and compares its MCP-driven outcomes against that.
+Each story therefore remains independently runnable via `--grep` against a fresh stack,
+satisfying the spec's independent-test requirement.
