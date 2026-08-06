@@ -36,7 +36,7 @@ export const listTemplatesTool: AgentToolDefinition<Record<string, never>> = {
   restEndpoint: { method: "GET", path: "/templates" },
 };
 
-export const validateSpecInputShape = { spec: z.unknown() };
+export const validateSpecInputShape = { spec: z.record(z.string(), z.unknown()) };
 export const validateSpecTool: AgentToolDefinition<typeof validateSpecInputShape> = {
   name: "validate_spec",
   description:
@@ -59,7 +59,10 @@ export const createScenarioTool: AgentToolDefinition<typeof createScenarioInputS
   restEndpoint: { method: "POST", path: "/scenarios" },
 };
 
-export const saveSpecVersionInputShape = { scenario_id: z.string().min(1), spec: z.unknown() };
+export const saveSpecVersionInputShape = {
+  scenario_id: z.string().min(1),
+  spec: z.record(z.string(), z.unknown()),
+};
 export const saveSpecVersionTool: AgentToolDefinition<typeof saveSpecVersionInputShape> = {
   name: "save_spec_version",
   description:
