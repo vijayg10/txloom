@@ -1,0 +1,446 @@
+{
+  "uid": "txloom-analytics",
+  "title": "TxLoom Stream Analytics",
+  "tags": [
+    "txloom"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Events / sec",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT uniqExactMerge(events) / (dateDiff('second', $__fromTime, $__toTime) + 1) AS eps\nFROM txloom_analytics.events_1m\nWHERE $__timeFilter(minute)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Events",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT uniqExactMerge(events) AS events\nFROM txloom_analytics.events_1m\nWHERE $__timeFilter(minute)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Amount",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT sumMerge(amount) AS amount\nFROM txloom_analytics.events_1m\nWHERE $__timeFilter(minute)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "description": "Includes duplicate deliveries (rollup)."
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Duplicate deliveries",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT count() - uniqExact(event_id) AS duplicates\nFROM txloom_analytics.events_raw\nWHERE $__timeFilter(ts)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Events per minute by type",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT minute AS time, type, uniqExactMerge(events) AS events\nFROM txloom_analytics.events_1m\nWHERE $__timeFilter(minute)\nGROUP BY time, type\nORDER BY time"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Amount per minute by currency",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT minute AS time, currency, sumMerge(amount) AS amount\nFROM txloom_analytics.events_1m\nWHERE $__timeFilter(minute)\nGROUP BY time, currency\nORDER BY time"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Events per minute by status",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT minute AS time, status, uniqExactMerge(events) AS events\nFROM txloom_analytics.events_1m\nWHERE $__timeFilter(minute)\nGROUP BY time, status\nORDER BY time"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Events per minute by channel",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT minute AS time, channel, uniqExactMerge(events) AS events\nFROM txloom_analytics.events_1m\nWHERE $__timeFilter(minute)\nGROUP BY time, channel\nORDER BY time"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Top merchants",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT merchant_id, anyLast(merchant_name) AS name, currency,\n       uniqExactMerge(events) AS n_events, sumMerge(amount) AS total_amount,\n       round(uniqExactIfMerge(declined) / n_events, 4) AS decline_rate,\n       uniqMerge(consumers) AS n_consumers\nFROM txloom_analytics.merchant_1h\nWHERE hour >= toStartOfHour($__fromTime) AND hour <= $__toTime\nGROUP BY merchant_id, currency\nORDER BY n_events DESC\nLIMIT 20"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Top consumers by spend",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT consumer_id, any(consumer_name) AS name, currency, count() AS n_events,\n       sumIf(amount, status = 'approved') AS approved_amount,\n       countIf(status = 'declined') AS n_declined\nFROM txloom_analytics.events\nWHERE $__timeFilter(ts)\nGROUP BY consumer_id, currency\nORDER BY approved_amount DESC\nLIMIT 20"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Velocity: most active consumers (last 5 min)",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT consumer_id, count() AS txn_5m, sum(amount) AS amount_5m,\n       uniqExact(merchant_id) AS merchants_5m, countIf(status = 'declined') AS declines_5m\nFROM txloom_analytics.events\nWHERE ts >= now() - INTERVAL 5 MINUTE\nGROUP BY consumer_id\nORDER BY txn_5m DESC\nLIMIT 20"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Ingestion lag (p50 / p90 / p99, ms)",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT toStartOfMinute(ingested_at) AS time,\n       quantile(0.5)(dateDiff('millisecond', ts, ingested_at)) AS p50,\n       quantile(0.9)(dateDiff('millisecond', ts, ingested_at)) AS p90,\n       quantile(0.99)(dateDiff('millisecond', ts, ingested_at)) AS p99\nFROM txloom_analytics.events_raw\nWHERE $__timeFilter(ingested_at)\nGROUP BY time\nORDER BY time"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+<!--
+  Kafka source for the analytics stack. Values come from the container's
+  environment (set in docker-compose-analytics.yaml), so the topic can be
+  changed without editing SQL. Used by `ENGINE = Kafka(txloom_kafka)` in
+  initdb/01_events.sql.
+-->
+<clickhouse>
+    <named_collections>
+        <txloom_kafka>
+            <kafka_broker_list from_env="ANALYTICS_KAFKA_BROKERS"/>
+            <kafka_topic_list from_env="ANALYTICS_KAFKA_TOPIC"/>
+            <kafka_group_name from_env="ANALYTICS_KAFKA_GROUP"/>
+            <!-- Each message lands as one String column; typed fields are
+                 extracted in the materialized view so unknown/renamed
+                 scenario fields never break ingestion. -->
+            <kafka_format>JSONAsString</kafka_format>
+            <kafka_num_consumers>1</kafka_num_consumers>
+            <!-- Skip up to N unparseable (non-JSON) messages per block
+                 instead of stalling the consumer. -->
+            <kafka_skip_broken_messages>1000</kafka_skip_broken_messages>
+            <kafka>
+                <!-- First start of the consumer group backfills the topic. -->
+                <auto_offset_reset>earliest</auto_offset_reset>
+            </kafka>
+        </txloom_kafka>
+    </named_collections>
+</clickhouse>

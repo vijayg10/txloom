@@ -1,0 +1,16 @@
+<!--
+  Merged into the `txloom` user that the image's entrypoint generates from
+  CLICKHOUSE_USER/CLICKHOUSE_PASSWORD. Without these, creating a table with
+  `ENGINE = Kafka(txloom_kafka)` fails with
+  "Not enough privileges ... grant NAMED COLLECTION ON txloom_kafka".
+  The element name must match CLICKHOUSE_USER, which is why the username is
+  fixed in docker-compose-analytics.yaml.
+-->
+<clickhouse>
+    <users>
+        <txloom>
+            <named_collection_control>1</named_collection_control>
+            <show_named_collections>1</show_named_collections>
+        </txloom>
+    </users>
+</clickhouse>

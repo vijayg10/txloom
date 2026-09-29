@@ -103,13 +103,25 @@ services:
   # RabbitMQ needs no such split: `worker`/`api` reach it at `rabbitmq:5672`
   # (compose DNS) and the host reaches it at `localhost:5672`, both valid —
   # AMQP has no advertised-listener redirect step.
-  rabbitmq:
-    image: rabbitmq:4-management-alpine
+  # rabbitmq:
+  #   image: rabbitmq:4-management-alpine
+  #   profiles: ["demo-brokers"]
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5672:5672"
+  #     - "15672:15672"
+
+  kafka-mon-ui:
+    image: docker.redpanda.com/redpandadata/console:latest
     profiles: ["demo-brokers"]
-    restart: unless-stopped
+    deploy:
+      replicas: 1
+    restart: on-failure
+    hostname: kafka-mon-ui
     ports:
-      - "5672:5672"
-      - "15672:15672"
+    - "9080:8080"
+    environment:
+      - KAFKA_BROKERS=kafka:29092
 
 volumes:
   mysql-data:
