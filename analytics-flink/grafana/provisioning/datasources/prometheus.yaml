@@ -1,0 +1,12 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: txloom-flink-prometheus
+    type: prometheus
+    isDefault: false
+    editable: true
+    access: proxy
+    url: http://flink-prometheus:9090
+    jsonData:
+      timeInterval: 15s

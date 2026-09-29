@@ -1,0 +1,284 @@
+# Flink stream-processing stack: Kafka -> Flink (dedup/ordering, SQL +
+# DataStream jobs) -> Kafka output topics -> ClickHouse -> Grafana, plus
+# Prometheus for Flink's own runtime metrics.
+#
+# This is an overlay on docker-compose.yml, like docker-compose-analytics.yaml
+# — it reuses the demo `kafka` broker (kafka:29092) but is otherwise a fully
+# separate stack (distinct service names, ports, volumes, ClickHouse DB) so
+# it can run side by side with docker-compose-analytics.yaml. Start with:
+#
+#   docker compose -f docker-compose.yml -f docker-compose-flink.yaml \
+#     --profile demo-brokers up -d
+#
+# Flink jobs are NOT submitted automatically — flink-jobs-build only builds
+# the jar. Submit jobs with analytics-flink/bin/submit.sh or submit-all.sh
+# once the cluster is up. See analytics-flink/README.md.
+
+services:
+  # One-shot: create txloom-events (if the demo broker hasn't already
+  # auto-created it with 1 partition) and every txloom-flink-* topic this
+  # stack reads/writes. Idempotent (--if-not-exists) so it's safe on every
+  # `up`.
+  flink-kafka-init:
+    image: apache/kafka:3.9.0
+    profiles: ["demo-brokers"]
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euo pipefail
+        BOOTSTRAP=kafka:29092
+        for i in $(seq 1 30); do
+          /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server "$$BOOTSTRAP" >/dev/null 2>&1 && break
+          echo "waiting for kafka ($$i/30)..." && sleep 2
+        done
+        create() {
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$$BOOTSTRAP" \
+            --create --if-not-exists --topic "$$1" --partitions "$$2" --replication-factor 1 "$${@:3}"
+        }
+        create txloom-events 4
+        create txloom-flink-clean 4
+        create txloom-flink-quality 4
+        create txloom-flink-alerts 4
+        create txloom-flink-features 4
+        create txloom-flink-sessions 4
+        create txloom-flink-merchant-ref 1 --config cleanup.policy=compact
+        echo "topics ready."
+    depends_on:
+      kafka:
+        condition: service_started
+
+  flink-minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data --console-address ":9101"
+    ports:
+      - "9100:9000" # S3 API
+      - "9101:9101" # console
+    environment:
+      MINIO_ROOT_USER: ${FLINK_MINIO_ACCESS_KEY:-flinkadmin}
+      MINIO_ROOT_PASSWORD: ${FLINK_MINIO_SECRET_KEY:-flinkadmin123}
+    volumes:
+      - flink-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  flink-minio-init:
+    image: minio/mc
+    profiles: ["demo-brokers"]
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mc alias set local http://flink-minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing local/flink-state
+    environment:
+      MINIO_ROOT_USER: ${FLINK_MINIO_ACCESS_KEY:-flinkadmin}
+      MINIO_ROOT_PASSWORD: ${FLINK_MINIO_SECRET_KEY:-flinkadmin123}
+    depends_on:
+      flink-minio:
+        condition: service_healthy
+
+  # Builds the shaded jobs jar into the flink-jobs-jar volume so the CLI
+  # (in flink-jobmanager) can `flink run` it. ~/.m2 is a named volume so
+  # `up` after the first run only re-resolves changed dependencies.
+  flink-jobs-build:
+    image: maven:3.9-eclipse-temurin-17
+    profiles: ["demo-brokers"]
+    restart: "no"
+    working_dir: /workspace
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euo pipefail
+        mvn -B -q -DskipTests package
+        cp target/txloom-flink-jobs.jar /output/txloom-flink-jobs.jar
+        echo "built /output/txloom-flink-jobs.jar"
+    volumes:
+      - ./analytics-flink/jobs/java:/workspace:ro
+      - flink-maven-repo:/root/.m2
+      - flink-jobs-jar:/output
+
+  flink-jobmanager:
+    build:
+      context: ./analytics-flink/flink
+    restart: unless-stopped
+    ports:
+      - "8081:8081" # Web UI / REST
+    command: jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        s3.access-key: ${FLINK_MINIO_ACCESS_KEY:-flinkadmin}
+        s3.secret-key: ${FLINK_MINIO_SECRET_KEY:-flinkadmin123}
+    volumes:
+      - ./analytics-flink/flink/config.yaml:/opt/flink/conf/config.yaml:ro
+      - flink-jobs-jar:/opt/flink/usrlib:ro
+    depends_on:
+      flink-minio-init:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_started
+
+  # Two explicitly-named TaskManagers (rather than `--scale`) so Prometheus
+  # can target each by a stable DNS name — see analytics-flink/prometheus/prometheus.yml.
+  flink-taskmanager-1:
+    build:
+      context: ./analytics-flink/flink
+    restart: unless-stopped
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.host: flink-taskmanager-1
+        s3.access-key: ${FLINK_MINIO_ACCESS_KEY:-flinkadmin}
+        s3.secret-key: ${FLINK_MINIO_SECRET_KEY:-flinkadmin123}
+    volumes:
+      - ./analytics-flink/flink/config.yaml:/opt/flink/conf/config.yaml:ro
+      - flink-jobs-jar:/opt/flink/usrlib:ro
+    depends_on:
+      - flink-jobmanager
+
+  flink-taskmanager-2:
+    build:
+      context: ./analytics-flink/flink
+    restart: unless-stopped
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.host: flink-taskmanager-2
+        s3.access-key: ${FLINK_MINIO_ACCESS_KEY:-flinkadmin}
+        s3.secret-key: ${FLINK_MINIO_SECRET_KEY:-flinkadmin123}
+    volumes:
+      - ./analytics-flink/flink/config.yaml:/opt/flink/conf/config.yaml:ro
+      - flink-jobs-jar:/opt/flink/usrlib:ro
+    depends_on:
+      - flink-jobmanager
+
+  flink-sql-gateway:
+    build:
+      context: ./analytics-flink/flink
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    entrypoint: ["/opt/flink/bin/sql-gateway.sh"]
+    command: ["start-foreground", "-Dsql-gateway.endpoint.rest.address=0.0.0.0"]
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        rest.address: flink-jobmanager
+        s3.access-key: ${FLINK_MINIO_ACCESS_KEY:-flinkadmin}
+        s3.secret-key: ${FLINK_MINIO_SECRET_KEY:-flinkadmin123}
+    volumes:
+      - ./analytics-flink/flink/config.yaml:/opt/flink/conf/config.yaml:ro
+      - ./analytics-flink/jobs/sql:/opt/flink/sql-jobs:ro
+    depends_on:
+      - flink-jobmanager
+
+  # Interactive only: `docker compose -f docker-compose.yml -f docker-compose-flink.yaml run --rm flink-sql-client`
+  flink-sql-client:
+    build:
+      context: ./analytics-flink/flink
+    profiles: ["flink-tools"]
+    entrypoint: ["/opt/flink/bin/sql-client.sh"]
+    command: ["gateway", "--endpoint", "http://flink-sql-gateway:8083"]
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        rest.address: flink-jobmanager
+    volumes:
+      - ./analytics-flink/flink/config.yaml:/opt/flink/conf/config.yaml:ro
+      - ./analytics-flink/jobs/sql:/opt/flink/sql-jobs:ro
+    depends_on:
+      - flink-sql-gateway
+
+  flink-clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    restart: unless-stopped
+    ports:
+      - "8124:8123" # HTTP interface + /play SQL UI
+      - "9010:9000" # native protocol
+    environment:
+      CLICKHOUSE_DB: txloom_flink
+      # Username fixed: analytics-flink/clickhouse/users.d/named-collections.xml
+      # grants it access to the Kafka named collections by name.
+      CLICKHOUSE_USER: txloom_flink
+      CLICKHOUSE_PASSWORD: ${FLINK_CH_PASSWORD:-txloom}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+      # Read by the named collections in analytics-flink/clickhouse/config.d/kafka.xml —
+      # one collection (and consumer group) per topic this stack reads.
+      FLINK_CH_KAFKA_BROKERS: ${FLINK_CH_KAFKA_BROKERS:-kafka:29092}
+      FLINK_CH_KAFKA_TOPIC_RAW: txloom-events
+      FLINK_CH_KAFKA_GROUP_RAW: txloom-flink-ch-raw
+      FLINK_CH_KAFKA_TOPIC_CLEAN: txloom-flink-clean
+      FLINK_CH_KAFKA_GROUP_CLEAN: txloom-flink-ch-clean
+      FLINK_CH_KAFKA_TOPIC_QUALITY: txloom-flink-quality
+      FLINK_CH_KAFKA_GROUP_QUALITY: txloom-flink-ch-quality
+      FLINK_CH_KAFKA_TOPIC_ALERTS: txloom-flink-alerts
+      FLINK_CH_KAFKA_GROUP_ALERTS: txloom-flink-ch-alerts
+      FLINK_CH_KAFKA_TOPIC_FEATURES: txloom-flink-features
+      FLINK_CH_KAFKA_GROUP_FEATURES: txloom-flink-ch-features
+      FLINK_CH_KAFKA_TOPIC_SESSIONS: txloom-flink-sessions
+      FLINK_CH_KAFKA_GROUP_SESSIONS: txloom-flink-ch-sessions
+    volumes:
+      - flink-clickhouse-data:/var/lib/clickhouse
+      - ./analytics-flink/clickhouse/config.d/kafka.xml:/etc/clickhouse-server/config.d/kafka.xml:ro
+      - ./analytics-flink/clickhouse/users.d/named-collections.xml:/etc/clickhouse-server/users.d/named-collections.xml:ro
+      - ./analytics-flink/clickhouse/initdb:/docker-entrypoint-initdb.d:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client -u \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" -q 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      kafka:
+        condition: service_started
+
+  flink-prometheus:
+    image: prom/prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./analytics-flink/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - flink-prometheus-data:/prometheus
+    depends_on:
+      - flink-jobmanager
+      - flink-taskmanager-1
+      - flink-taskmanager-2
+
+  flink-grafana:
+    image: grafana/grafana:12.1.1
+    restart: unless-stopped
+    ports:
+      - "3002:3000" # 3000 = app, 3001 = analytics/ Grafana
+    environment:
+      GF_PLUGINS_PREINSTALL: grafana-clickhouse-datasource
+      GF_SECURITY_ADMIN_USER: ${FLINK_GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${FLINK_GRAFANA_PASSWORD:-admin}
+      FLINK_CH_PASSWORD: ${FLINK_CH_PASSWORD:-txloom}
+    volumes:
+      - flink-grafana-data:/var/lib/grafana
+      - ./analytics-flink/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./analytics-flink/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      flink-clickhouse:
+        condition: service_healthy
+      flink-prometheus:
+        condition: service_started
+
+volumes:
+  flink-minio-data:
+  flink-maven-repo:
+  flink-jobs-jar:
+  flink-clickhouse-data:
+  flink-prometheus-data:
+  flink-grafana-data:

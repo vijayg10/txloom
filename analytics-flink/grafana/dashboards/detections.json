@@ -1,0 +1,605 @@
+{
+  "uid": "txloom-flink-detections",
+  "title": "TxLoom Flink Detections",
+  "tags": [
+    "txloom",
+    "flink"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Alerts",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT uniqExact(alert_id) AS alerts\nFROM txloom_flink.alerts\nWHERE $__timeFilter(emitted_at)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Detectors firing",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT uniqExact(detector) AS detectors\nFROM txloom_flink.alerts\nWHERE $__timeFilter(emitted_at)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Duplicates dropped",
+      "description": "raw_distinct_events - clean_events, per raw_vs_clean.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT sum(duplicates_dropped) AS duplicates_dropped\nFROM txloom_flink.raw_vs_clean\nWHERE $__timeFilter(minute)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Late events",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT sum(late_events) AS late_events\nFROM txloom_flink.raw_vs_clean\nWHERE $__timeFilter(minute)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Alerts per minute by detector",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT toStartOfMinute(emitted_at) AS time, detector, uniqExact(alert_id) AS alerts\nFROM txloom_flink.alerts\nWHERE $__timeFilter(emitted_at)\nGROUP BY time, detector\nORDER BY time"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Raw vs clean throughput (events/min)",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT minute AS time, raw_distinct_events, clean_events\nFROM txloom_flink.raw_vs_clean\nWHERE $__timeFilter(minute)\nORDER BY time"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Late / clock-skew events per minute",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT toStartOfMinute(ts) AS time, kind, count() AS events\nFROM txloom_flink.quality\nWHERE $__timeFilter(ts) AND kind IN ('late', 'clock_skew')\nGROUP BY time, kind\nORDER BY time"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Velocity: consumer spend 5m (p50/p90/p99)",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT toStartOfMinute(ts) AS time,\n       quantile(0.5)(toFloat64(consumer_spend_5m)) AS p50,\n       quantile(0.9)(toFloat64(consumer_spend_5m)) AS p90,\n       quantile(0.99)(toFloat64(consumer_spend_5m)) AS p99\nFROM txloom_flink.features\nWHERE $__timeFilter(ts)\nGROUP BY time\nORDER BY time"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Latest alerts",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT emitted_at, detector, entity_type, entity_id, round(score, 4) AS score,\n       window_start, window_end, merchant_risk_tier\nFROM txloom_flink.alerts FINAL\nWHERE $__timeFilter(emitted_at)\nORDER BY emitted_at DESC\nLIMIT 50"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Top flagged consumers",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT entity_id AS consumer_id, count() AS n_alerts, uniqExact(detector) AS n_detectors,\n       max(score) AS max_score, max(emitted_at) AS last_alert\nFROM txloom_flink.alerts FINAL\nWHERE entity_type = 'consumer' AND $__timeFilter(emitted_at)\nGROUP BY entity_id\nORDER BY n_alerts DESC\nLIMIT 20"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Top flagged merchants",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT entity_id AS merchant_id, any(merchant_risk_tier) AS risk_tier, count() AS n_alerts,\n       uniqExact(detector) AS n_detectors, max(score) AS max_score\nFROM txloom_flink.alerts FINAL\nWHERE entity_type = 'merchant' AND $__timeFilter(emitted_at)\nGROUP BY entity_id\nORDER BY n_alerts DESC\nLIMIT 20"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Recent sessions",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT consumer_id, session_start, session_end, event_count, total_spend,\n       duration_seconds, channels\nFROM txloom_flink.sessions FINAL\nWHERE $__timeFilter(session_start)\nORDER BY session_start DESC\nLIMIT 50"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Sessions",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT count() AS sessions\nFROM txloom_flink.sessions FINAL\nWHERE $__timeFilter(session_start)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Avg session duration",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 40,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT avg(duration_seconds) AS avg_duration_seconds\nFROM txloom_flink.sessions FINAL\nWHERE $__timeFilter(session_start)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Avg spend per session",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT avg(total_spend) AS avg_spend\nFROM txloom_flink.sessions FINAL\nWHERE $__timeFilter(session_start)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Distinct consumers sessioned",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "txloom-flink-clickhouse"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 40,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "txloom-flink-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT uniqExact(consumer_id) AS consumers\nFROM txloom_flink.sessions FINAL\nWHERE $__timeFilter(session_start)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ]
+}

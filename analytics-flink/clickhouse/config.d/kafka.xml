@@ -1,0 +1,101 @@
+<!--
+  Kafka sources for the Flink stack: one named collection per topic Flink
+  writes, plus one for the raw txloom-events topic (read independently of
+  the analytics/ stack's own consumer group). Values come from the
+  container's environment (set in docker-compose-flink.yaml), so brokers/
+  topics can change without editing SQL. Used by `ENGINE = Kafka(...)` in
+  initdb/01_raw.sql and initdb/02_flink_outputs.sql.
+
+  Flink's outputs are written by transactional, exactly-once KafkaSinks, so
+  every collection below (other than the raw topic, which has no
+  transactional producer) sets isolation_level = read_committed — otherwise
+  ClickHouse would also read uncommitted/aborted transaction records.
+-->
+<clickhouse>
+    <named_collections>
+        <txloom_flink_raw>
+            <kafka_broker_list from_env="FLINK_CH_KAFKA_BROKERS"/>
+            <kafka_topic_list from_env="FLINK_CH_KAFKA_TOPIC_RAW"/>
+            <kafka_group_name from_env="FLINK_CH_KAFKA_GROUP_RAW"/>
+            <!-- Each message lands as one String column; typed fields are
+                 extracted in the materialized view so unknown/renamed
+                 scenario fields never break ingestion. -->
+            <kafka_format>JSONAsString</kafka_format>
+            <kafka_num_consumers>1</kafka_num_consumers>
+            <!-- Skip up to N unparseable (non-JSON) messages per block
+                 instead of stalling the consumer. -->
+            <kafka_skip_broken_messages>1000</kafka_skip_broken_messages>
+            <kafka>
+                <!-- First start of the consumer group backfills the topic. -->
+                <auto_offset_reset>earliest</auto_offset_reset>
+            </kafka>
+        </txloom_flink_raw>
+
+        <txloom_flink_clean>
+            <kafka_broker_list from_env="FLINK_CH_KAFKA_BROKERS"/>
+            <kafka_topic_list from_env="FLINK_CH_KAFKA_TOPIC_CLEAN"/>
+            <kafka_group_name from_env="FLINK_CH_KAFKA_GROUP_CLEAN"/>
+            <kafka_format>JSONAsString</kafka_format>
+            <kafka_num_consumers>1</kafka_num_consumers>
+            <kafka_skip_broken_messages>1000</kafka_skip_broken_messages>
+            <kafka>
+                <auto_offset_reset>earliest</auto_offset_reset>
+                <!-- J1's KafkaSink is transactional (exactly-once); only
+                     ever read what it has committed. -->
+                <isolation_level>read_committed</isolation_level>
+            </kafka>
+        </txloom_flink_clean>
+
+        <txloom_flink_quality>
+            <kafka_broker_list from_env="FLINK_CH_KAFKA_BROKERS"/>
+            <kafka_topic_list from_env="FLINK_CH_KAFKA_TOPIC_QUALITY"/>
+            <kafka_group_name from_env="FLINK_CH_KAFKA_GROUP_QUALITY"/>
+            <kafka_format>JSONAsString</kafka_format>
+            <kafka_num_consumers>1</kafka_num_consumers>
+            <kafka_skip_broken_messages>1000</kafka_skip_broken_messages>
+            <kafka>
+                <auto_offset_reset>earliest</auto_offset_reset>
+                <isolation_level>read_committed</isolation_level>
+            </kafka>
+        </txloom_flink_quality>
+
+        <txloom_flink_alerts>
+            <kafka_broker_list from_env="FLINK_CH_KAFKA_BROKERS"/>
+            <kafka_topic_list from_env="FLINK_CH_KAFKA_TOPIC_ALERTS"/>
+            <kafka_group_name from_env="FLINK_CH_KAFKA_GROUP_ALERTS"/>
+            <kafka_format>JSONAsString</kafka_format>
+            <kafka_num_consumers>1</kafka_num_consumers>
+            <kafka_skip_broken_messages>1000</kafka_skip_broken_messages>
+            <kafka>
+                <auto_offset_reset>earliest</auto_offset_reset>
+                <isolation_level>read_committed</isolation_level>
+            </kafka>
+        </txloom_flink_alerts>
+
+        <txloom_flink_features>
+            <kafka_broker_list from_env="FLINK_CH_KAFKA_BROKERS"/>
+            <kafka_topic_list from_env="FLINK_CH_KAFKA_TOPIC_FEATURES"/>
+            <kafka_group_name from_env="FLINK_CH_KAFKA_GROUP_FEATURES"/>
+            <kafka_format>JSONAsString</kafka_format>
+            <kafka_num_consumers>1</kafka_num_consumers>
+            <kafka_skip_broken_messages>1000</kafka_skip_broken_messages>
+            <kafka>
+                <auto_offset_reset>earliest</auto_offset_reset>
+                <isolation_level>read_committed</isolation_level>
+            </kafka>
+        </txloom_flink_features>
+
+        <txloom_flink_sessions>
+            <kafka_broker_list from_env="FLINK_CH_KAFKA_BROKERS"/>
+            <kafka_topic_list from_env="FLINK_CH_KAFKA_TOPIC_SESSIONS"/>
+            <kafka_group_name from_env="FLINK_CH_KAFKA_GROUP_SESSIONS"/>
+            <kafka_format>JSONAsString</kafka_format>
+            <kafka_num_consumers>1</kafka_num_consumers>
+            <kafka_skip_broken_messages>1000</kafka_skip_broken_messages>
+            <kafka>
+                <auto_offset_reset>earliest</auto_offset_reset>
+                <isolation_level>read_committed</isolation_level>
+            </kafka>
+        </txloom_flink_sessions>
+    </named_collections>
+</clickhouse>

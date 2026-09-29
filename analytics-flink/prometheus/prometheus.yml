@@ -1,0 +1,22 @@
+# Scrapes the Flink session cluster's built-in Prometheus reporter
+# (metrics.reporter.prom, port 9249 on every JM/TM — see
+# analytics-flink/PLAN.md "Key Flink config"). Mounted into flink-prometheus
+# at /etc/prometheus/prometheus.yml.
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # JobManager: one instance, one compose service.
+  - job_name: flink-jobmanager
+    static_configs:
+      - targets: ["flink-jobmanager:9249"]
+
+  # TaskManagers: two explicitly-named compose services (not a scaled
+  # service — docker compose doesn't reliably hand out multiple A records
+  # for `--scale`, so DNS SD against a shared name isn't robust here).
+  - job_name: flink-taskmanager
+    static_configs:
+      - targets:
+          - "flink-taskmanager-1:9249"
+          - "flink-taskmanager-2:9249"

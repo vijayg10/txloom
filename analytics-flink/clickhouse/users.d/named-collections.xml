@@ -1,0 +1,17 @@
+<!--
+  Merged into the `txloom_flink` user that the image's entrypoint generates
+  from CLICKHOUSE_USER/CLICKHOUSE_PASSWORD. Without these, creating a table
+  with `ENGINE = Kafka(txloom_flink_raw)` (or any other collection in
+  config.d/kafka.xml) fails with
+  "Not enough privileges ... grant NAMED COLLECTION ON txloom_flink_raw".
+  The element name must match CLICKHOUSE_USER, which is why the username is
+  fixed in docker-compose-flink.yaml.
+-->
+<clickhouse>
+    <users>
+        <txloom_flink>
+            <named_collection_control>1</named_collection_control>
+            <show_named_collections>1</show_named_collections>
+        </txloom_flink>
+    </users>
+</clickhouse>

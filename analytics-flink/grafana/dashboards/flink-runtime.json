@@ -1,0 +1,477 @@
+{
+  "uid": "txloom-flink-runtime",
+  "title": "Flink Runtime",
+  "tags": [
+    "txloom",
+    "flink"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Job restarts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "sum(flink_jobmanager_job_numRestarts)",
+          "legendFormat": "restarts",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Completed checkpoints",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "sum(flink_jobmanager_job_numberOfCompletedCheckpoints)",
+          "legendFormat": "completed",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Failed checkpoints",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "sum(flink_jobmanager_job_numberOfFailedCheckpoints)",
+          "legendFormat": "failed",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Last checkpoint duration",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "max(flink_jobmanager_job_lastCheckpointDuration)",
+          "legendFormat": "duration",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Records in/out per operator",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "flink_taskmanager_job_task_operator_numRecordsInPerSecond",
+          "legendFormat": "in: {{task_name}} / {{operator_name}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "flink_taskmanager_job_task_operator_numRecordsOutPerSecond",
+          "legendFormat": "out: {{task_name}} / {{operator_name}}"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Busy / backpressured time per task (ms per second)",
+      "description": "busyTimeMsPerSecond / backPressuredTimeMsPerSecond — standard Flink task IO metrics; not verified against a live cluster, double-check label names once running.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "flink_taskmanager_job_task_busyTimeMsPerSecond",
+          "legendFormat": "busy: {{task_name}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "flink_taskmanager_job_task_backPressuredTimeMsPerSecond",
+          "legendFormat": "backpressured: {{task_name}}"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Backpressure indicator by task",
+      "description": "flink_taskmanager_job_task_isBackPressured, 0/1 gauge sampled by the JM's backpressure tracker.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "flink_taskmanager_job_task_isBackPressured",
+          "legendFormat": "{{task_name}}"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Checkpoint duration",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "flink_jobmanager_job_lastCheckpointDuration",
+          "legendFormat": "{{job_name}}"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Checkpoint size",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "flink_jobmanager_job_lastCheckpointSize",
+          "legendFormat": "{{job_name}}"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "RocksDB state size per operator",
+      "description": "flink_taskmanager_job_task_operator_rocksdb_estimate_live_data_size — requires state.backend.rocksdb.metrics.estimate-live-data-size: true; metric name/availability not verified against a live cluster, double-check once running.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "flink_taskmanager_job_task_operator_rocksdb_estimate_live_data_size",
+          "legendFormat": "{{task_name}} / {{operator_name}}"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Watermark lag (wall clock - input watermark)",
+      "description": "currentInputWatermark is epoch ms; lag = time() - watermark/1000. Negative/huge values on an idle source are expected (watermark stays at Long.MIN_VALUE) — see PLAN.md lab 4.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "time() - (flink_taskmanager_job_task_currentInputWatermark / 1000)",
+          "legendFormat": "{{task_name}}"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Kafka consumer lag (records)",
+      "description": "flink_taskmanager_job_task_operator_KafkaSourceReader_KafkaConsumer_records_lag_max — passthrough of the Kafka client's records-lag-max JMX metric via Flink's KafkaSource metric group; exact metric name/label set not verified against a live cluster, double-check once running.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "txloom-flink-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "txloom-flink-prometheus"
+          },
+          "expr": "flink_taskmanager_job_task_operator_KafkaSourceReader_KafkaConsumer_records_lag_max",
+          "legendFormat": "{{task_name}} / {{topic}}"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    }
+  ]
+}
