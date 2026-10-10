@@ -26,13 +26,16 @@ function buildUrl(config: RabbitConnectionConfig, secrets: RabbitConnectionSecre
 }
 
 /**
- * RabbitMQ publisher (D9, research R10): a confirm-channel wrapper so `publish()`'s
- * write-buffer-full signal maps directly onto `SinkPublishResult.backpressure` — amqplib's
- * `channel.publish()` returns `false` exactly when the caller should pause until `drain`
- * fires — plus lazy reconnect, and a `probe()` that checks the target exchange.
+ * RabbitMQ publisher (D9, research R10, Sink v2): a confirm-channel wrapper. `publish` resolves
+ * only when the broker confirms the message, and a nack resolves `ok: false`. amqplib's
+ * `channel.publish()` returns `false` exactly when the caller should pause until `drain` fires,
+ * which surfaces as `saturated` / `waitForCapacity`. Lazy reconnect, and a `probe()` that
+ * checks the target exchange.
  */
 export class RabbitMqSink implements Sink {
   readonly type = "rabbitmq" as const;
+  readonly maxInFlight = 256;
+  private full = false;
   private connection: ChannelModel | null = null;
   private channel: ConfirmChannel | null = null;
   private connecting: Promise<ConfirmChannel> | null = null;
@@ -45,9 +48,8 @@ export class RabbitMqSink implements Sink {
 
   private async connect(): Promise<ConfirmChannel> {
     const url = buildUrl(this.config, this.secrets);
-    const socketOptions = this.config.tls && this.config.ca_pem
-      ? { ca: [Buffer.from(this.config.ca_pem)] }
-      : undefined;
+    const socketOptions =
+      this.config.tls && this.config.ca_pem ? { ca: [Buffer.from(this.config.ca_pem)] } : undefined;
     const connection = await amqp.connect(url, socketOptions);
     connection.on("error", () => {
       this.channel = null;
@@ -58,6 +60,12 @@ export class RabbitMqSink implements Sink {
       this.connection = null;
     });
     const channel = await connection.createConfirmChannel();
+    // A channel-level error (publishing to a deleted exchange, say) closes the channel; pending
+    // confirms are failed by amqplib, and the next publish opens a fresh channel.
+    channel.on("error", () => {});
+    channel.on("close", () => {
+      if (this.channel === channel) this.channel = null;
+    });
     await channel.assertExchange(this.config.exchange, this.config.exchange_type, {
       durable: true,
     });
@@ -76,23 +84,51 @@ export class RabbitMqSink implements Sink {
     return this.connecting;
   }
 
+  get saturated(): boolean {
+    return this.full;
+  }
+
+  waitForCapacity(): Promise<void> {
+    const channel = this.channel;
+    if (!this.full || !channel) return Promise.resolve();
+    return new Promise((resolve) => {
+      channel.once("drain", () => {
+        this.full = false;
+        resolve();
+      });
+      // A closed channel never drains; do not strand the pump.
+      channel.once("close", () => resolve());
+    });
+  }
+
   async publish(
-    payload: Record<string, unknown>,
-    envelope: SinkDeliveryEnvelope,
+    target: SinkTarget,
+    body: Uint8Array,
+    _envelope: SinkDeliveryEnvelope,
+    signal: AbortSignal,
   ): Promise<SinkPublishResult> {
+    if (signal.aborted) return { ok: false, retryable: true, error: "aborted" };
     try {
       const channel = await this.ensureChannel();
-      const body = Buffer.from(
-        JSON.stringify({ ...payload, delivery_id: envelope.delivery_id, ts: envelope.ts }),
-      );
-      const ok = channel.publish(this.config.exchange, this.config.default_routing_key, body, {
-        persistent: true,
+      return await new Promise<SinkPublishResult>((resolve) => {
+        const onAbort = () => resolve({ ok: false, retryable: true, error: "aborted" });
+        signal.addEventListener("abort", onAbort, { once: true });
+        const accepted = channel.publish(
+          this.config.exchange,
+          target.routing_key ?? this.config.default_routing_key,
+          Buffer.from(body),
+          { persistent: true },
+          (error) => {
+            signal.removeEventListener("abort", onAbort);
+            resolve(error ? { ok: false, retryable: true, error: error.message } : { ok: true });
+          },
+        );
+        if (!accepted) this.full = true;
       });
-      return { ok: true, backpressure: !ok };
     } catch (error) {
       this.channel = null;
       this.connection = null;
-      return { ok: false, error: (error as Error).message };
+      return { ok: false, retryable: true, error: (error as Error).message };
     }
   }
 

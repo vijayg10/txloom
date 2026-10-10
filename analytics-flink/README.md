@@ -114,7 +114,7 @@ analytics-flink/
 
 | # | Job | Lang | Logic (defaults, all overridable via `--param value`) |
 |---|---|---|---|
-| J1 | `clean-and-order` | Java | Key by `event_id`; first delivery wins (state TTL 1h). Watermark = max `ts` − 30s (`--watermark-bound-seconds`), idleness 60s (`--idleness-seconds`, 0 disables it). Late events → quality only; duplicates → quality only; clock-skew (`\|ts − Kafka record ts\| > 60s`, `--clock-skew-threshold-seconds`) → quality, still forwarded. |
+| J1 | `clean-and-order` | Java | Key by `event_id`; first delivery wins (state TTL 1h). Ordered by `delivered_at` (arrival time; a late event keeps its original `ts`): watermark = max `delivered_at` − 30s (`--watermark-bound-seconds`), idleness 60s (`--idleness-seconds`, 0 disables it). Events behind the watermark → quality only; duplicates → quality only; clock-skew (`\|ts − Kafka record ts\| > 60s`, `--clock-skew-threshold-seconds`) → quality, still forwarded. |
 | S1 | `velocity-features` | SQL | Per-event consumer 5m/1h txn count+spend, distinct merchants 1h, merchant 5m txn count, via three separate OVER-window scans joined on `event_id` — see the file's header comment for why three, not one query. |
 | S2 | `card-testing` | SQL | `MATCH_RECOGNIZE`: ≥3 `payment`s <$10 from one consumer within 10 min. |
 | S3 | `refund-abuse` | SQL | Interval join (refund ↔ prior payment, same consumer/merchant/amount, within 5h) + refund velocity (≥2 refunds/consumer/24h, HOP window TVF). |

@@ -5,7 +5,7 @@ import path from "node:path";
 import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import { Queue, type ConnectionOptions } from "bullmq";
 import type { SimulationSpec } from "@txloom/spec";
-import { generateMerchantPool } from "@txloom/engine";
+import { ENGINE_VERSION } from "@txloom/engine";
 import { readParquet } from "@txloom/sinks";
 import {
   startGeneratePartitionWorker,
@@ -98,7 +98,6 @@ describe("generate-partition worker: full loop", () => {
 
   async function runPartitionJob(seed: bigint): Promise<void> {
     const queue = new Queue<GeneratePartitionJobData>("generate-partition", { connection });
-    const merchants = generateMerchantPool(spec, seed);
 
     // Don't await worker.close() from inside onPartitionDone/onPartitionFailed —
     // those callbacks run inside the job processor's own call stack, and
@@ -127,7 +126,7 @@ describe("generate-partition worker: full loop", () => {
       seed: seed.toString(),
       partitionNo: 0,
       partitionCount: 1,
-      merchants,
+      engineVersion: ENGINE_VERSION,
       dataDir,
     });
     await done;
@@ -152,6 +151,15 @@ describe("generate-partition worker: full loop", () => {
 
     const labels: Record<string, unknown>[] = [];
     for await (const row of readParquet(path.join(labelsDir, "part-0.parquet"))) labels.push(row);
+    // Labels are written in lockstep with truth: row i of each is the same event.
+    expect(labels.map((l) => l.event_id)).toEqual(truthEvents.map((e) => e.event_id));
+    expect(await readdir(path.join(dataDir, "runs", runId, "checkpoints"))).toHaveLength(1);
+
+    const corruptions: Record<string, unknown>[] = [];
+    for await (const row of readParquet(
+      path.join(dataDir, "runs", runId, "corruptions", "primary", "part-0.parquet"),
+    ))
+      corruptions.push(row);
 
     const truthIds = new Set(truthEvents.map((e) => e.event_id));
     for (const label of labels) {
@@ -162,7 +170,7 @@ describe("generate-partition worker: full loop", () => {
     const achievedRate = fraudLabels.length / truthEvents.length;
     expect(Math.abs(achievedRate - spec.fraud.target_rate)).toBeLessThan(0.05);
 
-    const duplicateLabels = labels.filter((l) => l.corruption_type === "duplicate");
+    const duplicateLabels = corruptions.filter((l) => l.corruption_type === "duplicate");
     expect(duplicateLabels.length).toBeGreaterThan(0);
 
     const deliveredFiles = await readdir(deliveredDir);
@@ -171,12 +179,20 @@ describe("generate-partition worker: full loop", () => {
     for await (const row of readParquet(path.join(deliveredDir, "part-0.parquet")))
       delivered.push(row);
     expect(delivered.length).toBeGreaterThanOrEqual(truthEvents.length);
+
+    // Every delivered row carries the wire fields, and every corruption label points at a row
+    // that sink really delivered (SC-004).
+    for (const row of delivered) {
+      expect(typeof row.delivery_id).toBe("string");
+      expect(typeof row.delivered_at).toBe("string");
+    }
+    const deliveredIds = new Set(delivered.map((d) => d.event_id));
+    for (const label of corruptions) expect(deliveredIds.has(label.event_id)).toBe(true);
   }, 60_000);
 
   it("a second run with the same seed/spec is byte-identical (SC-001)", async () => {
     const secondRunId = "test-run-002";
     const queue = new Queue<GeneratePartitionJobData>("generate-partition", { connection });
-    const merchants = generateMerchantPool(spec, BigInt(spec.seed));
 
     let resolve!: () => void;
     let reject!: (error: Error) => void;
@@ -200,7 +216,7 @@ describe("generate-partition worker: full loop", () => {
       seed: spec.seed.toString(),
       partitionNo: 0,
       partitionCount: 1,
-      merchants,
+      engineVersion: ENGINE_VERSION,
       dataDir,
     });
     await done;
@@ -219,5 +235,46 @@ describe("generate-partition worker: full loop", () => {
     const first = await readAll(runId);
     const second = await readAll(secondRunId);
     expect(second).toEqual(first);
+  }, 60_000);
+
+  it("a job whose engineVersion doesn't match fails immediately as unrecoverable", async () => {
+    const queue = new Queue<GeneratePartitionJobData>("generate-partition", { connection });
+
+    let failure!: Error;
+    let failed!: () => void;
+    const done = new Promise<void>((res) => {
+      failed = res;
+    });
+    const worker = startGeneratePartitionWorker({
+      connection,
+      onPartitionRunning: async () => {},
+      onPartitionDone: async () => {},
+      onPartitionFailed: async (_data, error) => {
+        failure = error;
+        failed();
+      },
+    });
+    const job = await queue.add(
+      "gen-mismatch",
+      {
+        runId: "test-run-mismatch",
+        spec,
+        seed: spec.seed.toString(),
+        partitionNo: 0,
+        partitionCount: 1,
+        engineVersion: ENGINE_VERSION - 1,
+        dataDir,
+      },
+      { attempts: 3 },
+    );
+    await done;
+    await worker.close();
+
+    expect(failure.message).toContain(String(ENGINE_VERSION - 1));
+    expect(failure.message).toContain(String(ENGINE_VERSION));
+    const stored = await queue.getJob(job.id!);
+    expect(stored?.attemptsMade).toBe(1);
+    expect(await stored?.getState()).toBe("failed");
+    await queue.close();
   }, 60_000);
 });

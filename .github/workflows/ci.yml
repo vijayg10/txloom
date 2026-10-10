@@ -91,6 +91,32 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: KAFKA_BROKERS=localhost:9092 pnpm bench:smoke
 
+  batch-smoke:
+    name: Performance gate (batch generation smoke benchmark, regression threshold)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start the stack
+        run: docker compose up -d --build --wait
+      - name: Run the batch smoke benchmark (20k consumers x 14 days)
+        run: pnpm bench:batch-smoke
+        env:
+          DATA_DIR: ./data
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - run: docker compose down -v
+        if: always()
+
   e2e:
     name: E2E blackbox suite
     runs-on: ubuntu-latest

@@ -1,48 +1,37 @@
 import type { SimulationSpec } from "@txloom/spec";
-import { restoreRng, type Rng } from "../rng.js";
-import { createDeterministicUlid } from "../id.js";
+import type { Rng } from "../rng.js";
 import { randInt, drawAmount } from "../distributions.js";
 import { drawMerchantAmount } from "../population/merchants.js";
 import { drawLegitOutcome } from "../outcomes.js";
-import { generatePartition } from "../truth-emit.js";
-import type { NamedConsumer, NamedMerchant } from "../population/named-population.js";
+import { restoreWorld, type WorldCheckpoint } from "../world/partition-world.js";
+import type { NamedMerchant } from "../population/named-population.js";
 import type { LabelRecord, TruthEvent } from "../types.js";
 
 export interface LiveWorldState {
   rng: Rng;
-  consumers: readonly NamedConsumer[];
+  consumers: readonly { id: string; name: string }[];
   merchants: readonly NamedMerchant[];
   makeId: (seedTimeMs: number) => string;
 }
 
 /**
  * Resumes a partition's world exactly where its history phase left off
- * (FR-029, SC-006): the same consumer population, continuing the same RNG
- * stream, rather than resetting to a fresh world.
- *
- * v1 scope note: this re-derives the checkpoint by re-running the
- * deterministic history generation once (generatePartition is a pure
- * function of seed/partition/spec, so this reproduces the exact trailing
- * RNG state and population — it does not regenerate a *different* world).
- * That's a bounded, one-time cost at stream start, proportional to history
- * length; persisting the checkpoint captured mid-job (run_partitions has a
- * column reserved for exactly this) to skip the replay is a natural
- * follow-up for very large histories.
+ * (FR-029, SC-006) from the end-of-history checkpoint the history job wrote (R7):
+ * the same consumers, continuing the same RNG stream. Nothing is regenerated, so
+ * stream start costs a file read instead of a replay of the whole history.
  */
 export function resumeLiveWorld(
   spec: SimulationSpec,
   seed: bigint,
-  partitionNo: number,
-  partitionCount: number,
+  checkpoint: WorldCheckpoint,
   merchants: readonly NamedMerchant[],
 ): LiveWorldState {
-  const { worldCheckpoint } = generatePartition(spec, seed, partitionNo, partitionCount, merchants);
-  const rng = restoreRng(worldCheckpoint.rng);
+  const world = restoreWorld(spec, seed, checkpoint, merchants);
   return {
-    rng,
-    consumers: worldCheckpoint.consumers,
+    rng: world.rng,
+    consumers: world.consumers,
     merchants,
-    makeId: createDeterministicUlid(rng),
+    makeId: world.makeId,
   };
 }
 
@@ -104,5 +93,6 @@ export function liveEventLabel(event: TruthEvent): LabelRecord {
     corruption_type: null,
     corruption_detail: null,
     sink: null,
+    delivery_outcome: null,
   };
 }

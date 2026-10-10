@@ -4,6 +4,7 @@ import {
   launchRunTool,
   getRunStatusTool,
   getRealismReportTool,
+  retryRunTool,
   startStreamTool,
   stopStreamTool,
 } from "@txloom/agent-tools";
@@ -13,10 +14,12 @@ export function registerRunTools(server: McpServer, app: FastifyInstance): void 
   server.registerTool(
     launchRunTool.name,
     { description: launchRunTool.description, inputSchema: launchRunTool.inputSchema },
-    async ({ scenario_id, seed, mode }) => {
+    async ({ scenario_id, seed, mode, destinations, replay_history }) => {
       const payload: Record<string, unknown> = {};
       if (seed !== undefined) payload.seed = seed;
       if (mode !== undefined) payload.mode = mode;
+      if (destinations !== undefined) payload.destinations = destinations;
+      if (replay_history !== undefined) payload.replay_history = replay_history;
       return toolResult(
         (
           await injectJson(app, {
@@ -37,6 +40,15 @@ export function registerRunTools(server: McpServer, app: FastifyInstance): void 
   );
 
   server.registerTool(
+    retryRunTool.name,
+    { description: retryRunTool.description, inputSchema: retryRunTool.inputSchema },
+    async ({ run_id }) =>
+      toolResult(
+        (await injectJson(app, { method: "POST", url: `/api/v1/runs/${run_id}/retry` })).body,
+      ),
+  );
+
+  server.registerTool(
     getRealismReportTool.name,
     {
       description: getRealismReportTool.description,
@@ -51,8 +63,8 @@ export function registerRunTools(server: McpServer, app: FastifyInstance): void 
   server.registerTool(
     startStreamTool.name,
     { description: startStreamTool.description, inputSchema: startStreamTool.inputSchema },
-    async ({ run_id, target_tps, sink, label_channel_enabled }) => {
-      const payload: Record<string, unknown> = { sink };
+    async ({ run_id, target_tps, label_channel_enabled }) => {
+      const payload: Record<string, unknown> = {};
       if (target_tps !== undefined) payload.target_tps = target_tps;
       if (label_channel_enabled !== undefined)
         payload.label_channel_enabled = label_channel_enabled;

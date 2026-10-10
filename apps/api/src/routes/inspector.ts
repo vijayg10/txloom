@@ -2,7 +2,11 @@ import type { FastifyInstance } from "fastify";
 import type { SimulationSpec } from "@txloom/spec";
 import { getDb } from "../db/knex.js";
 import { RunRepository } from "../db/repositories/runs.js";
-import { loadRunTruthEvents, loadRunLabels } from "../services/truth-store.js";
+import {
+  loadRunTruthEvents,
+  loadRunLabels,
+  loadRunCorruptionLabels,
+} from "../services/truth-store.js";
 import { computeVolumeOverTime } from "../services/inspector/volume-over-time.js";
 import { computeAmountDistributions } from "../services/inspector/amount-distributions.js";
 import { computePersonaHeatmap } from "../services/inspector/persona-heatmap.js";
@@ -70,6 +74,6 @@ export default async function inspectorRoutes(app: FastifyInstance) {
       reply.status(404);
       return { error: { code: "not_found", message: `Run "${id}" not found` } };
     }
-    return { rows: computeImperfectionAudit(await loadRunLabels(dataDir, id)) };
+    return { rows: computeImperfectionAudit(await loadRunCorruptionLabels(dataDir, id)) };
   });
 }

@@ -29,6 +29,12 @@ import java.time.Duration;
  * once here. Key by event_id, first delivery wins; late and duplicate
  * events are diverted to the quality side output instead of the clean
  * topic, clock-skewed events are flagged but still forwarded.
+ *
+ * Ordering is by {@code delivered_at} (the simulated arrival time), which is
+ * the order the producer publishes in. A late-arrival event keeps its original
+ * {@code ts}; it simply arrives later, so it is not "late" relative to its own
+ * {@code delivered_at}. Only a delivery that arrives behind the watermark of
+ * {@code delivered_at} (for example an out-of-order swap beyond the bound) is.
  */
 public class CleanAndOrderJob {
     private static final Logger LOG = LoggerFactory.getLogger(CleanAndOrderJob.class);
@@ -61,7 +67,7 @@ public class CleanAndOrderJob {
 
         WatermarkStrategy<Event> watermarkStrategy =
                 WatermarkStrategy.<Event>forBoundedOutOfOrderness(Duration.ofSeconds(watermarkBoundSeconds))
-                        .withTimestampAssigner((event, recordTimestamp) -> event.ts);
+                        .withTimestampAssigner((event, recordTimestamp) -> event.deliveredAtMs());
         if (idlenessSeconds > 0) {
             watermarkStrategy = watermarkStrategy.withIdleness(Duration.ofSeconds(idlenessSeconds));
         }
@@ -120,9 +126,10 @@ public class CleanAndOrderJob {
             seenState.update(true);
 
             long currentWatermark = ctx.timerService().currentWatermark();
-            boolean late = currentWatermark != Long.MIN_VALUE && event.ts < currentWatermark;
+            long deliveredAt = event.deliveredAtMs();
+            boolean late = currentWatermark != Long.MIN_VALUE && deliveredAt < currentWatermark;
             if (late) {
-                ctx.output(QUALITY_TAG, QualityRecord.of(event, "late", currentWatermark - event.ts, null));
+                ctx.output(QUALITY_TAG, QualityRecord.of(event, "late", currentWatermark - deliveredAt, null));
             }
 
             long skewMs = Math.abs(event.ts - event.kafkaRecordTimestampMs);

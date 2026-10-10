@@ -4,6 +4,7 @@ import {
   getSpecSchemaTool,
   getAuthoringDocsTool,
   listTemplatesTool,
+  listConnectionsTool,
   getTruthEventsTool,
 } from "@txloom/agent-tools";
 import { injectJson, toolResult } from "../inject-json.js";
@@ -24,6 +25,16 @@ export function registerReadTools(server: McpServer, app: FastifyInstance): void
     },
     async () =>
       toolResult((await injectJson(app, { method: "GET", url: "/api/v1/spec/docs" })).body),
+  );
+
+  server.registerTool(
+    listConnectionsTool.name,
+    {
+      description: listConnectionsTool.description,
+      inputSchema: listConnectionsTool.inputSchema,
+    },
+    async () =>
+      toolResult((await injectJson(app, { method: "GET", url: "/api/v1/connections" })).body),
   );
 
   server.registerTool(

@@ -35,3 +35,34 @@ export async function loadRunLabels(dataDir: string, runId: string): Promise<Lab
   }
   return labels;
 }
+
+/** Every imperfection label and delivery-failure label for a run (data-model.md §3):
+ * `corruptions/<sink>/*` plus `deliveries/<sink>/dropped-*`. The fraud answer key stays in
+ * `labels/` (see `loadRunLabels`). Optionally limited to one sink. */
+export async function loadRunCorruptionLabels(
+  dataDir: string,
+  runId: string,
+  sink?: string,
+): Promise<LabelRecord[]> {
+  const runDir = path.join(dataDir, "runs", runId);
+  const labels: LabelRecord[] = [];
+  for (const group of ["corruptions", "deliveries"]) {
+    const groupDir = path.join(runDir, group);
+    let sinks: string[];
+    try {
+      sinks = await readdir(groupDir);
+    } catch {
+      continue;
+    }
+    for (const sinkName of sinks) {
+      if (sink && sinkName !== sink) continue;
+      const dir = path.join(groupDir, sinkName);
+      for (const file of await listParquetFiles(dir)) {
+        for await (const row of readParquet(path.join(dir, file))) {
+          labels.push(row as unknown as LabelRecord);
+        }
+      }
+    }
+  }
+  return labels;
+}

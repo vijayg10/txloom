@@ -3,18 +3,13 @@ import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import amqp, { type ChannelModel } from "amqplib";
 import { RabbitMqSink } from "../../src/rabbitmq/publisher.js";
 
-const envelope = (i: number) => ({
-  delivery_id: `d${i}`,
-  event_id: `e${i}`,
-  ts: "2026-01-01T00:00:00.000Z",
-});
+const envelope = (i: number) => ({ delivery_id: `d${i}`, event_id: `e${i}` });
 
-// Testcontainers RabbitMQ — publisher confirms drive backpressure. Run via
+// Testcontainers RabbitMQ — a full write buffer is reported as `saturated`. Run via
 // `pnpm test:integration`.
-describe("RabbitMQ sink: publisher confirms drive backpressure", () => {
+describe("RabbitMQ sink: write-buffer-full surfaces as saturated", () => {
   let container: StartedTestContainer;
   let url: string;
-
   let host: string;
   let port: number;
 
@@ -31,7 +26,7 @@ describe("RabbitMQ sink: publisher confirms drive backpressure", () => {
     await container?.stop();
   });
 
-  it("reports backpressure once the channel's internal write buffer signals full", async () => {
+  it("sets saturated once the channel's write buffer signals full, and clears it on drain", async () => {
     const sink = new RabbitMqSink(
       "primary",
       {
@@ -46,27 +41,31 @@ describe("RabbitMQ sink: publisher confirms drive backpressure", () => {
       { username: "guest", password: "guest" },
     );
 
-    // A queue with no consumer draining it, bound to the exchange, lets
-    // messages pile up so the confirm-channel's socket write buffer (and
-    // amqplib's internal backlog) eventually reports `false` from publish().
     const setup: ChannelModel = await amqp.connect(url);
     const channel = await setup.createChannel();
     await channel.assertExchange("txloom.stream", "topic", { durable: true });
     await channel.assertQueue("txloom.stream.sink", { durable: true });
     await channel.bindQueue("txloom.stream.sink", "txloom.stream", "events");
 
-    let sawBackpressure = false;
-    const largePayload = { blob: "x".repeat(64 * 1024) };
-    for (let i = 0; i < 5000 && !sawBackpressure; i++) {
-      const result = await sink.publish(largePayload, envelope(i));
-      expect(result.ok).toBe(true);
-      if (result.backpressure) sawBackpressure = true;
+    const large = new TextEncoder().encode(JSON.stringify({ blob: "x".repeat(64 * 1024) }));
+    const signal = new AbortController().signal;
+    const pending: Promise<unknown>[] = [];
+    let sawSaturation = false;
+    for (let i = 0; i < 5000 && !sawSaturation; i++) {
+      pending.push(sink.publish({ routing_key: "events" }, large, envelope(i), signal));
+      // Publishes are not awaited one by one: the write buffer fills only while confirms lag.
+      await new Promise((resolve) => setImmediate(resolve));
+      if (sink.saturated) sawSaturation = true;
     }
+    expect(sawSaturation).toBe(true);
 
-    expect(sawBackpressure).toBe(true);
+    await sink.waitForCapacity?.();
+    expect(sink.saturated).toBe(false);
+    const results = (await Promise.all(pending)) as { ok: boolean }[];
+    expect(results.every((r) => r.ok)).toBe(true);
 
     await sink.close();
     await channel.close();
     await setup.close();
-  }, 60_000);
+  }, 90_000);
 });

@@ -29,7 +29,8 @@ export function Modal({
         <RadixDialog.Overlay className="data-[state=open]:animate-fade-scale-in fixed inset-0 z-50 bg-gray-900/40" />
         <RadixDialog.Content
           className={cn(
-            "border-border bg-card fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-[560px] min-w-[320px] -translate-x-1/2 -translate-y-1/2 rounded-3xl border p-6 shadow-xl",
+            "border-border bg-card fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-[560px] min-w-[320px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border p-6 shadow-xl",
+            "max-h-[calc(100vh-2rem)]",
             "data-[state=open]:animate-fade-scale-in data-[state=closed]:animate-fade-scale-out",
             className,
           )}

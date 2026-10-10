@@ -6,7 +6,7 @@ interface RunRow {
   status: string;
 }
 
-function makeControlCommand(name: "pause" | "resume" | "cancel" | "regenerate"): Command {
+function makeControlCommand(name: "pause" | "resume" | "cancel" | "regenerate" | "retry"): Command {
   return {
     name: `run-${name}`,
     description: `${name[0]!.toUpperCase()}${name.slice(1)} a run: txloom run-${name} <run_id>`,
@@ -23,6 +23,7 @@ function makeControlCommand(name: "pause" | "resume" | "cancel" | "regenerate"):
 export const runPauseCommand = makeControlCommand("pause");
 export const runResumeCommand = makeControlCommand("resume");
 export const runCancelCommand = makeControlCommand("cancel");
+export const runRetryCommand = makeControlCommand("retry");
 export const runRegenerateCommand = makeControlCommand("regenerate");
 
 export const runStatusCommand: Command = {

@@ -1,10 +1,11 @@
 import {
   generateMerchantPool,
+  generatePartition,
   resumeLiveWorld,
   drawNextLiveEvent,
   TokenBucket,
 } from "@txloom/engine";
-import { kafkaSinkFactory } from "@txloom/sinks";
+import { DeliveryPump, encodeWirePayload, kafkaSinkFactory, partitionKeyOf } from "@txloom/sinks";
 import type { SimulationSpec } from "@txloom/spec";
 
 /** A small but structurally complete spec — the benchmark exercises the same
@@ -88,14 +89,24 @@ export async function runBenchmark(options: BenchmarkOptions): Promise<Benchmark
   const partitionCount = options.partitionCount ?? 4;
   const merchants = generateMerchantPool(spec, seed);
   const worlds = Array.from({ length: partitionCount }, (_, partitionNo) =>
-    resumeLiveWorld(spec, seed, partitionNo, partitionCount, merchants),
+    resumeLiveWorld(
+      spec,
+      seed,
+      generatePartition(spec, seed, partitionNo, partitionCount, merchants).worldCheckpoint,
+      merchants,
+    ),
   );
 
   const sink = kafkaSinkFactory.create(
     "bench",
-    { brokers: options.brokers, topic: options.topic },
+    {
+      bootstrap_servers: options.brokers,
+      security_protocol: "PLAINTEXT",
+      default_topic: options.topic,
+    },
     null,
   );
+  const pump = new DeliveryPump({ sink, onDropped: () => {} });
   const bucket = new TokenBucket(options.targetTps);
 
   const memorySamplesMb: number[] = [];
@@ -124,19 +135,28 @@ export async function runBenchmark(options: BenchmarkOptions): Promise<Benchmark
         cursor++;
         const world = worlds[partitionNo]!;
         const event = drawNextLiveEvent(spec, world, partitionNo, Date.now());
-        const result = await sink.publish(event as unknown as Record<string, unknown>, {
+        const payload = {
+          ...event,
           delivery_id: event.event_id,
-          event_id: event.event_id,
-          ts: event.ts,
+          delivered_at: event.ts,
+          sent_at: new Date().toISOString(),
+        };
+        // Each publish resolves on the broker's acknowledgement; they overlap up to maxInFlight.
+        void pump.submit({
+          body: encodeWirePayload(payload),
+          envelope: { delivery_id: event.event_id, event_id: event.event_id },
+          target: { key: partitionKeyOf(payload) },
         });
-        if (result.ok) delivered++;
       }
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
+    await pump.drain();
   } finally {
     clearInterval(memoryInterval);
+    pump.stop();
     await sink.close();
   }
+  delivered = pump.metrics().delivered_total;
 
   const durationS = (Date.now() - startedAt) / 1000;
   return {

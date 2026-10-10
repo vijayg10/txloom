@@ -113,7 +113,9 @@ export function makeEstimate(replayHistory = false): RunEstimate {
     generation_seconds: 38,
     assumptions: [
       "150,000 events/s per generation thread",
-      replayHistory ? "replays every history event to its destination" : "no replay (replay_history=false)",
+      replayHistory
+        ? "replays every history event to its destination"
+        : "no replay (replay_history=false)",
     ],
   };
 }
@@ -124,7 +126,14 @@ function baseRun(overrides: Partial<Run>): Run {
     scenario_id: MOCK_SCENARIO_ID,
     scenario: { id: MOCK_SCENARIO_ID, name: MOCK_SCENARIO_NAME },
     spec_version: { id: "specver-1", number: 3 },
-    spec_snapshot: {},
+    spec_snapshot: {
+      output: {
+        sinks: [
+          { type: "kafka", name: "events" },
+          { type: "file", name: "archive", format: "parquet" },
+        ],
+      },
+    },
     seed: "424242",
     status: "running",
     mode: "history_then_live",

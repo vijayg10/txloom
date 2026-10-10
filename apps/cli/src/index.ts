@@ -8,6 +8,7 @@ import {
   runResumeCommand,
   runCancelCommand,
   runRegenerateCommand,
+  runRetryCommand,
   runStatusCommand,
 } from "./commands/run-control.js";
 import {
@@ -18,7 +19,11 @@ import {
   streamSetRateCommand,
 } from "./commands/stream.js";
 import { truthFilterCommand, truthActorStoryCommand } from "./commands/truth.js";
-import { sinksListCommand, sinksAddCommand, sinksTestCommand } from "./commands/sinks.js";
+import {
+  connectionsListCommand,
+  connectionsAddCommand,
+  connectionsTestCommand,
+} from "./commands/connections.js";
 
 const registry = new CommandRegistry();
 registry.register(validateCommand);
@@ -28,6 +33,7 @@ registry.register(runPauseCommand);
 registry.register(runResumeCommand);
 registry.register(runCancelCommand);
 registry.register(runRegenerateCommand);
+registry.register(runRetryCommand);
 registry.register(runStatusCommand);
 registry.register(streamStartCommand);
 registry.register(streamPauseCommand);
@@ -36,9 +42,9 @@ registry.register(streamStopCommand);
 registry.register(streamSetRateCommand);
 registry.register(truthFilterCommand);
 registry.register(truthActorStoryCommand);
-registry.register(sinksListCommand);
-registry.register(sinksAddCommand);
-registry.register(sinksTestCommand);
+registry.register(connectionsListCommand);
+registry.register(connectionsAddCommand);
+registry.register(connectionsTestCommand);
 
 async function main() {
   const [, , commandName, ...args] = process.argv;

@@ -4,7 +4,8 @@ import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import { Queue, type ConnectionOptions } from "bullmq";
 import { KafkaJS } from "@confluentinc/kafka-javascript";
 import type { SimulationSpec } from "@txloom/spec";
-import { generateMerchantPool } from "@txloom/engine";
+import { ENGINE_VERSION, generateMerchantPool, generatePartition } from "@txloom/engine";
+import { kafkaSinkFactory } from "@txloom/sinks";
 import {
   startStreamDriveWorker,
   type StreamControlSnapshot,
@@ -125,8 +126,22 @@ describe("stream-drive job: sustained Kafka delivery", () => {
     let state: StreamControlSnapshot["state"] = "streaming";
     const metricsSamples: StreamMetrics[] = [];
 
+    const history = generatePartition(
+      spec,
+      BigInt(spec.seed),
+      0,
+      1,
+      generateMerchantPool(spec, BigInt(spec.seed)),
+    );
     const worker = startStreamDriveWorker({
       connection,
+      loadCheckpoint: async () => history.worldCheckpoint,
+      createSink: () =>
+        kafkaSinkFactory.create(
+          "primary",
+          { bootstrap_servers: brokers, security_protocol: "PLAINTEXT", default_topic: topic },
+          null,
+        ),
       getStreamControl: async () => ({ state, targetTps }),
       onMetrics: async (_streamId, metrics) => {
         metricsSamples.push(metrics);
@@ -160,15 +175,16 @@ describe("stream-drive job: sustained Kafka delivery", () => {
     });
 
     const seed = BigInt(spec.seed);
-    const merchants = generateMerchantPool(spec, seed);
     await queue.add("stream", {
       runId: "stream-test-run",
       streamId: "stream-test-1",
+      sessionId: "stream-test-session",
+      sessionSeq: 1,
       spec,
       seed: seed.toString(),
       partitionCount: 1,
-      merchants,
-      sink: { type: "kafka", config: { brokers, topic } },
+      engineVersion: ENGINE_VERSION,
+      destinations: [{ sink: "primary", connectionId: "test-connection", topic }],
       labelChannelEnabled: false,
     });
 

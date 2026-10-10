@@ -27,6 +27,7 @@ export interface McpRun {
   scenario_id: string;
   status: string;
   seed: string;
+  engine_version: number;
 }
 
 export interface McpRealismReport {
@@ -124,7 +125,16 @@ export class TxLoomMcpClient {
 
   async launchRun(
     scenarioId: string,
-    opts: { seed?: number; mode?: "batch" | "batch_then_stream" } = {},
+    opts: {
+      seed?: string;
+      mode?: "history_only" | "history_then_live";
+      destinations?: {
+        sink: string;
+        connection_id: string;
+        topic?: string;
+        routing_key?: string;
+      }[];
+    } = {},
   ): Promise<McpRun> {
     return parseToolResult(await this.call("launch_run", { scenario_id: scenarioId, ...opts }));
   }
@@ -156,15 +166,12 @@ export class TxLoomMcpClient {
     return parseToolResult(await this.call("get_truth_events", { run_id: runId, ...opts }));
   }
 
+  /** Streams into the destinations the run was launched with. */
   async startStream(
     runId: string,
-    sink:
-      | { type: "kafka"; config: { brokers: string[]; topic: string } }
-      | { type: "rabbitmq"; config: { url: string; exchange: string; routingKey: string } }
-      | { type: "webhook"; config: { url: string } },
     opts: { target_tps?: number; label_channel_enabled?: boolean } = {},
   ): Promise<unknown> {
-    return parseToolResult(await this.call("start_stream", { run_id: runId, sink, ...opts }));
+    return parseToolResult(await this.call("start_stream", { run_id: runId, ...opts }));
   }
 
   async stopStream(runId: string): Promise<unknown> {

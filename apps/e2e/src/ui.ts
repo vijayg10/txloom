@@ -3,6 +3,20 @@ import { expect, type Page } from "@playwright/test";
 /** Role/text-first locator helpers keyed to the `data-testid`s added across
  * the six surfaces (research.md R7) — one group per surface, so every spec
  * file drives the rendered SPA the same way a real user would (FR-002). */
+export interface UiDestination {
+  /** The spec sink's name. */
+  sink: string;
+  /** The saved connection's name, as shown in the destination picker. */
+  connection: string;
+  /** Kafka topic or RabbitMQ routing key override (defaults to the connection's). */
+  target?: string;
+}
+
+export type UiConnection =
+  | { type: "kafka"; name: string; bootstrap: string; topic: string }
+  | { type: "rabbitmq"; name: string; host: string; exchange: string; routingKey: string }
+  | { type: "webhook"; name: string; url: string };
+
 export class TxLoomUi {
   constructor(private readonly page: Page) {}
 
@@ -73,14 +87,23 @@ export class TxLoomUi {
    * by every story that needs a fresh completed run of the fixture spec. */
   async authorValidateSaveLaunch(
     spec: unknown,
-    opts: { scenarioName: string; currency: string },
+    opts: {
+      scenarioName: string;
+      currency: string;
+      destinations?: UiDestination[];
+      replayHistory?: boolean;
+    },
   ): Promise<{ scenarioId: string; runId: string }> {
     const scenarioId = await this.createBlankScenario(opts.scenarioName, opts.currency);
     await this.openScenario(scenarioId);
     await this.authorSpec(spec);
     await this.waitForValid();
     await this.saveSpecVersion();
-    const runId = await this.launchRunFromScenario(scenarioId);
+    const runId = await this.launchRunFromScenario(
+      scenarioId,
+      opts.destinations,
+      opts.replayHistory,
+    );
     await this.openRun(runId);
     await this.waitForRunStatus("completed", 120_000);
     return { scenarioId, runId };
@@ -88,8 +111,21 @@ export class TxLoomUi {
 
   // ---- Run control -------------------------------------------------------
 
-  async launchRunFromScenario(scenarioId: string): Promise<string> {
+  async launchRunFromScenario(
+    scenarioId: string,
+    destinations: UiDestination[] = [],
+    replayHistory = false,
+  ): Promise<string> {
     await this.page.goto(`/runs?scenario=${scenarioId}`);
+    for (const destination of destinations) {
+      await this.page
+        .getByTestId(`launch-destination-${destination.sink}`)
+        .selectOption({ label: destination.connection });
+      if (destination.target !== undefined) {
+        await this.page.getByTestId(`launch-topic-${destination.sink}`).fill(destination.target);
+      }
+    }
+    if (replayHistory) await this.page.getByTestId("launch-replay-history").click();
     await this.page.getByTestId("launch-run-button").click();
     await expect(this.page.getByTestId("run-status")).toBeVisible();
     const href = await this.page.getByTestId("view-run-link").getAttribute("href");
@@ -114,26 +150,9 @@ export class TxLoomUi {
 
   // ---- Stream console ------------------------------------------------------
 
-  async startStream(
-    runId: string,
-    sink:
-      | { type: "webhook"; url: string }
-      | { type: "kafka"; brokers: string; topic: string }
-      | { type: "rabbitmq"; url: string; exchange: string; routingKey: string },
-    targetTps?: number,
-  ): Promise<void> {
+  /** Starts the stream into the destinations the run was launched with. */
+  async startStream(runId: string, targetTps?: number): Promise<void> {
     await this.page.goto(`/stream/${runId}`);
-    await this.page.getByTestId("stream-sink-type").selectOption(sink.type);
-    if (sink.type === "webhook") {
-      await this.page.getByTestId("stream-webhook-url").fill(sink.url);
-    } else if (sink.type === "kafka") {
-      await this.page.getByTestId("stream-kafka-brokers").fill(sink.brokers);
-      await this.page.getByTestId("stream-kafka-topic").fill(sink.topic);
-    } else {
-      await this.page.getByTestId("stream-rabbitmq-url").fill(sink.url);
-      await this.page.getByTestId("stream-rabbitmq-exchange").fill(sink.exchange);
-      await this.page.getByTestId("stream-rabbitmq-routing-key").fill(sink.routingKey);
-    }
     if (targetTps !== undefined) {
       await this.page.getByTestId("stream-target-tps").fill(String(targetTps));
     }
@@ -162,23 +181,25 @@ export class TxLoomUi {
     await this.page.getByTestId("ground-truth-explorer").waitFor();
   }
 
-  // ---- Settings / sink connections --------------------------------------
+  // ---- Connections -----------------------------------------------------
 
-  async configureSink(input: {
-    type: "file" | "kafka" | "rabbitmq" | "webhook";
-    name: string;
-    config: Record<string, unknown>;
-    username?: string;
-    password?: string;
-  }): Promise<void> {
-    await this.page.goto("/settings");
-    await this.page.getByTestId("sink-type").selectOption(input.type);
-    await this.page.getByTestId("sink-name").fill(input.name);
-    await this.page.getByTestId("sink-config").fill(JSON.stringify(input.config));
-    if (input.username) await this.page.getByTestId("sink-username").fill(input.username);
-    if (input.password) await this.page.getByTestId("sink-password").fill(input.password);
-    await this.page.getByTestId("add-sink-submit").click();
-    await expect(this.page.getByTestId("sink-list")).toContainText(input.name);
+  async createConnection(input: UiConnection): Promise<void> {
+    await this.page.goto("/connections");
+    await this.page.getByTestId("connection-add").click();
+    await this.page.getByTestId(`connection-type-${input.type}`).click();
+    await this.page.getByTestId("conn-name").fill(input.name);
+    if (input.type === "kafka") {
+      await this.page.getByTestId("conn-bootstrap").fill(input.bootstrap);
+      await this.page.getByTestId("conn-default-topic").fill(input.topic);
+    } else if (input.type === "rabbitmq") {
+      await this.page.getByTestId("conn-host").fill(input.host);
+      await this.page.getByTestId("conn-exchange").fill(input.exchange);
+      await this.page.getByTestId("conn-routing-key").fill(input.routingKey);
+    } else {
+      await this.page.getByTestId("conn-url").fill(input.url);
+    }
+    await this.page.getByTestId("conn-save").click();
+    await expect(this.page.getByTestId(`connection-card-${input.name}`)).toBeVisible();
   }
 
   // ---- Export ------------------------------------------------------------

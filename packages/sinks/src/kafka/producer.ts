@@ -5,9 +5,15 @@ import type {
   SinkDeliveryEnvelope,
   SinkFactory,
   SinkPublishResult,
+  SinkRunContext,
   SinkTarget,
 } from "../interface.js";
-import { kafkaConfigSchema, kafkaSecretsSchema, type KafkaConnectionConfig, type KafkaConnectionSecrets } from "./config.js";
+import {
+  kafkaConfigSchema,
+  kafkaSecretsSchema,
+  type KafkaConnectionConfig,
+  type KafkaConnectionSecrets,
+} from "./config.js";
 
 export type { KafkaConnectionConfig as KafkaSinkConfig };
 
@@ -21,10 +27,7 @@ function librdkafkaConfig(
   return {
     "bootstrap.servers": config.bootstrap_servers.join(","),
     "security.protocol": config.security_protocol.toLowerCase() as
-      | "plaintext"
-      | "ssl"
-      | "sasl_plaintext"
-      | "sasl_ssl",
+      "plaintext" | "ssl" | "sasl_plaintext" | "sasl_ssl",
     ...(config.sasl_mechanism ? { "sasl.mechanisms": config.sasl_mechanism } : {}),
     ...(secrets ? { "sasl.username": secrets.username, "sasl.password": secrets.password } : {}),
     ...(config.ca_pem ? { "ssl.ca.pem": config.ca_pem } : {}),
@@ -35,16 +38,18 @@ function librdkafkaConfig(
 }
 
 /**
- * Kafka producer sink (D8, research R10/R11): configurable partitioning by payload key,
- * delivery-report-driven backpressure, and a `probe()` that checks the target topic
- * through an `AdminClient` sharing the producer's connection.
+ * Kafka producer sink (D8, research R10/R11, Sink v2): `publish` resolves on the delivery report,
+ * so the pump counts only brokers' acknowledgements as delivered. Records are batched by
+ * librdkafka (`linger.ms=5`, `batch.num.messages=10000`) while up to `maxInFlight` sends are
+ * outstanding. `probe()` checks the target topic through an `AdminClient`.
  */
 export class KafkaSink implements Sink {
   readonly type = "kafka" as const;
+  readonly maxInFlight = 1000;
   private readonly producer: KafkaJS.Producer;
-  private readonly backpressureThreshold = 100;
   private connected = false;
-  private inFlight = 0;
+  private connecting: Promise<void> | null = null;
+  private headers: Record<string, string> = {};
 
   constructor(
     readonly name: string,
@@ -52,44 +57,52 @@ export class KafkaSink implements Sink {
     private readonly secrets: KafkaConnectionSecrets | null = null,
   ) {
     const kafka = new KafkaJS.Kafka(librdkafkaConfig(config, secrets));
-    this.producer = kafka.producer();
+    this.producer = kafka.producer({ "linger.ms": 5, "batch.num.messages": 10_000 });
+  }
+
+  setRunContext(context: SinkRunContext): void {
+    this.headers = {
+      "txloom-run-id": context.runId,
+      "txloom-session-seq": String(context.sessionSeq),
+      "txloom-engine-version": String(context.engineVersion),
+    };
   }
 
   private async ensureConnected(): Promise<void> {
     if (this.connected) return;
-    await this.producer.connect();
-    this.connected = true;
+    this.connecting ??= this.producer.connect().then(() => {
+      this.connected = true;
+    });
+    try {
+      await this.connecting;
+    } finally {
+      this.connecting = null;
+    }
   }
 
   async publish(
-    payload: Record<string, unknown>,
+    target: SinkTarget,
+    body: Uint8Array,
     envelope: SinkDeliveryEnvelope,
+    signal: AbortSignal,
   ): Promise<SinkPublishResult> {
-    const keyField = this.config.partition_key_field ?? "consumer_id";
-    const key = payload[keyField];
-    const value = JSON.stringify({
-      ...payload,
-      delivery_id: envelope.delivery_id,
-      ts: envelope.ts,
-    });
-
-    this.inFlight++;
+    if (signal.aborted) return { ok: false, retryable: true, error: "aborted" };
     try {
       await this.ensureConnected();
       await this.producer.send({
-        topic: this.config.default_topic,
+        topic: target.topic ?? this.config.default_topic,
         messages: [
           {
-            key: typeof key === "string" ? key : envelope.event_id,
-            value,
+            key: target.key ?? envelope.event_id,
+            value: Buffer.from(body),
+            headers: this.headers,
           },
         ],
       });
-      return { ok: true, backpressure: this.inFlight > this.backpressureThreshold };
+      return { ok: true };
     } catch (error) {
-      return { ok: false, error: (error as Error).message };
-    } finally {
-      this.inFlight--;
+      // Broker-side failures (leader election, timeouts, queue full) clear on their own.
+      return { ok: false, retryable: true, error: (error as Error).message };
     }
   }
 
@@ -157,7 +170,10 @@ export class KafkaSink implements Sink {
 
 /** Maps a connect-time failure onto the probe stage a human should look at next, based on
  * what we asked for (research R11: stage names `connect`, `tls`, `auth`). */
-function classifyConnectError(message: string, config: KafkaConnectionConfig): "connect" | "tls" | "auth" {
+function classifyConnectError(
+  message: string,
+  config: KafkaConnectionConfig,
+): "connect" | "tls" | "auth" {
   const lower = message.toLowerCase();
   if (/auth|sasl|credential|password/.test(lower)) return "auth";
   if (/ssl|tls|certificate|cert/.test(lower)) return "tls";

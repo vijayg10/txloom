@@ -1,21 +1,17 @@
 import path from "node:path";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { ulid } from "ulid";
-import {
-  writeCsv,
-  writeJson,
-  writeParquet,
-  readParquet,
-  TRUTH_EVENT_SCHEMA,
-  LABEL_RECORD_SCHEMA,
-} from "@txloom/sinks";
+import type { SimulationSpec } from "@txloom/spec";
 
 export type ExportFormat = "csv" | "parquet" | "json";
+export type ExportSource = { kind: "truth" } | { kind: "sink"; name: string };
+export type ExportStatus = "queued" | "running" | "completed" | "failed";
 
 export interface ExportRequest {
   format: ExportFormat;
   include_labels: boolean;
   acknowledged_warning?: boolean;
+  source?: ExportSource;
 }
 
 export interface ExportManifest {
@@ -23,52 +19,57 @@ export interface ExportManifest {
   run_id: string;
   format: ExportFormat;
   include_labels: boolean;
-  status: "completed";
+  source: ExportSource;
+  status: ExportStatus;
   created_at: string;
+  finished_at?: string;
+  /** Set once `completed`. */
   file_name: string;
   /** Always a distinct file from the main export, never merged, unless
    * include_labels is true (FR-021). */
   answer_key_file_name: string | null;
+  /** Set when `failed`. */
+  error?: string;
 }
 
 export class ExportValidationError extends Error {}
 
-async function listParquetFiles(dir: string): Promise<string[]> {
-  try {
-    return (await readdir(dir)).filter((f) => f.endsWith(".parquet"));
-  } catch {
-    return [];
-  }
+/** The export source when the request names none (contracts/api.md): the first `file` sink the
+ * spec declares, otherwise the truth store. */
+export function defaultExportSource(
+  spec: Pick<SimulationSpec, "output"> | undefined,
+): ExportSource {
+  const fileSink = spec?.output?.sinks?.find((sink) => sink.type === "file");
+  return fileSink ? { kind: "sink", name: fileSink.name } : { kind: "truth" };
 }
 
-async function* readAllParquet(
-  dir: string,
-  files: string[],
-): AsyncGenerator<Record<string, unknown>> {
-  for (const file of files) {
-    yield* readParquet(path.join(dir, file));
-  }
+export function exportDir(dataDir: string, runId: string, exportId: string): string {
+  return path.join(dataDir, "runs", runId, "exports", exportId);
 }
 
-async function writeRows(
-  filePath: string,
-  format: ExportFormat,
-  rows: AsyncGenerator<Record<string, unknown>>,
-  schema: Record<string, unknown>,
+/** Writes the manifest through a temporary file so a poller never reads half of it. */
+export async function writeExportManifest(
+  dataDir: string,
+  manifest: ExportManifest,
 ): Promise<void> {
-  if (format === "csv") await writeCsv(filePath, rows);
-  else if (format === "json") await writeJson(filePath, rows);
-  else await writeParquet(filePath, schema as Parameters<typeof writeParquet>[1], rows);
+  const dir = exportDir(dataDir, manifest.run_id, manifest.export_id);
+  await mkdir(dir, { recursive: true });
+  const target = path.join(dir, "manifest.json");
+  const temporary = `${target}.tmp`;
+  await writeFile(temporary, JSON.stringify(manifest, null, 2));
+  await rename(temporary, target);
 }
 
 /**
- * POST /runs/:id/exports business logic — label export defaults to a
- * separate answer-key file; `include_labels:true` requires an explicit
- * `acknowledged_warning:true` or the request is rejected (FR-021/022).
+ * POST /runs/:id/exports business logic (R19): validates the request and writes the `queued`
+ * manifest. The files themselves are built by the `export-build` worker job, so a large export
+ * never runs on the API's event loop (constitution Principle V). `include_labels:true` requires
+ * an explicit `acknowledged_warning:true` or the request is rejected (FR-021/022).
  */
-export async function createExport(
+export async function requestExport(
   dataDir: string,
   runId: string,
+  spec: Pick<SimulationSpec, "output"> | undefined,
   request: ExportRequest,
 ): Promise<ExportManifest> {
   if (request.include_labels && !request.acknowledged_warning) {
@@ -77,59 +78,19 @@ export async function createExport(
     );
   }
 
-  const exportId = ulid();
-  const exportDir = path.join(dataDir, "runs", runId, "exports", exportId);
-  await mkdir(exportDir, { recursive: true });
-
-  const truthDir = path.join(dataDir, "runs", runId, "truth");
-  const labelsDir = path.join(dataDir, "runs", runId, "labels");
-  const truthFiles = await listParquetFiles(truthDir);
-
-  let labelsByEventId: Map<string, Record<string, unknown>> | null = null;
-  if (request.include_labels) {
-    labelsByEventId = new Map();
-    for await (const row of readAllParquet(labelsDir, await listParquetFiles(labelsDir))) {
-      if (row.corruption_type == null) labelsByEventId.set(row.event_id as string, row);
-    }
-  }
-
-  async function* mainRows(): AsyncGenerator<Record<string, unknown>> {
-    for await (const row of readAllParquet(truthDir, truthFiles)) {
-      if (labelsByEventId) {
-        const label = labelsByEventId.get(row.event_id as string);
-        yield { ...row, is_fraud: label?.is_fraud ?? false, typology: label?.typology ?? null };
-      } else {
-        yield row;
-      }
-    }
-  }
-
-  const fileName = `data.${request.format}`;
-  await writeRows(path.join(exportDir, fileName), request.format, mainRows(), TRUTH_EVENT_SCHEMA);
-
-  let answerKeyFileName: string | null = null;
-  if (!request.include_labels) {
-    answerKeyFileName = `labels.${request.format}`;
-    const labelFiles = await listParquetFiles(labelsDir);
-    await writeRows(
-      path.join(exportDir, answerKeyFileName),
-      request.format,
-      readAllParquet(labelsDir, labelFiles),
-      LABEL_RECORD_SCHEMA,
-    );
-  }
-
+  const source = request.source ?? defaultExportSource(spec);
   const manifest: ExportManifest = {
-    export_id: exportId,
+    export_id: ulid(),
     run_id: runId,
     format: request.format,
     include_labels: request.include_labels,
-    status: "completed",
+    source,
+    status: "queued",
     created_at: new Date().toISOString(),
-    file_name: fileName,
-    answer_key_file_name: answerKeyFileName,
+    file_name: `data.${request.format}`,
+    answer_key_file_name: request.include_labels ? null : `labels.${request.format}`,
   };
-  await writeFile(path.join(exportDir, "manifest.json"), JSON.stringify(manifest, null, 2));
+  await writeExportManifest(dataDir, manifest);
   return manifest;
 }
 
@@ -140,7 +101,7 @@ export async function getExportManifest(
 ): Promise<ExportManifest | null> {
   try {
     const content = await readFile(
-      path.join(dataDir, "runs", runId, "exports", exportId, "manifest.json"),
+      path.join(exportDir(dataDir, runId, exportId), "manifest.json"),
       "utf-8",
     );
     return JSON.parse(content) as ExportManifest;

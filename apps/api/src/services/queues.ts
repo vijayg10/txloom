@@ -15,6 +15,8 @@ let queues:
       generatePartition: Queue;
       streamDrive: Queue;
       reportBuild: Queue;
+      deliver: Queue;
+      exportBuild: Queue;
       connectionTest: Queue;
       connectionTestEvents: QueueEvents;
     }
@@ -33,6 +35,8 @@ export function getQueues() {
     generatePartition: new Queue("generate-partition", { connection }),
     streamDrive: new Queue("stream-drive", { connection }),
     reportBuild: new Queue("report-build", { connection }),
+    deliver: new Queue("deliver", { connection }),
+    exportBuild: new Queue("export-build", { connection }),
     connectionTest: new Queue("connection-test", { connection }),
     connectionTestEvents: new QueueEvents("connection-test", { connection }),
   };
@@ -45,6 +49,8 @@ export async function closeQueues(): Promise<void> {
     queues.generatePartition.close(),
     queues.streamDrive.close(),
     queues.reportBuild.close(),
+    queues.deliver.close(),
+    queues.exportBuild.close(),
     queues.connectionTest.close(),
     queues.connectionTestEvents.close(),
   ]);

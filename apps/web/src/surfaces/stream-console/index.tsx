@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
+import { Button } from "../../components/ui/button.js";
+import { Input } from "../../components/ui/input.js";
+import { FormField } from "../../components/ui/form-field.js";
 import { Link, Route, Routes, useParams } from "react-router-dom";
 import { apiClient, ApiError } from "../../api/client.js";
 import { PageHeader } from "../../components/layout/page-header.js";
-import { Card, CardBody } from "../../components/ui/card.js";
+import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
 import { EmptyState } from "../../components/ui/empty-state.js";
 import type { RunStatus } from "../run-control/run-status.js";
 import { StreamConsole } from "./stream-console.js";
-import { StreamLauncher } from "./stream-launcher.js";
 
 interface RunRow {
   id: string;
@@ -57,6 +59,67 @@ function StreamRunPicker() {
   );
 }
 
+/** Starts the live phase into the destinations the run was launched with — no sink is
+ * entered here (the inline form was removed with `/sinks`). */
+function StreamStart({ runId, onStarted }: { runId: string; onStarted: () => void }) {
+  const [targetTps, setTargetTps] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function start(e: React.FormEvent) {
+    e.preventDefault();
+    setStarting(true);
+    setError(null);
+    try {
+      await apiClient.post(`/runs/${runId}/stream/start`, {
+        ...(targetTps ? { target_tps: Number(targetTps) } : {}),
+      });
+      onStarted();
+    } catch (err) {
+      // stream_paused and stream_limit carry their own remedy ("Resume it, or stop it first…",
+      // "Stop one, or raise the limit"), so the server's message is shown as written.
+      setError(err instanceof Error ? err.message : "failed to start stream");
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Start stream</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <form onSubmit={(e) => void start(e)} className="flex flex-col gap-4">
+          <p className="text-text-secondary text-sm">
+            Events go to the destinations this run was launched with.
+          </p>
+          <div className="max-w-xs">
+            <FormField label="Target TPS" hint="Leave blank to use the spec's rate">
+              <Input
+                data-testid="stream-target-tps"
+                type="number"
+                value={targetTps}
+                onChange={(e) => setTargetTps(e.target.value)}
+              />
+            </FormField>
+          </div>
+          {error && (
+            <p role="alert" className="text-danger text-sm">
+              {error}
+            </p>
+          )}
+          <div>
+            <Button type="submit" data-testid="stream-start-button" loading={starting}>
+              Start stream
+            </Button>
+          </div>
+        </form>
+      </CardBody>
+    </Card>
+  );
+}
+
 function StreamRunDetail() {
   const { runId } = useParams<{ runId: string }>();
   const [hasStream, setHasStream] = useState<boolean | null>(null);
@@ -83,7 +146,7 @@ function StreamRunDetail() {
       <PageHeader title="Stream console" meta={`Run ${runId}`} />
       {!hasStream && (
         <div data-testid="stream-launcher">
-          <StreamLauncher runId={runId} onStarted={() => setHasStream(true)} />
+          <StreamStart runId={runId} onStarted={() => setHasStream(true)} />
         </div>
       )}
       {hasStream && (

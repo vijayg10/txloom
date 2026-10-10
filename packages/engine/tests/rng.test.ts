@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createRng, derivePartitionRng, restoreRng } from "../src/rng.js";
+import {
+  createRng,
+  deriveNamedRng,
+  derivePartitionRng,
+  restoreRng,
+  splitmix64,
+} from "../src/rng.js";
 
 describe("seeded RNG determinism (D7)", () => {
   it("identical seed produces an identical stream", () => {
@@ -63,5 +69,42 @@ describe("seeded RNG determinism (D7)", () => {
     const replay = Array.from({ length: 10 }, () => restored.nextFloat());
 
     expect(replay).toEqual(continued);
+  });
+});
+
+describe("64-bit seeding (R2, R3)", () => {
+  it("seeds 1n and 2n**32n + 1n give different first 1,000 draws", () => {
+    const a = createRng(1n);
+    const b = createRng(2n ** 32n + 1n);
+    const drawsA = Array.from({ length: 1000 }, () => a.nextFloat());
+    const drawsB = Array.from({ length: 1000 }, () => b.nextFloat());
+    expect(drawsA).not.toEqual(drawsB);
+    expect(drawsA[0]).not.toEqual(drawsB[0]);
+  });
+
+  it("accepts the maximum 64-bit seed and rejects anything outside 0 … 2^64-1", () => {
+    expect(() => createRng(2n ** 64n - 1n).nextFloat()).not.toThrow();
+    expect(() => createRng(2n ** 64n)).toThrow(RangeError);
+    expect(() => createRng(-1n)).toThrow(RangeError);
+  });
+
+  it("SplitMix64 matches the published vectors for state 0", () => {
+    const first = splitmix64(0n);
+    const second = splitmix64(first.state);
+    const third = splitmix64(second.state);
+    expect(first.value).toBe(0xe220a8397b1dcdafn);
+    expect(second.value).toBe(0x6e789e6aa1b965f4n);
+    expect(third.value).toBe(0x06c45d188009454fn);
+  });
+
+  it("deriveNamedRng is cheap and differs between names and seeds", () => {
+    const started = performance.now();
+    const merchants = deriveNamedRng(42n, "merchants").nextFloat();
+    const elapsedMs = performance.now() - started;
+    expect(elapsedMs).toBeLessThan(1);
+
+    expect(deriveNamedRng(42n, "parties").nextFloat()).not.toEqual(merchants);
+    expect(deriveNamedRng(43n, "merchants").nextFloat()).not.toEqual(merchants);
+    expect(deriveNamedRng(42n, "merchants").nextFloat()).toEqual(merchants);
   });
 });

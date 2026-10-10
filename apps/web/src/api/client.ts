@@ -88,8 +88,18 @@ export interface WebhookConfig {
 export type ConnectionConfig = KafkaConfig | RabbitConfig | WebhookConfig;
 
 export type ConnectionInput =
-  | { type: "kafka"; name: string; config: KafkaConfig; secrets?: { username: string; password: string } | null }
-  | { type: "rabbitmq"; name: string; config: RabbitConfig; secrets?: { username: string; password: string } | null }
+  | {
+      type: "kafka";
+      name: string;
+      config: KafkaConfig;
+      secrets?: { username: string; password: string } | null;
+    }
+  | {
+      type: "rabbitmq";
+      name: string;
+      config: RabbitConfig;
+      secrets?: { username: string; password: string } | null;
+    }
   | {
       type: "webhook";
       name: string;
@@ -120,7 +130,12 @@ export interface Connection {
   config: ConnectionConfig;
   has_credentials: boolean;
   managed_by: "user" | "env" | "auto";
-  health: { last_test_at: string | null; ok: boolean | null; summary: string | null; stage: ProbeStage | null };
+  health: {
+    last_test_at: string | null;
+    ok: boolean | null;
+    summary: string | null;
+    stage: ProbeStage | null;
+  };
   warnings: { code: "localhost_address" | "topic_missing"; message: string }[];
   created_at: string;
   updated_at: string;
@@ -249,6 +264,31 @@ export interface Stream extends StreamMetrics {
   sessions_count: number;
 }
 
+// --- Exports (contracts/api.md "Exports"; asynchronous, R19) ---
+
+export type ExportFormat = "csv" | "parquet" | "json";
+export type ExportSource = { kind: "truth" } | { kind: "sink"; name: string };
+export type ExportStatus = "queued" | "running" | "completed" | "failed";
+
+export interface ExportRequest {
+  format: ExportFormat;
+  include_labels: boolean;
+  acknowledged_warning?: boolean;
+  source?: ExportSource;
+}
+
+export interface ExportManifest {
+  export_id: string;
+  run_id: string;
+  format: ExportFormat;
+  include_labels: boolean;
+  source: ExportSource;
+  status: ExportStatus;
+  file_name: string;
+  answer_key_file_name: string | null;
+  error?: string;
+}
+
 /**
  * The full client surface the UI codes against (contracts/api.md). `createApiClient()`
  * returns the real HTTP-backed implementation, or the mock adapter over fixtures when
@@ -273,6 +313,9 @@ export interface TxLoomApiClient {
   skipDelivery(runId: string, sink: string): Promise<void>;
   listRuns(): Promise<{ runs: Run[] }>;
   getRun(id: string): Promise<Run>;
+
+  createExport(runId: string, request: ExportRequest): Promise<ExportManifest>;
+  getExport(runId: string, exportId: string): Promise<ExportManifest>;
 
   startStream(runId: string, targetTps?: number, labelChannelEnabled?: boolean): Promise<Stream>;
   pauseStream(runId: string): Promise<Stream>;
@@ -305,6 +348,9 @@ function createRealApiClient(): TxLoomApiClient {
     skipDelivery: (runId, sink) => apiClient.post(`/runs/${runId}/deliveries/${sink}/skip`),
     listRuns: () => apiClient.get("/runs"),
     getRun: (id) => apiClient.get(`/runs/${id}`),
+
+    createExport: (runId, request) => apiClient.post(`/runs/${runId}/exports`, request),
+    getExport: (runId, exportId) => apiClient.get(`/runs/${runId}/exports/${exportId}`),
 
     startStream: (runId, targetTps, labelChannelEnabled) =>
       apiClient.post(`/runs/${runId}/stream/start`, {

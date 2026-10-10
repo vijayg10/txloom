@@ -11,8 +11,15 @@ import fixture from "../fixtures/tiny-scenario.json" with { type: "json" };
 // (FR-004/005). File-sink delivery is a batch-mode side effect of the
 // fixture's declared output.sinks (research.md R10); Kafka/RabbitMQ/webhook
 // delivery only happens over the network once a stream is started
-// (stream-control.ts) — no live TPS-paced session ships without one.
+// (stream-control.ts) — no live TPS-paced session ships without one. Those
+// sinks are reached through saved connections chosen as launch destinations;
+// no address is entered at stream start.
 const FILE_SINK_NAME = fixture.output.sinks[0]!.name;
+
+/** The fixture plus one broker sink, so launch needs a destination for it. */
+function withSink(sink: { type: "kafka" | "rabbitmq" | "webhook"; name: string }) {
+  return { ...fixture, output: { ...fixture.output, sinks: [...fixture.output.sinks, sink] } };
+}
 
 test("file sink delivery and default label exclusion @us2", async ({ page }) => {
   const ui = new TxLoomUi(page);
@@ -48,16 +55,20 @@ test("file sink delivery and default label exclusion @us2", async ({ page }) => 
 
 test("Kafka sink delivery @us2", async ({ page }) => {
   const ui = new TxLoomUi(page);
-  const { runId } = await ui.authorValidateSaveLaunch(fixture, {
-    scenarioName: `e2e-us2-kafka-${Date.now()}`,
+  const stamp = Date.now();
+  const topic = `txloom.e2e.${stamp}`;
+  const connection = `e2e-kafka-${stamp}`;
+  await ui.createConnection({ type: "kafka", name: connection, bootstrap: "kafka:29092", topic });
+  const { runId } = await ui.authorValidateSaveLaunch(withSink({ type: "kafka", name: "live" }), {
+    scenarioName: `e2e-us2-kafka-${stamp}`,
     currency: fixture.currency,
+    destinations: [{ sink: "live", connection }],
   });
 
-  const topic = `txloom.e2e.${runId}`;
   const consumer = new KafkaTestConsumer();
   await consumer.start(topic);
   try {
-    await ui.startStream(runId, { type: "kafka", brokers: "kafka:29092", topic }, 50);
+    await ui.startStream(runId, 50);
     await expect.poll(() => consumer.received.length, { timeout: 20_000 }).toBeGreaterThan(0);
     await ui.stopStream();
   } finally {
@@ -68,21 +79,30 @@ test("Kafka sink delivery @us2", async ({ page }) => {
 
 test("RabbitMQ sink delivery @us2", async ({ page }) => {
   const ui = new TxLoomUi(page);
-  const { runId } = await ui.authorValidateSaveLaunch(fixture, {
-    scenarioName: `e2e-us2-rabbitmq-${Date.now()}`,
-    currency: fixture.currency,
-  });
-
-  const exchange = `txloom.e2e.${runId}`;
+  const stamp = Date.now();
+  const exchange = `txloom.e2e.${stamp}`;
   const routingKey = "events";
+  const connection = `e2e-rabbitmq-${stamp}`;
+  await ui.createConnection({
+    type: "rabbitmq",
+    name: connection,
+    host: "rabbitmq",
+    exchange,
+    routingKey,
+  });
+  const { runId } = await ui.authorValidateSaveLaunch(
+    withSink({ type: "rabbitmq", name: "live" }),
+    {
+      scenarioName: `e2e-us2-rabbitmq-${stamp}`,
+      currency: fixture.currency,
+      destinations: [{ sink: "live", connection }],
+    },
+  );
+
   const consumer = new RabbitMqTestConsumer();
   await consumer.start(exchange, routingKey);
   try {
-    await ui.startStream(
-      runId,
-      { type: "rabbitmq", url: "amqp://rabbitmq:5672", exchange, routingKey },
-      50,
-    );
+    await ui.startStream(runId, 50);
     await expect.poll(() => consumer.received.length, { timeout: 20_000 }).toBeGreaterThan(0);
     await ui.stopStream();
   } finally {
@@ -93,15 +113,21 @@ test("RabbitMQ sink delivery @us2", async ({ page }) => {
 
 test("webhook sink delivery @us2", async ({ page }) => {
   const ui = new TxLoomUi(page);
-  const { runId } = await ui.authorValidateSaveLaunch(fixture, {
-    scenarioName: `e2e-us2-webhook-${Date.now()}`,
-    currency: fixture.currency,
-  });
-
+  const stamp = Date.now();
   const listener = new WebhookListener();
   await listener.start();
   try {
-    await ui.startStream(runId, { type: "webhook", url: listener.url }, 50);
+    const connection = `e2e-webhook-${stamp}`;
+    await ui.createConnection({ type: "webhook", name: connection, url: listener.url });
+    const { runId } = await ui.authorValidateSaveLaunch(
+      withSink({ type: "webhook", name: "live" }),
+      {
+        scenarioName: `e2e-us2-webhook-${stamp}`,
+        currency: fixture.currency,
+        destinations: [{ sink: "live", connection }],
+      },
+    );
+    await ui.startStream(runId, 50);
     await expect.poll(() => listener.received.length, { timeout: 20_000 }).toBeGreaterThan(0);
     await ui.stopStream();
   } finally {

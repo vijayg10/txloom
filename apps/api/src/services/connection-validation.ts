@@ -2,7 +2,10 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { kafkaSinkFactory, rabbitMqSinkFactory, webhookSinkFactory } from "@txloom/sinks";
 import { addressWarnings, type ConnectionWarning } from "@txloom/spec";
 
-const ajv = new Ajv2020({ allErrors: true, strict: true });
+// `useDefaults` fills schema defaults (a webhook's timeout_ms and max_attempts, say) into the
+// validated config in place, so a connection created over REST with only a URL is stored with
+// every setting the sinks read.
+const ajv = new Ajv2020({ allErrors: true, strict: true, useDefaults: true });
 
 const FACTORIES = {
   kafka: kafkaSinkFactory,

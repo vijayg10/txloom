@@ -3,21 +3,27 @@ import type { SimulationSpec } from "@txloom/spec";
 import { getDb } from "../db/knex.js";
 import { ScenarioRepository } from "../db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../db/repositories/spec-versions.js";
-import { RunRepository, RunPartitionRepository } from "../db/repositories/runs.js";
-import { RunDestinationRepository } from "../db/repositories/run-destinations.js";
 import { DestinationDefaultsRepository } from "../db/repositories/destination-defaults.js";
 import { LaunchDefaultsRepository } from "../db/repositories/launch-defaults.js";
 import { ConnectionRepository } from "../db/repositories/connections.js";
+import { checkStoredSpec } from "../services/spec-guard.js";
+import { InvalidSeedError, parseSeed } from "../services/seed.js";
 import { launchGeneration } from "../services/run-launch-service.js";
-import { validateDestinations, snapshotDestinations, type DestinationInput } from "../services/destinations.js";
+import {
+  validateDestinations,
+  snapshotDestinations,
+  type DestinationInput,
+} from "../services/destinations.js";
 
 interface LaunchRunBody {
-  seed?: number;
+  seed?: string | number;
   sink_connection_ids?: string[];
   mode?: "batch" | "batch_then_stream" | "history_only" | "history_then_live";
   label_export?: "separate_export" | "merged_with_warning";
   stream_label_channel?: boolean;
   destinations?: DestinationInput[];
+  /** Send the whole history to the broker destinations once generation finishes (FR-021). */
+  replay_history?: boolean;
 }
 
 // Old clients still send `batch` / `batch_then_stream`; map them onto the new
@@ -35,9 +41,6 @@ export default async function runsLaunchRoutes(app: FastifyInstance) {
   const dataDir = process.env.DATA_DIR ?? "./data";
   const scenarios = new ScenarioRepository(db);
   const specVersions = new SpecVersionRepository(db);
-  const runs = new RunRepository(db);
-  const runPartitions = new RunPartitionRepository(db);
-  const runDestinations = new RunDestinationRepository(db);
   const destinationDefaults = new DestinationDefaultsRepository(db);
   const launchDefaults = new LaunchDefaultsRepository(db);
   const connections = new ConnectionRepository(db, dataDir);
@@ -59,8 +62,21 @@ export default async function runsLaunchRoutes(app: FastifyInstance) {
       return { error: { code: "not_found", message: "Current spec version not found" } };
     }
 
+    const invalid = checkStoredSpec(`Version ${version.version_no}`, version.spec);
+    if (invalid) {
+      reply.status(400);
+      return invalid;
+    }
+
     const spec = version.spec as SimulationSpec;
-    const seed = BigInt(body.seed ?? Math.floor(Math.random() * 1_000_000_000));
+    let seed: bigint;
+    try {
+      seed = parseSeed(body.seed ?? spec.seed);
+    } catch (error) {
+      if (!(error instanceof InvalidSeedError)) throw error;
+      reply.status(400);
+      return { error: { code: error.code, message: error.message, details: { path: error.path } } };
+    }
     const requestedMode = body.mode ?? "history_only";
     const legacyMode = LEGACY_MODE_MAP[requestedMode];
     const mode = legacyMode ?? (requestedMode as "history_only" | "history_then_live");
@@ -81,7 +97,7 @@ export default async function runsLaunchRoutes(app: FastifyInstance) {
     }
     const resolvedDestinations = snapshotDestinations(destinationInputs, allConnections);
 
-    const run = await launchGeneration(runs, runPartitions, runDestinations, dataDir, {
+    const run = await launchGeneration(db, dataDir, {
       scenario_id: id,
       spec_version_id: version.id,
       spec,
@@ -92,6 +108,7 @@ export default async function runsLaunchRoutes(app: FastifyInstance) {
       },
       mode,
       destinations: resolvedDestinations,
+      replay_history: body.replay_history === true,
     });
 
     if (destinationInputs.length > 0) {

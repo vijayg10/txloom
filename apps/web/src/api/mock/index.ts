@@ -1,5 +1,7 @@
 import type {
   Connection,
+  ExportManifest,
+  ExportRequest,
   ConnectionInput,
   DestinationInput,
   LaunchRequest,
@@ -71,6 +73,8 @@ export function createMockApiClient(): TxLoomApiClient {
   const suggestionsDismissed = new Set<string>();
   let nextConnId = 100;
   let streamState: Stream["state"] = "idle";
+  const exportsById = new Map<string, { manifest: ExportManifest; polls: number }>();
+  let nextExportId = 1;
 
   function resolveDestinations(inputs: DestinationInput[] | undefined) {
     return (inputs ?? []).map((input) => {
@@ -113,7 +117,9 @@ export function createMockApiClient(): TxLoomApiClient {
           ? {
               ...c,
               ...(input.name ? { name: input.name } : {}),
-              ...(input.config ? { config: { ...c.config, ...input.config } as typeof c.config } : {}),
+              ...(input.config
+                ? { config: { ...c.config, ...input.config } as typeof c.config }
+                : {}),
               updated_at: new Date().toISOString(),
             }
           : c,
@@ -178,6 +184,40 @@ export function createMockApiClient(): TxLoomApiClient {
       const run = runs.find((r) => r.id === id);
       if (!run) return Promise.reject(new Error(`run ${id} not found`));
       return delay(run);
+    },
+
+    createExport: (runId, request: ExportRequest) => {
+      const run = runs.find((r) => r.id === runId);
+      const sinks =
+        (
+          run?.spec_snapshot as
+            { output?: { sinks?: { type: string; name: string }[] } } | undefined
+        )?.output?.sinks ?? [];
+      const fileSink = sinks.find((sink) => sink.type === "file");
+      const manifest: ExportManifest = {
+        export_id: `export-${nextExportId++}`,
+        run_id: runId,
+        format: request.format,
+        include_labels: request.include_labels,
+        source:
+          request.source ?? (fileSink ? { kind: "sink", name: fileSink.name } : { kind: "truth" }),
+        status: "queued",
+        file_name: `data.${request.format}`,
+        answer_key_file_name: request.include_labels ? null : `labels.${request.format}`,
+      };
+      exportsById.set(manifest.export_id, { manifest, polls: 0 });
+      return delay(manifest);
+    },
+    // Each poll moves the export along: queued, then running, then completed.
+    getExport: (_runId, exportId) => {
+      const entry = exportsById.get(exportId);
+      if (!entry) return Promise.reject(new Error(`export ${exportId} not found`));
+      entry.polls += 1;
+      entry.manifest = {
+        ...entry.manifest,
+        status: entry.polls === 1 ? "running" : "completed",
+      };
+      return delay(entry.manifest, 50);
     },
 
     startStream: (_runId, targetTps) => {

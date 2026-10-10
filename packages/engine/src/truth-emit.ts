@@ -1,35 +1,23 @@
 import type { SimulationSpec } from "@txloom/spec";
-import { derivePartitionRng, deriveNamedRng, type Rng, type RngCheckpoint } from "./rng.js";
-import { createDeterministicUlid } from "./id.js";
-import { computeConsumerPartitions } from "./partitioning.js";
-import { sampleConsumers } from "./population/consumer-archetypes.js";
-import { sampleMerchants, drawMerchantAmount } from "./population/merchants.js";
-import { isIncomeDay, drawIncomeAmount } from "./population/income-patterns.js";
-import { drawDailyTransactionCount } from "./population/spend-rhythms.js";
+import { deriveNamedRng } from "./rng.js";
+import { sampleMerchants } from "./population/merchants.js";
 import { loadNamePack } from "./naming/pack-loader.js";
-import { drawPersonName, drawMerchantName } from "./naming/assign-names.js";
-import { seasonalityMultiplier } from "./seasonality.js";
-import { drawLegitOutcome } from "./outcomes.js";
-import { orchestrateFraud } from "./fraud/orchestrator.js";
-import { randInt } from "./distributions.js";
-import type { NamedConsumer, NamedMerchant } from "./population/named-population.js";
+import { drawMerchantName } from "./naming/assign-names.js";
+import {
+  initPartitionWorld,
+  checkpointWorld,
+  type WorldCheckpoint,
+} from "./world/partition-world.js";
+import { simulateDay } from "./world/simulate-day.js";
+import type { NamedMerchant } from "./population/named-population.js";
 import type { LabelRecord, TruthEvent } from "./types.js";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Trailing world state after a partition's history phase — everything the
- * live-stream phase needs to continue the SAME population and RNG stream
- * with zero discontinuity (FR-029, SC-006) instead of resetting. */
-export interface PartitionWorldCheckpoint {
-  rng: RngCheckpoint;
-  consumers: NamedConsumer[];
-}
 
 export interface PartitionGenerationResult {
   truthEvents: TruthEvent[];
   labelRecords: LabelRecord[];
   achievedFraudRate: number;
-  worldCheckpoint: PartitionWorldCheckpoint;
+  /** The world at the end of history — what the live phase restores (R7). */
+  worldCheckpoint: WorldCheckpoint;
 }
 
 /** Generates the shared, world-scoped merchant pool once (globally, not
@@ -46,10 +34,9 @@ export function generateMerchantPool(spec: SimulationSpec, seed: bigint): NamedM
 }
 
 /**
- * Generates one partition's slice of the persona space end to end: consumers,
- * names, daily transactions (income + spend, seasonality-scaled), fraud
- * campaigns woven in, and outcome statuses — the deterministic core (FR-013,
- * FR-017/020, FR-014a). Truth events come back chronologically sorted.
+ * Generates one partition's whole history in memory: a thin loop over `simulateDay` for days
+ * `0…clock.days−1` (R6). Kept for tests and small tools; the worker streams the same days to
+ * disk one at a time instead of holding them.
  */
 export function generatePartition(
   spec: SimulationSpec,
@@ -58,123 +45,19 @@ export function generatePartition(
   partitionCount: number,
   merchants: readonly NamedMerchant[],
 ): PartitionGenerationResult {
-  const range = computeConsumerPartitions(spec.population.consumers.count, partitionCount)[
-    partitionNo
-  ];
-  if (!range)
-    throw new Error(`partitionNo ${partitionNo} out of range for partitionCount ${partitionCount}`);
-
-  const rng: Rng = derivePartitionRng(seed, partitionNo);
-  const pack = loadNamePack(spec.locale);
-  const makeId = createDeterministicUlid(rng);
-
-  const rawConsumers = sampleConsumers(
-    spec.population.consumers.archetypes,
-    range.start,
-    range.end,
-    rng,
-  );
-  const consumers: NamedConsumer[] = rawConsumers.map((c) => ({
-    ...c,
-    name: drawPersonName(pack, rng),
-  }));
-
-  const clockStartMs = Date.parse(`${spec.clock.start}T00:00:00.000Z`);
-  const legitEvents: TruthEvent[] = [];
-
+  const world = initPartitionWorld(spec, seed, partitionNo, partitionCount, merchants);
+  const truthEvents: TruthEvent[] = [];
+  const labelRecords: LabelRecord[] = [];
   for (let day = 0; day < spec.clock.days; day++) {
-    const dayStartMs = clockStartMs + day * DAY_MS;
-    const date = new Date(dayStartMs);
-    const isWeekend = date.getUTCDay() === 0 || date.getUTCDay() === 6;
-    const seasonMultiplier = seasonalityMultiplier(spec.seasonality, date);
-
-    for (const consumer of consumers) {
-      if (isIncomeDay(consumer.archetype.income_pattern, date, rng)) {
-        const amount = drawIncomeAmount(consumer.archetype.income_pattern, rng);
-        const tsMs = dayStartMs + randInt(rng, 0, DAY_MS);
-        legitEvents.push({
-          event_id: makeId(tsMs),
-          ts: new Date(tsMs).toISOString(),
-          type: "income_credit",
-          status: drawLegitOutcome(spec.outcomes, rng),
-          amount,
-          currency: spec.currency,
-          consumer_id: consumer.id,
-          consumer_name: consumer.name,
-          merchant_id: null,
-          merchant_name: null,
-          counterparty_id: null,
-          counterparty_name: null,
-          channel: spec.channel,
-          partition_no: partitionNo,
-        });
-      }
-
-      const baseCount = drawDailyTransactionCount(consumer.archetype.spend_rhythm, isWeekend, rng);
-      const txCount = Math.round(baseCount * seasonMultiplier);
-      for (let t = 0; t < txCount; t++) {
-        const merchant = merchants[randInt(rng, 0, merchants.length)];
-        if (!merchant) continue;
-        const category = spec.population.merchants.categories[merchant.category];
-        if (!category) continue;
-        const amount = drawMerchantAmount(category, rng);
-        const tsMs = dayStartMs + randInt(rng, 0, DAY_MS);
-        legitEvents.push({
-          event_id: makeId(tsMs),
-          ts: new Date(tsMs).toISOString(),
-          type: "payment",
-          status: drawLegitOutcome(spec.outcomes, rng),
-          amount,
-          currency: spec.currency,
-          consumer_id: consumer.id,
-          consumer_name: consumer.name,
-          merchant_id: merchant.id,
-          merchant_name: merchant.name,
-          counterparty_id: null,
-          counterparty_name: null,
-          channel: spec.channel,
-          partition_no: partitionNo,
-        });
-      }
-    }
+    const output = simulateDay(world, day);
+    for (const event of output.events) truthEvents.push(event);
+    for (const label of output.labels) labelRecords.push(label);
   }
-
-  legitEvents.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
-
-  const fraudResult = orchestrateFraud({
-    fraudConfig: spec.fraud,
-    legitEvents,
-    consumers,
-    merchants,
-    currency: spec.currency,
-    channel: spec.channel,
-    clockStartMs,
-    clockDays: spec.clock.days,
-    partitionNo,
-    rng,
-    makeId,
-  });
-
-  const legitLabels: LabelRecord[] = legitEvents.map((event) => ({
-    event_id: event.event_id,
-    is_fraud: false,
-    typology: null,
-    actor_id: null,
-    campaign_step: null,
-    corruption_type: null,
-    corruption_detail: null,
-    sink: null,
-  }));
-
-  const truthEvents = [...legitEvents, ...fraudResult.fraudEvents].sort(
-    (a, b) => Date.parse(a.ts) - Date.parse(b.ts),
-  );
-  const labelRecords = [...legitLabels, ...fraudResult.fraudLabels];
-
+  const total = world.stats.eventCount;
   return {
     truthEvents,
     labelRecords,
-    achievedFraudRate: fraudResult.achievedRate,
-    worldCheckpoint: { rng: rng.checkpoint(), consumers },
+    achievedFraudRate: total > 0 ? world.stats.fraudCount / total : 0,
+    worldCheckpoint: checkpointWorld(world),
   };
 }

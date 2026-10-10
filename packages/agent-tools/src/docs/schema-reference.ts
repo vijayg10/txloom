@@ -10,7 +10,7 @@ export interface FieldNote {
 export const SCHEMA_FIELD_NOTES: readonly FieldNote[] = [
   {
     path: "/seed",
-    note: "Any integer. Same seed + same spec always reproduces byte-identical output — this is the product's core guarantee.",
+    note: "Integer from 0 to 9007199254740991 (larger 64-bit seeds go in the launch `seed` string, up to 18446744073709551615). Same seed + same spec always reproduces byte-identical output — this is the product's core guarantee.",
   },
   {
     path: "/currency",

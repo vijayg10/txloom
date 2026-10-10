@@ -2,20 +2,21 @@ import type { SinkType } from "@txloom/spec";
 
 export type { SinkType };
 
-/** Per-delivery envelope. `delivery_id` is unique per physical delivery attempt —
- * duplicate-delivery imperfections share `event_id` but mint a new `delivery_id`
- * (data-model.md § DeliveredEvent). */
+/** Bumped when the `Sink` contract changes incompatibly. v2 moved acknowledgement into
+ * `publish` (it resolves only once the destination confirms) and retries into the pump. */
+export const SINK_PLUGIN_API_VERSION = 2;
+
+/** Per-delivery envelope. `delivery_id` is unique per physical delivery; duplicate-delivery
+ * imperfections share `event_id` but mint a new `delivery_id` (data-model.md § Delivered). */
 export interface SinkDeliveryEnvelope {
   delivery_id: string;
   event_id: string;
-  /** Delivered timestamp — may differ from truth `ts` under late-arrival/clock-skew (FR-024/025). */
-  ts: string;
 }
 
 export interface SinkPublishResult {
   ok: boolean;
-  /** True when the sink wants the caller (token bucket, FR-028/D16) to slow down. */
-  backpressure?: boolean;
+  /** Only meaningful when `ok` is false. `retryable: false` makes the pump drop immediately. */
+  retryable?: boolean;
   error?: string;
 }
 
@@ -46,21 +47,49 @@ export interface SinkTarget {
   key?: string;
 }
 
+/** Run context a sink may attach to what it publishes (Kafka headers). */
+export interface SinkRunContext {
+  runId: string;
+  sessionSeq: number;
+  engineVersion: number;
+}
+
 /**
- * The documented extension contract every delivery target implements — file,
- * Kafka, RabbitMQ, webhook in v1, and the plugin surface for community sinks
- * beyond it (FR-027, constitution Principle I: extensibility via interfaces,
- * not conditionals threaded through the engine).
+ * The documented extension contract every delivery target implements — Kafka, RabbitMQ and
+ * webhook built in, and the plugin surface for community sinks beyond them (FR-027,
+ * constitution Principle I). File output does not use this interface.
  */
 export interface Sink {
   readonly type: SinkType;
   readonly name: string;
+  /** Most unacknowledged publishes the pump may keep outstanding. */
+  readonly maxInFlight: number;
+  /** Attempts per delivery before the pump drops it (webhooks take the connection's setting;
+   * the default is 5). */
+  readonly maxAttempts?: number;
+
+  /**
+   * Resolves ONLY once the destination has acknowledged the message (Kafka delivery report,
+   * RabbitMQ publisher confirm, HTTP 2xx), or with `ok: false` on failure. MUST NOT retry
+   * internally — retries belong to the `DeliveryPump`. May be called concurrently up to
+   * `maxInFlight` times. MUST honour `signal`: aborting resolves `{ok: false, retryable: true}`.
+   */
   publish(
-    payload: Record<string, unknown>,
+    target: SinkTarget,
+    body: Uint8Array,
     envelope: SinkDeliveryEnvelope,
+    signal: AbortSignal,
   ): Promise<SinkPublishResult>;
+
+  /** Transport backpressure hint (for example a full RabbitMQ write buffer). */
+  readonly saturated?: boolean;
+  /** Resolves once `saturated` clears. */
+  waitForCapacity?(): Promise<void>;
+  /** Optional: receives the run context before publishing starts. */
+  setRunContext?(context: SinkRunContext): void;
+
   /** Tests reachability (and, for Kafka/RabbitMQ, the target topic/exchange) without
-   * publishing anything (FR-010, contracts/sink-plugin.md). Replaces `testConnection`. */
+   * publishing anything (FR-010). */
   probe(target: SinkTarget): Promise<ProbeResult>;
   close(): Promise<void>;
 }

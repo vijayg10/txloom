@@ -6,6 +6,7 @@ import { closeDb, getDb } from "../../src/db/knex.js";
 import { ScenarioRepository } from "../../src/db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../../src/db/repositories/spec-versions.js";
 import { RunRepository, RunPartitionRepository } from "../../src/db/repositories/runs.js";
+import { RunDeliveryRepository } from "../../src/db/repositories/run-deliveries.js";
 
 const spec = {
   seed: 1,
@@ -86,7 +87,7 @@ describe("WS runs/:id/progress channel contract", () => {
       spec_snapshot: spec,
       seed: 1n,
       params: {},
-      mode: "batch",
+      mode: "history_only",
     });
     await runPartitions.createPending(run.id, 1);
     await runPartitions.checkpoint(run.id, 0, {}, 42);
@@ -133,5 +134,76 @@ describe("WS runs/:id/progress channel contract", () => {
     expect(tick!.partition_no).toBe(0);
     expect(tick!.events_generated).toBe(42);
     expect(typeof tick!.throughput).toBe("number");
+  }, 15_000);
+
+  async function collect(
+    subscribeTo: string,
+    until: (messages: Record<string, unknown>[]) => boolean,
+  ) {
+    const ws = await app.injectWS("/api/v1/ws");
+    const messages: Record<string, unknown>[] = [];
+    await new Promise<void>((resolve) => {
+      ws.on("message", (raw: Buffer) => {
+        messages.push(JSON.parse(raw.toString()) as Record<string, unknown>);
+        if (until(messages)) resolve();
+      });
+      ws.send(JSON.stringify({ subscribe: subscribeTo }));
+    });
+    ws.terminate();
+    return messages;
+  }
+
+  it("reports phase 'generating' with an empty deliveries[] while partitions run", async () => {
+    const messages = await collect(`runs/${runId}/progress`, (m) =>
+      m.some((x) => x.phase !== undefined),
+    );
+    const message = messages.find((m) => m.phase !== undefined)!;
+    expect(message.phase).toBe("generating");
+    expect(message.deliveries).toEqual([]);
+  }, 15_000);
+
+  it("reports phase 'replaying' with per-sink counts once generation is done but a replay is not", async () => {
+    const db = getDb();
+    const scenario = await new ScenarioRepository(db).create({
+      name: "WS replay",
+      currency: "INR",
+    });
+    const version = await new SpecVersionRepository(db).create({
+      scenario_id: scenario.id,
+      spec,
+      author_type: "user",
+    });
+    const runs = new RunRepository(db);
+    const run = await runs.create({
+      scenario_id: scenario.id,
+      spec_version_id: version.id,
+      spec_snapshot: spec,
+      seed: 1n,
+      params: {},
+      mode: "history_then_live",
+      replay_history: true,
+    });
+    await runs.setStatus(run.id, "completed");
+    const deliveries = new RunDeliveryRepository(db);
+    await deliveries.create({
+      run_id: run.id,
+      sink_name: "events",
+      destination_snapshot: { sink: "events", connection_id: null },
+    });
+    await deliveries.markRunning(run.id, "events", 10);
+    await deliveries.recordProgress(run.id, "events", {
+      cursor: { file_index: 0, row: 5 },
+      published: 4,
+      failed: 1,
+    });
+
+    const messages = await collect(`runs/${run.id}/progress`, (m) =>
+      m.some((x) => x.phase !== undefined),
+    );
+    const message = messages.find((m) => m.phase !== undefined)!;
+    expect(message.phase).toBe("replaying");
+    expect(message.deliveries).toEqual([
+      { sink: "events", state: "running", published: 4, failed: 1, total: 10 },
+    ]);
   }, 15_000);
 });

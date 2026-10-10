@@ -42,6 +42,7 @@ class CleanAndOrderJobTest {
         event.currency = "USD";
         event.channel = "web";
         event.ts = ts;
+        event.delivered_at = ts; // on time: arrival equals event time
         event.kafkaRecordTimestampMs = kafkaRecordTimestampMs;
         return event;
     }
@@ -100,5 +101,38 @@ class CleanAndOrderJobTest {
         assertEquals(1, quality.size());
         assertEquals("clock_skew", quality.get(0).kind);
         assertEquals(70_000L, quality.get(0).skew_ms);
+    }
+
+    @Test
+    void lateArrivalKeepsItsOriginalTsAndIsOrderedByDeliveredAt() throws Exception {
+        harness.processWatermark(5_000L);
+
+        // Event time 1s, but it arrived at 9s: ahead of the delivered_at watermark, so it is
+        // not late. Its ts must come through untouched.
+        Event delayed = event("e4", "c1", 1_000L, 9_000L);
+        delayed.delivered_at = 9_000L;
+        harness.processElement(delayed, 9_000L);
+
+        assertEquals(1, harness.extractOutputValues().size());
+        Event forwarded = harness.extractOutputValues().get(0);
+        assertEquals(1_000L, forwarded.ts);
+        assertEquals(9_000L, forwarded.delivered_at);
+        assertTrue(qualityOutput().isEmpty());
+    }
+
+    @Test
+    void lateIsJudgedByDeliveredAtNotTs() throws Exception {
+        harness.processWatermark(5_000L);
+
+        // A recent event time, but it was delivered at 2s: behind the 5s watermark.
+        Event behind = event("e5", "c1", 8_000L, 2_000L);
+        behind.delivered_at = 2_000L;
+        harness.processElement(behind, 2_000L);
+
+        assertTrue(harness.extractOutputValues().isEmpty());
+        List<QualityRecord> quality = qualityOutput();
+        assertEquals(1, quality.size());
+        assertEquals("late", quality.get(0).kind);
+        assertEquals(3_000L, quality.get(0).lateness_ms);
     }
 }

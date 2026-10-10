@@ -60,6 +60,7 @@ export function StreamConsole({ runId }: { runId: string }) {
   const [backpressure, setBackpressure] = useState(false);
   const [ticker, setTicker] = useState<TickerEvent[]>([]);
   const [rateInput, setRateInput] = useState("");
+  const [startError, setStartError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -97,6 +98,17 @@ export function StreamConsole({ runId }: { runId: string }) {
   async function control(action: "pause" | "resume" | "stop") {
     const updated = await apiClient.post<StreamRow>(`/runs/${runId}/stream/${action}`);
     setStream(updated);
+  }
+
+  /** Starting a stopped stream opens a new session. The server's refusals (`stream_paused`,
+   * `stream_limit`) each say what to do next, so they are shown as written. */
+  async function startAgain() {
+    setStartError(null);
+    try {
+      setStream(await apiClient.post<StreamRow>(`/runs/${runId}/stream/start`, {}));
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : "failed to start stream");
+    }
   }
 
   async function submitRate(e: React.FormEvent) {
@@ -149,6 +161,15 @@ export function StreamConsole({ runId }: { runId: string }) {
           >
             Resume
           </Button>
+          {(stream.state === "stopped" || stream.state === "paused") && (
+            <Button
+              variant="secondary"
+              data-testid="stream-start"
+              onClick={() => void startAgain()}
+            >
+              Start
+            </Button>
+          )}
           <Button
             variant="secondary"
             data-testid="stream-stop"
@@ -160,6 +181,11 @@ export function StreamConsole({ runId }: { runId: string }) {
         </div>
       </CardHeader>
       <CardBody>
+        {startError && (
+          <p role="alert" data-testid="stream-start-error" className="text-danger mb-3 text-sm">
+            {startError}
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-3" data-testid="stream-dial">
           <Metric
             label="Throughput"

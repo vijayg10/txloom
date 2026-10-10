@@ -49,6 +49,7 @@ const STREAM_STATE_TONE: Record<StreamState, BadgeTone> = {
   streaming: "info",
   paused: "warning",
   stopped: "neutral",
+  error: "danger",
 };
 
 export function streamStateTone(state: StreamState): BadgeTone {

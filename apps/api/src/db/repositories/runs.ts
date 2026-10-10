@@ -19,6 +19,7 @@ export interface RunRow {
   target_tps: number | null;
   label_channel: boolean;
   source_run_id: string | null;
+  retry_count: number;
   outputs_deleted_at: Date | null;
   progress: unknown;
   error: string | null;
@@ -45,6 +46,12 @@ export interface CreateRunInput {
 export class RunRepository {
   constructor(private readonly db: Knex) {}
 
+  /** `seed` is BIGINT UNSIGNED (up to 2^64-1); the driver would round it to a double, so it is
+   * always read back as text (research R2). */
+  private runs() {
+    return this.db<RunRow>("runs").select("runs.*", this.db.raw("CAST(runs.seed AS CHAR) AS seed"));
+  }
+
   async create(input: CreateRunInput): Promise<RunRow> {
     const id = ulid();
     await this.db("runs").insert({
@@ -69,17 +76,17 @@ export class RunRepository {
   }
 
   getById(id: string): Promise<RunRow | undefined> {
-    return this.db<RunRow>("runs").where({ id }).first();
+    return this.runs().where({ id }).first();
   }
 
   list(limit = 50, cursor?: string): Promise<RunRow[]> {
-    const query = this.db<RunRow>("runs").orderBy("created_at", "desc").limit(limit);
+    const query = this.runs().orderBy("created_at", "desc").limit(limit);
     if (cursor) query.where("id", "<", cursor);
     return query;
   }
 
   listByStatus(status: RunStatus): Promise<RunRow[]> {
-    return this.db<RunRow>("runs").where({ status });
+    return this.runs().where({ status });
   }
 
   async setStatus(
@@ -89,9 +96,17 @@ export class RunRepository {
   ): Promise<void> {
     const patch: Record<string, unknown> = { status, ...extra };
     if (status === "running") patch.started_at = this.db.fn.now();
+    if (status === "running") patch.completed_at = null;
+    if (status === "running" && extra.error === undefined) patch.error = null;
     if (status === "completed" || status === "failed" || status === "cancelled")
       patch.completed_at = this.db.fn.now();
     await this.db("runs").where({ id }).update(patch);
+  }
+
+  async incrementRetryCount(id: string): Promise<number> {
+    await this.db("runs").where({ id }).increment("retry_count", 1);
+    const row = await this.db("runs").where({ id }).first("retry_count");
+    return row?.retry_count ?? 0;
   }
 
   async setProgress(id: string, progress: unknown): Promise<void> {
@@ -164,12 +179,10 @@ export class RunPartitionRepository {
     attempts: number,
     error: string | null,
   ): Promise<void> {
-    await this.db("run_partitions")
-      .where({ run_id: runId, partition_no: partitionNo })
-      .update({
-        attempts,
-        last_error: error,
-        updated_at: this.db.fn.now(),
-      });
+    await this.db("run_partitions").where({ run_id: runId, partition_no: partitionNo }).update({
+      attempts,
+      last_error: error,
+      updated_at: this.db.fn.now(),
+    });
   }
 }

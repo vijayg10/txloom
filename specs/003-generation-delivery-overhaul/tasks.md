@@ -202,25 +202,25 @@ chosen topic (quickstart.md § US1).
 - [X] T039 [US1] Write and implement migration `apps/api/src/db/migrations/012_destinations.ts`: `run_destinations` (immutable after launch, no update path), `scenario_destination_defaults` and `scenario_launch_defaults` (data-model.md §1.4, 1.5, 1.5a). Add the repositories `apps/api/src/db/repositories/run-destinations.ts` (insert and read only), `apps/api/src/db/repositories/destination-defaults.ts` and `apps/api/src/db/repositories/launch-defaults.ts`.
 - [X] T040 [US1] Add `apps/api/src/services/destinations.ts` with `validateDestinations(spec, destinations, connections)` and `snapshotDestinations()`. The validation returns `sink_without_destination`, `destination_type_mismatch` and unknown-connection errors with `details.sink`.
 - [X] T041 [US1] Extend `POST /scenarios/:id/runs` in `apps/api/src/routes/runs-launch.ts`: accept `destinations`, validate them with T040, persist them through `run_destinations`, upsert `scenario_destination_defaults`, and drop `sink_connection_ids` (accepted with a `Deprecation` header and ignored). Add `GET /scenarios/:id/launch-defaults` there too.
-- [ ] T042 [US1] Rewrite `POST /runs/:id/stream/start` in `apps/api/src/routes/stream-control.ts`:
+- [X] T042 [US1] Rewrite `POST /runs/:id/stream/start` in `apps/api/src/routes/stream-control.ts`:
   - reject an inline `sink` with `400 inline_sink_removed`;
   - load `run_destinations` and return `409 destination_connection_missing` if a `connection_id` is null;
   - the job payload carries `destinations` (sink name, connection ID, topic, routing key, label topic) and never secrets.
-- [ ] T043 [US1] Make the worker resolve destinations in `apps/worker/src/jobs/stream-drive.ts`: replace `defaultCreateSink(inline)` with `createSinkForDestination(destination)`, which loads the connection through `ConnectionRepository`, decrypts its secrets, and calls the factory with the destination's target.
-- [ ] T044 [P] [US1] Update the MCP tools:
+- [X] T043 [US1] Make the worker resolve destinations in `apps/worker/src/jobs/stream-drive.ts`: replace `defaultCreateSink(inline)` with `createSinkForDestination(destination)`, which loads the connection through `ConnectionRepository`, decrypts its secrets, and calls the factory with the destination's target.
+- [X] T044 [P] [US1] Update the MCP tools:
   - add `list_connections`; make `launch_run` take `destinations`; remove `sink` from `start_stream` (`packages/agent-tools/src/tools.ts`);
   - register the handlers in `apps/api/src/mcp/tools/read-tools.ts` and `apps/api/src/mcp/tools/run-tools.ts`.
-- [ ] T045 [P] [US1] Replace the `sinks-*` CLI commands with `apps/cli/src/commands/connections.ts`:
+- [X] T045 [P] [US1] Replace the `sinks-*` CLI commands with `apps/cli/src/commands/connections.ts`:
   - `connections-list`, `connections-add` (typed flags; password through a prompt or `--password-stdin`) and `connections-test`;
   - `run --dest sink=connection[:topic]` in `apps/cli/src/commands/run.ts`;
   - remove the broker flags from `apps/cli/src/commands/stream.ts`;
   - update `apps/cli/src/registry.ts`, and delete `apps/cli/src/commands/sinks.ts`.
-- [ ] T046 [US1] Wire the Connections page (T013) to the real client, and route `/connections` in `apps/web/src/components/layout/app-shell.tsx`.
+- [X] T046 [US1] Wire the Connections page (T013) to the real client, and route `/connections` in `apps/web/src/components/layout/app-shell.tsx`.
   - Delete `apps/web/src/surfaces/settings/sink-management.tsx`, including its raw JSON box, and link to Connections from `apps/web/src/surfaces/settings/index.tsx`.
-- [ ] T047 [US1] Wire `DestinationPicker` (T014) into the current launch page `apps/web/src/surfaces/run-control/run-launch.tsx`, so UI launches send `destinations`; US5 moves this into the drawer.
+- [X] T047 [US1] Wire `DestinationPicker` (T014) into the current launch page `apps/web/src/surfaces/run-control/run-launch.tsx`, so UI launches send `destinations`; US5 moves this into the drawer.
   - Delete the inline sink form `apps/web/src/surfaces/stream-console/stream-launcher.tsx`, including its e2e defaults. Make `apps/web/src/surfaces/stream-console/stream-console.tsx` start streams with the run's destinations.
-- [ ] T048 [US1] Rewrite the e2e helpers and stories for connections and destinations: `apps/e2e/src/ui.ts` (the new `conn-*` and `launch-destination-*` test IDs) and `apps/e2e/tests/02-sinks.spec.ts` (create connections on the Connections page, choose them as destinations at launch, consume from Kafka, RabbitMQ and webhook).
-- [ ] T049 [US1] Add CHANGELOG entries under "API removals" in `CHANGELOG.md`: `/sinks` → `/connections`, inline `sink` on stream start, `sink_connection_ids`, the CLI `sinks-*` commands, and the MCP `start_stream.sink` input.
+- [X] T048 [US1] Rewrite the e2e helpers and stories for connections and destinations: `apps/e2e/src/ui.ts` (the new `conn-*` and `launch-destination-*` test IDs) and `apps/e2e/tests/02-sinks.spec.ts` (create connections on the Connections page, choose them as destinations at launch, consume from Kafka, RabbitMQ and webhook).
+- [X] T049 [US1] Add CHANGELOG entries under "API removals" in `CHANGELOG.md`: `/sinks` → `/connections`, inline `sink` on stream start, `sink_connection_ids`, the CLI `sinks-*` commands, and the MCP `start_stream.sink` input.
 
 **Checkpoint**: US1 is complete. An authenticated cluster is reachable end to end; this is the MVP.
 
@@ -241,41 +241,41 @@ strings with no aliasing. Mismatched versions are refused or need explicit confi
 
 ### Tests for User Story 4 (write first; they must fail) ⚠️
 
-- [ ] T050 [P] [US4] Write the invariant tests in `packages/spec/tests/invariants/harness.test.ts` (both the rejection and the explanation message, per constitution III): `spec.seed` above `2^53−1` or below 0 gives a located violation at `/seed` with code `seed-out-of-range` and the remedy "pass larger seeds as the launch `seed` string"; a seed in range passes.
-- [ ] T051 [P] [US4] Write RNG tests in `packages/engine/tests/rng.test.ts`:
+- [X] T050 [P] [US4] Write the invariant tests in `packages/spec/tests/invariants/harness.test.ts` (both the rejection and the explanation message, per constitution III): `spec.seed` above `2^53−1` or below 0 gives a located violation at `/seed` with code `seed-out-of-range` and the remedy "pass larger seeds as the launch `seed` string"; a seed in range passes.
+- [X] T051 [P] [US4] Write RNG tests in `packages/engine/tests/rng.test.ts`:
   - seeds `1n` and `2n**32n + 1n` give different first 1,000 draws;
   - `2n**64n - 1n` is accepted;
   - SplitMix64 state expansion matches published test vectors;
   - `deriveNamedRng(seed, "merchants")` runs in under 1 ms and differs between names and seeds.
-- [ ] T052 [P] [US4] Write contract tests in `apps/api/tests/contract/test_runs.ts`:
+- [X] T052 [P] [US4] Write contract tests in `apps/api/tests/contract/test_runs.ts`:
   - seed `"18446744073709551615"` round-trips exactly as a string;
   - a JSON number above 2^53, or `"-1"`, or `"2^64"` returns `400 invalid_seed`, and the message states the range;
   - `GET /runs/:id` includes `engine_version` and `partition_count`.
-- [ ] T053 [P] [US4] Write contract tests in `apps/api/tests/contract/test_run_control.ts`:
+- [X] T053 [P] [US4] Write contract tests in `apps/api/tests/contract/test_run_control.ts`:
   - regenerating a run with `engine_version ≠ ENGINE_VERSION` returns `409 engine_version_mismatch`, with `details.run_engine_version` and `details.current_engine_version`;
   - with `accept_engine_change:true`, the new run records the new version and `source_run_id`;
   - regenerate reuses the stored `partition_count` even when `TXLOOM_PARTITION_CHUNK_SIZE` changes;
   - stream start and retry on a mismatched run return `409 engine_version_mismatch`.
-- [ ] T054 [P] [US4] Write the worker test in `apps/worker/tests/integration/generate-run.test.ts`: a `generate-partition` job whose `engineVersion` doesn't match fails immediately as unrecoverable (`attemptsMade === 1`), and the run is `failed` with an error naming both versions.
-- [ ] T055 [P] [US4] Extend `apps/e2e/tests/04-determinism.spec.ts`: launch with a string seed above 2^53, assert that `engine_version` is recorded, and that a double run is byte-identical.
-- [ ] T056 [US4] Extend `apps/api/tests/contract/test_runs.ts` (after T052; same file): a launch with no `seed` uses `spec.seed` (two launches without a seed produce the same `seed` and byte-identical truth), and a request `seed` overrides it.
+- [X] T054 [P] [US4] Write the worker test in `apps/worker/tests/integration/generate-run.test.ts`: a `generate-partition` job whose `engineVersion` doesn't match fails immediately as unrecoverable (`attemptsMade === 1`), and the run is `failed` with an error naming both versions.
+- [X] T055 [P] [US4] Extend `apps/e2e/tests/04-determinism.spec.ts`: launch with a string seed above 2^53, assert that `engine_version` is recorded, and that a double run is byte-identical.
+- [X] T056 [US4] Extend `apps/api/tests/contract/test_runs.ts` (after T052; same file): a launch with no `seed` uses `spec.seed` (two launches without a seed produce the same `seed` and byte-identical truth), and a request `seed` overrides it.
 
 ### Implementation for User Story 4
 
-- [ ] T057 [US4] Implement 64-bit seeding in `packages/engine/src/rng.ts`:
+- [X] T057 [US4] Implement 64-bit seeding in `packages/engine/src/rng.ts`:
   - add a `splitmix64(state: bigint)` helper;
   - `createRng(seed)` expands all 64 bits into 4×int32 and uses `prand.xoroshiro128plus.fromState`;
   - `derivePartitionRng` starts from that generator;
   - `deriveNamedRng(seed, name)` seeds directly from `splitmix64(seed ^ fnv1a64(name))`, removing the jump walk (research R2, R3).
-- [ ] T058 [US4] Bump `ENGINE_VERSION` from 1 to 2 in `packages/engine/src/version.ts` (the first output-changing PR). Re-baseline `packages/engine/tests/golden-master/reference-output.json` (with `engine_version: 2`) and the property-test fixtures in `packages/engine/tests/fixtures.ts`. Add the CHANGELOG "Engine output changes" entry for seed expansion and named streams.
-- [ ] T059 [US4] Add `parseSeed(input: unknown): bigint` in `apps/api/src/services/seed.ts`. It accepts a decimal string or a safe integer in `[0, 2^64−1]` and otherwise throws a located `invalid_seed` error. In `apps/api/src/routes/runs-launch.ts`, the seed is the request `seed` when given, else `spec.seed`; remove the `Math.random` fallback (research R2). Add a CHANGELOG "API removals" note that launches without a seed now use the spec's seed instead of a random one.
-- [ ] T060 [US4] Bound `seed` to `0 … 9007199254740991` in `packages/spec/src/schema.json`, and add the invariant `packages/spec/src/invariants/seed-range.ts` (code `seed-out-of-range`, path `/seed`, with the remedy text from T050). Register it in `packages/spec/src/invariants/index.ts`.
-- [ ] T061 [US4] Serialize `seed` as a string in every run response: `apps/api/src/routes/runs-read.ts`, the launch and regenerate responses, and `apps/api/src/ws/run-progress.ts`.
-- [ ] T062 [US4] Record `engine_version: ENGINE_VERSION` and `partition_count` at launch in `apps/api/src/services/run-launch-service.ts`. Make `apps/api/src/routes/stream-control.ts`, `apps/api/src/routes/run-control.ts` (resume) and `apps/worker/src/index.ts` (boot resume) use `run.partition_count`, never `defaultPartitionCount`.
-- [ ] T063 [US4] Implement the regenerate policy in `apps/api/src/routes/run-regenerate.ts`: return 409 `engine_version_mismatch` unless `accept_engine_change`, and set `source_run_id`. Add the version guards that return 409 to stream start in `apps/api/src/routes/stream-control.ts` and to resume in `apps/api/src/routes/run-control.ts`.
-- [ ] T064 [US4] Add `engineVersion` to the job payloads in `apps/worker/src/jobs/generate-partition.ts` and `apps/worker/src/jobs/stream-drive.ts`. On a mismatch, throw BullMQ's `UnrecoverableError` with a message naming both versions.
-- [ ] T065 [P] [US4] Add the engine-mismatch dialog to the regenerate action in `apps/web/src/surfaces/run-control/run-record.tsx` (`engine-mismatch-dialog` and `engine-mismatch-confirm` test IDs). It explains that output will differ and resends with `accept_engine_change`.
-- [ ] T066 [P] [US4] Make the seed a string in the MCP `launch_run` schema (`packages/agent-tools/src/tools.ts`) and the CLI `run --seed` (`apps/cli/src/commands/run.ts`). Document the 64-bit range in `docs/agent/` sources under `packages/agent-tools/src/docs/`.
+- [X] T058 [US4] Bump `ENGINE_VERSION` from 1 to 2 in `packages/engine/src/version.ts` (the first output-changing PR). Re-baseline `packages/engine/tests/golden-master/reference-output.json` (with `engine_version: 2`) and the property-test fixtures in `packages/engine/tests/fixtures.ts`. Add the CHANGELOG "Engine output changes" entry for seed expansion and named streams.
+- [X] T059 [US4] Add `parseSeed(input: unknown): bigint` in `apps/api/src/services/seed.ts`. It accepts a decimal string or a safe integer in `[0, 2^64−1]` and otherwise throws a located `invalid_seed` error. In `apps/api/src/routes/runs-launch.ts`, the seed is the request `seed` when given, else `spec.seed`; remove the `Math.random` fallback (research R2). Add a CHANGELOG "API removals" note that launches without a seed now use the spec's seed instead of a random one.
+- [X] T060 [US4] Bound `seed` to `0 … 9007199254740991` in `packages/spec/src/schema.json`, and add the invariant `packages/spec/src/invariants/seed-range.ts` (code `seed-out-of-range`, path `/seed`, with the remedy text from T050). Register it in `packages/spec/src/invariants/index.ts`.
+- [X] T061 [US4] Serialize `seed` as a string in every run response: `apps/api/src/routes/runs-read.ts`, the launch and regenerate responses, and `apps/api/src/ws/run-progress.ts`.
+- [X] T062 [US4] Record `engine_version: ENGINE_VERSION` and `partition_count` at launch in `apps/api/src/services/run-launch-service.ts`. Make `apps/api/src/routes/stream-control.ts`, `apps/api/src/routes/run-control.ts` (resume) and `apps/worker/src/index.ts` (boot resume) use `run.partition_count`, never `defaultPartitionCount`.
+- [X] T063 [US4] Implement the regenerate policy in `apps/api/src/routes/run-regenerate.ts`: return 409 `engine_version_mismatch` unless `accept_engine_change`, and set `source_run_id`. Add the version guards that return 409 to stream start in `apps/api/src/routes/stream-control.ts` and to resume in `apps/api/src/routes/run-control.ts`.
+- [X] T064 [US4] Add `engineVersion` to the job payloads in `apps/worker/src/jobs/generate-partition.ts` and `apps/worker/src/jobs/stream-drive.ts`. On a mismatch, throw BullMQ's `UnrecoverableError` with a message naming both versions.
+- [X] T065 [P] [US4] Add the engine-mismatch dialog to the regenerate action in `apps/web/src/surfaces/run-control/run-record.tsx` (`engine-mismatch-dialog` and `engine-mismatch-confirm` test IDs). It explains that output will differ and resends with `accept_engine_change`.
+- [X] T066 [P] [US4] Make the seed a string in the MCP `launch_run` schema (`packages/agent-tools/src/tools.ts`) and the CLI `run --seed` (`apps/cli/src/commands/run.ts`). Document the 64-bit range in `docs/agent/` sources under `packages/agent-tools/src/docs/`.
 
 **Checkpoint**: US4 is complete. Reproducibility is guaranteed, and output changes are now versioned.
 
@@ -296,77 +296,77 @@ and a forced partition failure with retry all behave correctly (quickstart.md §
 
 ### Tests for User Story 3 (write first; they must fail) ⚠️
 
-- [ ] T067 [P] [US3] Write the engine test `packages/engine/tests/property/day-simulator.test.ts`:
+- [X] T067 [P] [US3] Write the engine test `packages/engine/tests/property/day-simulator.test.ts`:
   - concatenated `simulateDay` outputs for days `0…D−1` are sorted by `ts`;
   - `labels[i].event_id === events[i].event_id` for every day;
   - the fraud rate is within tolerance of `fraud.target_rate` (fast-check, seeded).
-- [ ] T068 [P] [US3] Write the engine test `packages/engine/tests/world-checkpoint.test.ts`: `checkpointWorld` then `restoreWorld` yields byte-identical subsequent days compared with an uninterrupted world; a tampered file fails SHA-256 verification with a clear error.
-- [ ] T069 [P] [US3] Write the engine test `packages/engine/tests/property/refund-ring.test.ts`. Refund-abuse events always reference a prior `payment` of the same consumer, with the ring holding at most 16 purchases. Generation time for 4k consumers is at most 2.5× that for 2k, as a coarse unit guard; the real number comes from T096.
-- [ ] T070 [P] [US3] Write the worker test `apps/worker/tests/integration/partition-concurrency.test.ts`: with `TXLOOM_MAX_WORKER_THREADS=4` and a four-partition run, at least two partitions are `running` simultaneously, observed by polling `run_partitions`.
-- [ ] T071 [P] [US3] Write the worker test `apps/worker/tests/integration/run-lifecycle.test.ts`:
+- [X] T068 [P] [US3] Write the engine test `packages/engine/tests/world-checkpoint.test.ts`: `checkpointWorld` then `restoreWorld` yields byte-identical subsequent days compared with an uninterrupted world; a tampered file fails SHA-256 verification with a clear error.
+- [X] T069 [P] [US3] Write the engine test `packages/engine/tests/property/refund-ring.test.ts`. Refund-abuse events always reference a prior `payment` of the same consumer, with the ring holding at most 16 purchases. Generation time for 4k consumers is at most 2.5× that for 2k, as a coarse unit guard; the real number comes from T096.
+- [X] T070 [P] [US3] Write the worker test `apps/worker/tests/integration/partition-concurrency.test.ts`: with `TXLOOM_MAX_WORKER_THREADS=4` and a four-partition run, at least two partitions are `running` simultaneously, observed by polling `run_partitions`.
+- [X] T071 [P] [US3] Write the worker test `apps/worker/tests/integration/run-lifecycle.test.ts`:
   - a one-consumer, one-day run reaches `completed`, never stuck in `queued`;
   - a partition that throws once and then succeeds completes, with `attempts = 2`;
   - a partition that always throws gives a `failed` run after 3 attempts, with `last_error` set;
   - the end-of-history checkpoint file exists, and `run_partitions.rng_checkpoint` holds `{path, sha256, next_day_index}`.
-- [ ] T072 [P] [US3] Write contract tests in `apps/api/tests/contract/test_run_retry.ts`: `POST /runs/:id/retry` is allowed only from `failed` (409 `invalid_state` otherwise), re-enqueues the partitions that aren't done with jobId suffix `-r<k>`, and the run returns to `running`.
-- [ ] T073 [P] [US3] Write contract tests in `apps/api/tests/contract/test_scenarios.ts`: rollback to an invalid version, a template clone whose spec is now invalid, and a launch of an invalid current version each return `400 spec_invalid` with located `details.violations[]`.
-- [ ] T074 [P] [US3] Write contract tests in `apps/api/tests/contract/test_stream_sessions.ts`, using a fake sink:
+- [X] T072 [P] [US3] Write contract tests in `apps/api/tests/contract/test_run_retry.ts`: `POST /runs/:id/retry` is allowed only from `failed` (409 `invalid_state` otherwise), re-enqueues the partitions that aren't done with jobId suffix `-r<k>`, and the run returns to `running`.
+- [X] T073 [P] [US3] Write contract tests in `apps/api/tests/contract/test_scenarios.ts`: rollback to an invalid version, a template clone whose spec is now invalid, and a launch of an invalid current version each return `400 spec_invalid` with located `details.violations[]`.
+- [X] T074 [P] [US3] Write contract tests in `apps/api/tests/contract/test_stream_sessions.ts`, using a fake sink:
   - start, stop, then start gives session `seq 2`, a BullMQ job `stream-<run>-2`, and published events;
   - start while `paused` returns `409 stream_paused` with the remedy message;
   - two runs stream concurrently, and both publish their first event within 30 s of their start calls (SC-011);
   - `GET /runs/:id/stream/sessions` lists the sessions;
   - with `TXLOOM_MAX_STREAMS` sessions busy, the next start returns `409 stream_limit`.
-- [ ] T075 [P] [US3] Write the API test `apps/api/tests/integration/event-loop-latency.test.ts`: with `perf_hooks.monitorEventLoopDelay`, the max delay during launch, resume and stream start of a 200k-consumer spec stays under 100 ms (SC-014).
-- [ ] T076 [P] [US3] Write the worker test `apps/worker/tests/integration/stream-start-latency.test.ts`: stream start loads checkpoints without calling `simulateDay` for history days (spy), and the first event is published within 30 s for a 10-partition run.
-- [ ] T077 [P] [US3] Extend `apps/api/tests/contract/test_mcp_parity.ts`: `retry_run` is equivalent to `POST /runs/:id/retry`, including the `409 invalid_state` and `409 engine_version_mismatch` errors.
+- [X] T075 [P] [US3] Write the API test `apps/api/tests/integration/event-loop-latency.test.ts`: with `perf_hooks.monitorEventLoopDelay`, the max delay during launch, resume and stream start of a 200k-consumer spec stays under 100 ms (SC-014).
+- [X] T076 [P] [US3] Write the worker test `apps/worker/tests/integration/stream-start-latency.test.ts`: stream start loads checkpoints without calling `simulateDay` for history days (spy), and the first event is published within 30 s for a 10-partition run.
+- [X] T077 [P] [US3] Extend `apps/api/tests/contract/test_mcp_parity.ts`: `retry_run` is equivalent to `POST /runs/:id/retry`, including the `409 invalid_state` and `409 engine_version_mismatch` errors.
 
 ### Implementation for User Story 3
 
-- [ ] T078 [P] [US3] Add `ParquetStreamWriter` (`open(path, schema)`, `append(row)`, `close()`, with `setRowGroupSize(10_000)`) in `packages/sinks/src/file/parquet.ts`, and export it via `packages/sinks/src/index.ts`.
-- [ ] T079 [P] [US3] Create `packages/engine/src/world/partition-world.ts` with `PartitionWorld`, `ConsumerState` and `initPartitionWorld(spec, seed, partitionNo, partitionCount, merchants)`, as in data-model.md §2.
-- [ ] T080 [US3] Create the fraud planner `packages/engine/src/fraud/planner.ts`:
+- [X] T078 [P] [US3] Add `ParquetStreamWriter` (`open(path, schema)`, `append(row)`, `close()`, with `setRowGroupSize(10_000)`) in `packages/sinks/src/file/parquet.ts`, and export it via `packages/sinks/src/index.ts`.
+- [X] T079 [P] [US3] Create `packages/engine/src/world/partition-world.ts` with `PartitionWorld`, `ConsumerState` and `initPartitionWorld(spec, seed, partitionNo, partitionCount, merchants)`, as in data-model.md §2.
+- [X] T080 [US3] Create the fraud planner `packages/engine/src/fraud/planner.ts`:
   - `planDay(world, dayIndex, expectedLegitCount)` draws the campaign starts per typology from the target rate and pushes `ScheduledFraudEvent`s onto the `pendingFraud` min-heap;
   - `drainDay(world, dayStart, dayEnd)` returns that day's fraud events and labels;
   - refund abuse selects from `PurchaseRing`s (research R6).
 
   Delete `packages/engine/src/fraud/orchestrator.ts` and update `packages/engine/src/index.ts`.
-- [ ] T081 [US3] Create `packages/engine/src/world/simulate-day.ts` with `simulateDay(world, dayIndex): DayOutput`. It produces income and spend with the weekend and seasonality multipliers as `truth-emit.ts` does today, records purchases into the rings, merges `drainDay` fraud, sorts by `ts`, and keeps labels aligned 1:1.
-- [ ] T082 [US3] Create `packages/engine/src/world/checkpoint-codec.ts` (gzip JSON plus a SHA-256 hex digest; verifying on decode). Add `checkpointWorld(world)` and `restoreWorld(spec, ckpt, merchants)` to `packages/engine/src/world/partition-world.ts`.
-- [ ] T083 [US3] Make `generatePartition` in `packages/engine/src/truth-emit.ts` a thin loop over `simulateDay` for days `0…clock.days−1`. Add the incremental API `accumulateDay(stats, dayOutput)` to `packages/engine/src/realism/aggregators.ts`. T080–T084 change generated output and land in one PR: in that PR, bump `ENGINE_VERSION` by one, re-baseline the golden master and add a CHANGELOG "Engine output changes" entry (per-day generation, planned fraud, refund rings).
-- [ ] T084 [US3] Rewrite `apps/worker/src/pool/partition-worker.ts` as a day loop:
+- [X] T081 [US3] Create `packages/engine/src/world/simulate-day.ts` with `simulateDay(world, dayIndex): DayOutput`. It produces income and spend with the weekend and seasonality multipliers as `truth-emit.ts` does today, records purchases into the rings, merges `drainDay` fraud, sorts by `ts`, and keeps labels aligned 1:1.
+- [X] T082 [US3] Create `packages/engine/src/world/checkpoint-codec.ts` (gzip JSON plus a SHA-256 hex digest; verifying on decode). Add `checkpointWorld(world)` and `restoreWorld(spec, ckpt, merchants)` to `packages/engine/src/world/partition-world.ts`.
+- [X] T083 [US3] Make `generatePartition` in `packages/engine/src/truth-emit.ts` a thin loop over `simulateDay` for days `0…clock.days−1`. Add the incremental API `accumulateDay(stats, dayOutput)` to `packages/engine/src/realism/aggregators.ts`. T080–T084 change generated output and land in one PR: in that PR, bump `ENGINE_VERSION` by one, re-baseline the golden master and add a CHANGELOG "Engine output changes" entry (per-day generation, planned fraud, refund rings).
+- [X] T084 [US3] Rewrite `apps/worker/src/pool/partition-worker.ts` as a day loop:
   - `ParquetStreamWriter`s for `truth/` and `labels/`;
   - the existing per-sink delivered output, applied per day for now; US2 replaces it with the transformer;
   - incremental stats, then `checkpoints/part-<n>.v<ver>.json.gz`;
   - return `{eventsGenerated, achievedFraudRate, checkpoint: {path, sha256, next_day_index}}`.
-- [ ] T085 [US3] Create `apps/worker/src/pool/merchant-cache.ts`, an LRU of 8 keyed by `(runId, engineVersion)` that builds the merchant pool on first use. Remove `merchants` from every job payload and from the API:
+- [X] T085 [US3] Create `apps/worker/src/pool/merchant-cache.ts`, an LRU of 8 keyed by `(runId, engineVersion)` that builds the merchant pool on first use. Remove `merchants` from every job payload and from the API:
   - `apps/api/src/services/run-launch-service.ts`;
   - `apps/api/src/routes/run-control.ts`;
   - `apps/api/src/routes/stream-control.ts`;
   - `apps/worker/src/index.ts`;
   - `apps/worker/src/jobs/generate-partition.ts`;
   - `apps/worker/src/jobs/stream-drive.ts`.
-- [ ] T086 [US3] Set the thread count in `apps/worker/src/pool/piscina-pool.ts` to `min(availableParallelism()−1, floor(0.6·totalmem/1GiB))`, with a minimum of 1 and an override from `TXLOOM_MAX_WORKER_THREADS`. Set the `generate-partition` Worker's `concurrency` to the pool's `maxThreads` in `apps/worker/src/jobs/generate-partition.ts` (research R4).
-- [ ] T087 [US3] Add partition retries: `attempts:3` and `backoff:{type:"exponential",delay:5000}` wherever partition jobs are added (`apps/api/src/services/run-launch-service.ts`, `apps/api/src/routes/run-control.ts`, `apps/worker/src/pool/resume.ts`). In `apps/worker/src/index.ts`, record the attempts, and mark the partition and run `failed` only on the final attempt or an `UnrecoverableError`. Store the checkpoint ref on done.
-- [ ] T088 [US3] Make launch atomic in `apps/api/src/services/run-launch-service.ts`: one Knex transaction inserts the run as `running` with `started_at`, its partitions and its destinations, and jobs are enqueued after commit. If enqueueing fails, set the run to `failed` with the error (research R13).
-- [ ] T089 [US3] Add `POST /runs/:id/retry` to `apps/api/src/routes/run-control.ts`, with the engine-version guard and jobId suffix `-r<k>`, where k is the stored retry count.
-- [ ] T090 [P] [US3] Add the MCP tool `retry_run` (`packages/agent-tools/src/tools.ts`, registered in `apps/api/src/mcp/tools/run-tools.ts`) and the CLI command `run-retry` (`apps/cli/src/commands/run-control.ts`, registered in `apps/cli/src/registry.ts`), both mapping onto `POST /runs/:id/retry`.
-- [ ] T091 [US3] Re-validate the spec with `validateSpec` from `@txloom/spec` at rollback (`apps/api/src/routes/spec-versions.ts`), template clone (`apps/api/src/routes/scenarios.ts`) and launch (`apps/api/src/routes/runs-launch.ts`), returning `400 spec_invalid`.
-- [ ] T092 [US3] Implement migration `apps/api/src/db/migrations/013_stream_sessions.ts`: `streams.state` gains `error`; `streams` gains the `destinations` JSON column, backfilled from `run_destinations`; and the `stream_sessions` table (data-model.md §1.7). Add the repository `apps/api/src/db/repositories/stream-sessions.ts`, and extend `apps/api/src/db/repositories/streams.ts` with the `error` state and `destinations` (initialized from `run_destinations` when the stream row is created).
-- [ ] T093 [US3] Rewrite the stream lifecycle in `apps/api/src/routes/stream-control.ts`:
+- [X] T086 [US3] Set the thread count in `apps/worker/src/pool/piscina-pool.ts` to `min(availableParallelism()−1, floor(0.6·totalmem/1GiB))`, with a minimum of 1 and an override from `TXLOOM_MAX_WORKER_THREADS`. Set the `generate-partition` Worker's `concurrency` to the pool's `maxThreads` in `apps/worker/src/jobs/generate-partition.ts` (research R4).
+- [X] T087 [US3] Add partition retries: `attempts:3` and `backoff:{type:"exponential",delay:5000}` wherever partition jobs are added (`apps/api/src/services/run-launch-service.ts`, `apps/api/src/routes/run-control.ts`, `apps/worker/src/pool/resume.ts`). In `apps/worker/src/index.ts`, record the attempts, and mark the partition and run `failed` only on the final attempt or an `UnrecoverableError`. Store the checkpoint ref on done.
+- [X] T088 [US3] Make launch atomic in `apps/api/src/services/run-launch-service.ts`: one Knex transaction inserts the run as `running` with `started_at`, its partitions and its destinations, and jobs are enqueued after commit. If enqueueing fails, set the run to `failed` with the error (research R13).
+- [X] T089 [US3] Add `POST /runs/:id/retry` to `apps/api/src/routes/run-control.ts`, with the engine-version guard and jobId suffix `-r<k>`, where k is the stored retry count.
+- [X] T090 [P] [US3] Add the MCP tool `retry_run` (`packages/agent-tools/src/tools.ts`, registered in `apps/api/src/mcp/tools/run-tools.ts`) and the CLI command `run-retry` (`apps/cli/src/commands/run-control.ts`, registered in `apps/cli/src/registry.ts`), both mapping onto `POST /runs/:id/retry`.
+- [X] T091 [US3] Re-validate the spec with `validateSpec` from `@txloom/spec` at rollback (`apps/api/src/routes/spec-versions.ts`), template clone (`apps/api/src/routes/scenarios.ts`) and launch (`apps/api/src/routes/runs-launch.ts`), returning `400 spec_invalid`.
+- [X] T092 [US3] Implement migration `apps/api/src/db/migrations/013_stream_sessions.ts`: `streams.state` gains `error`; `streams` gains the `destinations` JSON column, backfilled from `run_destinations`; and the `stream_sessions` table (data-model.md §1.7). Add the repository `apps/api/src/db/repositories/stream-sessions.ts`, and extend `apps/api/src/db/repositories/streams.ts` with the `error` state and `destinations` (initialized from `run_destinations` when the stream row is created).
+- [X] T093 [US3] Rewrite the stream lifecycle in `apps/api/src/routes/stream-control.ts`:
   - start from `idle` or `stopped` creates session `seq+1` with jobId `stream-<runId>-<seq>`, plus `removeOnComplete:{age:86400}` and `removeOnFail:{age:604800}`;
   - start while paused returns `409 stream_paused`;
   - `409 stream_limit` counts active sessions against `TXLOOM_MAX_STREAMS`, default 4;
   - stop is allowed from `error`;
   - stream start now reads `streams.destinations` (replacing the direct `run_destinations` read from T042) and copies it into the session's `destinations_snapshot`;
   - add `GET /runs/:id/stream/sessions`.
-- [ ] T094 [US3] In `apps/worker/src/jobs/stream-drive.ts`:
+- [X] T094 [US3] In `apps/worker/src/jobs/stream-drive.ts`:
   - set the Worker's `concurrency` to `TXLOOM_MAX_STREAMS`, with `maxStalledCount: 10` and `stalledInterval: 15000`, so that a worker restart hands stalled sessions back instead of failing them (research R7);
   - replace `resumeLiveWorld`'s history regeneration with loading the checkpoint files through `restoreWorld` (`packages/engine/src/streaming/live-world.ts`);
   - mark the session ended on job exit.
-- [ ] T095 [US3] Add boot reconciliation in `apps/worker/src/index.ts`: a stream in `streaming` or `paused` whose current-session job is **missing from BullMQ** (not merely stalled) moves to `stopped`, with `last_error` "session job lost; start the stream again". Stalled jobs are left for BullMQ to re-run, and T154 resumes them in the same session (contracts/api.md invariant 4).
-- [ ] T096 [P] [US3] Create the benchmarks `benchmarks/batch/bench-reference.ts` (the reference spec through the API, recording wall time, peak RSS per thread and events/s to `benchmarks/results/<date>.json`), `benchmarks/batch/bench-memory-flatness.ts` (30 vs 90 days, fail if growth exceeds 10%) and `benchmarks/batch/bench-refund-scaling.ts` (2k vs 4k, fail if the ratio exceeds 2.5×). `bench-reference.ts` exits non-zero if the wall time is 30 min or more (SC-006), or if any generating thread's peak RSS is 1 GB or more (SC-007). Put the shared harness in `benchmarks/batch/lib.ts`.
-- [ ] T097 [US3] Create the CI smoke variant `benchmarks/batch/bench-smoke.ts` (20k consumers × 14 days) with its baseline `benchmarks/batch/baseline-smoke.json`, failing above a 15% regression. Add a `batch-smoke` job to `.github/workflows/ci.yml` beside `bench-smoke`.
-- [ ] T098 [P] [US3] In the run UI (`apps/web/src/surfaces/run-control/run-detail.tsx`), show the partition attempts, `last_error` and a Retry button (`run-retry`) for failed runs. In `apps/web/src/surfaces/stream-console/stream-console.tsx`, show the `stream_paused` and `stream_limit` messages.
+- [X] T095 [US3] Add boot reconciliation in `apps/worker/src/index.ts`: a stream in `streaming` or `paused` whose current-session job is **missing from BullMQ** (not merely stalled) moves to `stopped`, with `last_error` "session job lost; start the stream again". Stalled jobs are left for BullMQ to re-run, and T154 resumes them in the same session (contracts/api.md invariant 4).
+- [X] T096 [P] [US3] Create the benchmarks `benchmarks/batch/bench-reference.ts` (the reference spec through the API, recording wall time, peak RSS per thread and events/s to `benchmarks/results/<date>.json`), `benchmarks/batch/bench-memory-flatness.ts` (30 vs 90 days, fail if growth exceeds 10%) and `benchmarks/batch/bench-refund-scaling.ts` (2k vs 4k, fail if the ratio exceeds 2.5×). `bench-reference.ts` exits non-zero if the wall time is 30 min or more (SC-006), or if any generating thread's peak RSS is 1 GB or more (SC-007). Put the shared harness in `benchmarks/batch/lib.ts`.
+- [X] T097 [US3] Create the CI smoke variant `benchmarks/batch/bench-smoke.ts` (20k consumers × 14 days) with its baseline `benchmarks/batch/baseline-smoke.json`, failing above a 15% regression. Add a `batch-smoke` job to `.github/workflows/ci.yml` beside `bench-smoke`.
+- [X] T098 [P] [US3] In the run UI (`apps/web/src/surfaces/run-control/run-detail.tsx`), show the partition attempts, `last_error` and a Retry button (`run-retry`) for failed runs. In `apps/web/src/surfaces/stream-console/stream-console.tsx`, show the `stream_paused` and `stream_limit` messages.
 
 **Checkpoint**: US3 is complete. Reference-scale budgets are met, and stream and run lifecycles behave correctly.
 
@@ -385,7 +385,7 @@ against its answer key (SC-004; quickstart.md § US2).
 
 ### Tests for User Story 2 (write first; they must fail) ⚠️
 
-- [ ] T099 [P] [US2] Rewrite `packages/engine/tests/property/imperfections.test.ts` for `ImperfectionTransformer`:
+- [X] T099 [P] [US2] Rewrite `packages/engine/tests/property/imperfections.test.ts` for `ImperfectionTransformer`:
   - every corruption label has a matching delivered record in the same sink;
   - late records are emitted in `delivered_at` order, after records with earlier `delivered_at`, and keep their original `ts`;
   - skewed records have `ts = truth ts + offset` exactly;
@@ -393,58 +393,58 @@ against its answer key (SC-004; quickstart.md § US2).
   - an imperfection targeting sink A leaves sink B clean;
   - each rate is within tolerance;
   - truth events are never mutated.
-- [ ] T100 [P] [US2] Write the engine test `packages/engine/tests/transformer-state.test.ts`: transformer state checkpointed mid-stream restores to identical output; `flush()` emits every pending late event; adding a second sink doesn't change the first sink's delivered output or the truth.
-- [ ] T101 [P] [US2] Write the pump unit test `packages/sinks/tests/pump.test.ts`, using a fake Sink v2 with scripted latency and failures:
+- [X] T100 [P] [US2] Write the engine test `packages/engine/tests/transformer-state.test.ts`: transformer state checkpointed mid-stream restores to identical output; `flush()` emits every pending late event; adding a second sink doesn't change the first sink's delivered output or the truth.
+- [X] T101 [P] [US2] Write the pump unit test `packages/sinks/tests/pump.test.ts`, using a fake Sink v2 with scripted latency and failures:
   - in-flight never exceeds `maxInFlight`;
   - delivered counts only resolved `ok`;
   - retryable failures re-attempt with backoff from the heap;
   - after `max_attempts`, or a non-retryable error, exactly one label with `delivery_outcome: "dropped"` and `corruption_type: null` is emitted, with `{error, attempts}`.
-- [ ] T102 [P] [US2] Update `packages/sinks/tests/integration/webhook-retry.test.ts` for Sink v2: `publish` never retries internally; a hanging server resolves `{ok:false, retryable:true}` after `timeout_ms`; a 400 is not retryable; 429 and 503 are retryable.
-- [ ] T103 [P] [US2] Write the integration test `packages/sinks/tests/integration/rabbitmq-confirms.test.ts`: `publish` resolves `ok` only after the broker confirms, which is observed by delaying confirms through a blocked connection, and a nack resolves `ok:false`.
-- [ ] T104 [P] [US2] Write the integration test `packages/sinks/tests/integration/kafka-ack.test.ts`: `publish` resolves after the delivery report, and 1,000 concurrent publishes within `maxInFlight` all land on the topic.
-- [ ] T105 [P] [US2] Write contract tests in `apps/api/tests/contract/test_exports.ts` (research R19):
+- [X] T102 [P] [US2] Update `packages/sinks/tests/integration/webhook-retry.test.ts` for Sink v2: `publish` never retries internally; a hanging server resolves `{ok:false, retryable:true}` after `timeout_ms`; a 400 is not retryable; 429 and 503 are retryable.
+- [X] T103 [P] [US2] Write the integration test `packages/sinks/tests/integration/rabbitmq-confirms.test.ts`: `publish` resolves `ok` only after the broker confirms, which is observed by delaying confirms through a blocked connection, and a nack resolves `ok:false`.
+- [X] T104 [P] [US2] Write the integration test `packages/sinks/tests/integration/kafka-ack.test.ts`: `publish` resolves after the delivery report, and 1,000 concurrent publishes within `maxInFlight` all land on the topic.
+- [X] T105 [P] [US2] Write contract tests in `apps/api/tests/contract/test_exports.ts` (research R19):
   - `POST /runs/:id/exports` returns `202` with `status:"queued"`, and polling `GET …/exports/:id` reaches `completed` (or `failed` with `error` for an unknown sink source);
   - `source:{kind:"sink",name:"archive"}` exports `delivered/archive`;
   - the default source is the first file sink, else truth;
   - the answer key for a sink source includes `corruptions/<sink>` and the `delivery_outcome: dropped` rows;
   - the truth source's answer key is `labels/` only.
-- [ ] T106 [P] [US2] Write contract tests in `apps/api/tests/contract/test_deliveries.ts`:
+- [X] T106 [P] [US2] Write contract tests in `apps/api/tests/contract/test_deliveries.ts`:
   - `replay_history:true` creates one `run_deliveries` row per bound sink;
   - `POST /runs/:id/deliveries/:sink/retry` continues from the cursor;
   - `.../skip` moves to `skipped`;
   - `stream/start` returns `409 replay_pending` while a delivery is pending, running or failed.
-- [ ] T107 [P] [US2] Write the worker test `apps/worker/tests/integration/deliver-replay.test.ts`:
+- [X] T107 [P] [US2] Write the worker test `apps/worker/tests/integration/deliver-replay.test.ts`:
   - a replay to a Testcontainers Kafka publishes every `delivered/events` row in delivery order, with `delivered_at` present;
   - a replay to a webhook that returns 500 writes `deliveries/<sink>/dropped-0.parquet` with one row per event, and the run delivery ends `failed` with counts.
-- [ ] T108 [P] [US2] Write the e2e story `apps/e2e/tests/05-answer-key.spec.ts` (`@answer-key`), using `apps/e2e/fixtures/imperfections-all.json` with `replay_history:true`:
+- [X] T108 [P] [US2] Write the e2e story `apps/e2e/tests/05-answer-key.spec.ts` (`@answer-key`), using `apps/e2e/fixtures/imperfections-all.json` with `replay_history:true`:
   - reconcile the Parquet files of the file sink, through `apps/e2e/src/parquet-reader-cli.ts`, and the Kafka topic, through `apps/e2e/src/kafka-consumer.ts`, against the answer key;
   - assert zero orphan records and zero missing delivered records.
-- [ ] T109 [P] [US2] Update `analytics-flink/jobs/java/src/test/java/dev/txloom/flink/CleanAndOrderJobTest.java` so it orders and deduplicates by `delivered_at`, and expects a late event to keep its original `ts`.
-- [ ] T110 [P] [US2] Extend the component test `apps/web/tests/export-controls.test.tsx` against the mock adapter (constitution III, export surface): the source select lists Truth plus each file sink and defaults to the first file sink; the label-inclusion warning and its acknowledgement still gate `include_labels`; the queued and running status shows while the export job runs; the download link appears only once it is `completed`.
-- [ ] T111 [P] [US2] Extend `apps/api/tests/contract/test_mcp_parity.ts`: `create_export` returns `queued` like the REST call, and `get_export` polls to the same `completed` manifest. Extend `apps/api/tests/integration/event-loop-latency.test.ts` (T075): while a 2M-event export is built, the API's maximum event-loop delay stays under 100 ms.
-- [ ] T112 [P] [US2] Extend `apps/api/tests/contract/test_ws_progress.ts`: `run-progress` carries `phase` (`generating`, `replaying`, `live`, `done`) and `deliveries[]` with `{sink, state, published, failed, total}`.
+- [X] T109 [P] [US2] Update `analytics-flink/jobs/java/src/test/java/dev/txloom/flink/CleanAndOrderJobTest.java` so it orders and deduplicates by `delivered_at`, and expects a late event to keep its original `ts`.
+- [X] T110 [P] [US2] Extend the component test `apps/web/tests/export-controls.test.tsx` against the mock adapter (constitution III, export surface): the source select lists Truth plus each file sink and defaults to the first file sink; the label-inclusion warning and its acknowledgement still gate `include_labels`; the queued and running status shows while the export job runs; the download link appears only once it is `completed`.
+- [X] T111 [P] [US2] Extend `apps/api/tests/contract/test_mcp_parity.ts`: `create_export` returns `queued` like the REST call, and `get_export` polls to the same `completed` manifest. Extend `apps/api/tests/integration/event-loop-latency.test.ts` (T075): while a 2M-event export is built, the API's maximum event-loop delay stays under 100 ms.
+- [X] T112 [P] [US2] Extend `apps/api/tests/contract/test_ws_progress.ts`: `run-progress` carries `phase` (`generating`, `replaying`, `live`, `done`) and `deliveries[]` with `{sink, state, published, failed, total}`.
 
 ### Implementation for User Story 2
 
-- [ ] T113 [US2] Extend the engine types in `packages/engine/src/types.ts`:
+- [X] T113 [US2] Extend the engine types in `packages/engine/src/types.ts`:
   - `CorruptionType` stays exactly the four injectable imperfections;
   - `LabelRecord` gains `delivery_outcome: "dropped" | null` (data-model.md §2), with a matching optional `delivery_outcome` column in `LABEL_RECORD_SCHEMA` in `packages/sinks/src/file/parquet.ts`;
   - add `WirePayload`, which is the truth payload plus `delivery_id`, `delivered_at` and `sent_at`;
   - add `Delivered`, as in data-model.md §2;
   - remove `DeliveredEvent` and `PartitionOutput`.
-- [ ] T114 [US2] Create `packages/engine/src/imperfections/transformer.ts`:
+- [X] T114 [US2] Create `packages/engine/src/imperfections/transformer.ts`:
   - `ImperfectionTransformer` (`push`, `drainUntil`, `flush`, `checkpoint`, `restore`), seeded with `deriveNamedRng(seed, "imperfections:<sink>:p<n>")`;
   - a late min-heap, a skew offset, an out-of-order hold slot, and duplicates emitted immediately after their primary (research R9).
   - T114–T115 change generated output and land in one PR: bump `ENGINE_VERSION` by one, re-baseline the golden master and add a CHANGELOG "Engine output changes" entry (transformer, late-arrival semantics).
 
   Delete `packages/engine/src/imperfections/pipeline.ts` and update `packages/engine/src/index.ts`.
-- [ ] T115 [US2] Change `apps/worker/src/pool/partition-worker.ts` to run one transformer per output sink per day:
+- [X] T115 [US2] Change `apps/worker/src/pool/partition-worker.ts` to run one transformer per output sink per day:
   - `drainUntil(dayEnd)` writes `delivered/<sink>/part-<n>.parquet` and the aligned `delivered/<sink>/labels-part-<n>.parquet`;
   - corruptions go to `corruptions/<sink>/part-<n>.parquet`;
   - `flush()` runs after the last day;
   - add the `delivered_at` column to the delivered Parquet schema in `packages/sinks/src/file/parquet.ts`.
-- [ ] T116 [US2] Move the readers to the new layout (data-model.md §3): `apps/api/src/services/truth-store.ts`, `apps/api/src/services/inspector/imperfection-audit.ts` and `apps/api/src/routes/truth-events.ts`. Labels come from `labels/`, and corruptions from `corruptions/<sink>/` plus `deliveries/<sink>/dropped-*`.
-- [ ] T117 [US2] Move export building into a worker job (research R19); the tests in T105, T110 and T111 must fail first:
+- [X] T116 [US2] Move the readers to the new layout (data-model.md §3): `apps/api/src/services/truth-store.ts`, `apps/api/src/services/inspector/imperfection-audit.ts` and `apps/api/src/routes/truth-events.ts`. Labels come from `labels/`, and corruptions from `corruptions/<sink>/` plus `deliveries/<sink>/dropped-*`.
+- [X] T117 [US2] Move export building into a worker job (research R19); the tests in T105, T110 and T111 must fail first:
   - add the `exportBuild` queue to `apps/api/src/services/queues.ts`;
   - create `apps/worker/src/jobs/export-build.ts` with the logic from `apps/api/src/services/export-service.ts`: `source` selection (truth or a file sink, with the default rule), and an answer key that includes corruptions and `delivery_outcome: dropped` rows for sink sources; the manifest moves `queued → running → completed | failed`;
   - `apps/api/src/routes/exports.ts` validates the request (including the label-warning acknowledgement), writes the `queued` manifest, enqueues the job, returns `202`, and serves the status;
@@ -453,12 +453,12 @@ against its answer key (SC-004; quickstart.md § US2).
   - in `apps/web/src/surfaces/ground-truth/export-controls.tsx`, add the source select and poll the status until `completed`;
   - make the CLI `export` command (`apps/cli/src/commands/export.ts`) poll `GET /runs/:id/exports/:exportId` until `completed` or `failed`, accept a `--source truth|<sink>` flag, and exit non-zero with the job's `error` on failure;
   - add a CHANGELOG "API removals" entry: exports are asynchronous (`202` plus a status to poll).
-- [ ] T118 [US2] Implement the Sink v2 interface in `packages/sinks/src/interface.ts`: `SINK_PLUGIN_API_VERSION=2`, plus `publish(target, body, envelope, signal)` with acknowledgement semantics, `maxInFlight`, `saturated?` and `waitForCapacity?` (contracts/sink-plugin.md).
-- [ ] T119 [P] [US2] Kafka v2 in `packages/sinks/src/kafka/producer.ts`: `publish` resolves on the `send()` delivery report, with `linger.ms=5` and `batch.num.messages=10000`. Carry the headers `txloom-run-id`, `txloom-session-seq` and `txloom-engine-version`, and set `maxInFlight=1000`.
-- [ ] T120 [P] [US2] RabbitMQ v2 in `packages/sinks/src/rabbitmq/publisher.ts`: resolve from the confirm-channel publish callback, map a nack to `ok:false, retryable:true`, set `saturated` when `publish()` returns false with `waitForCapacity` on `'drain'`, and set `maxInFlight=256`.
-- [ ] T121 [P] [US2] Webhook v2 in `packages/sinks/src/webhook/publisher.ts`: remove the internal retry loop, use `AbortSignal.any([signal, AbortSignal.timeout(timeout_ms)])`, classify 408, 429, 5xx and network errors as retryable and other 4xx as not, and set `maxInFlight=32`.
-- [ ] T122 [US2] Create `packages/sinks/src/wire.ts` with `encodeWirePayload(payload): Uint8Array` and the partition-key extraction (contracts/wire-format.md).
-- [ ] T123 [US2] Create `packages/sinks/src/pump.ts`, the `DeliveryPump` (contracts/sink-plugin.md items 1–3 and 6):
+- [X] T118 [US2] Implement the Sink v2 interface in `packages/sinks/src/interface.ts`: `SINK_PLUGIN_API_VERSION=2`, plus `publish(target, body, envelope, signal)` with acknowledgement semantics, `maxInFlight`, `saturated?` and `waitForCapacity?` (contracts/sink-plugin.md).
+- [X] T119 [P] [US2] Kafka v2 in `packages/sinks/src/kafka/producer.ts`: `publish` resolves on the `send()` delivery report, with `linger.ms=5` and `batch.num.messages=10000`. Carry the headers `txloom-run-id`, `txloom-session-seq` and `txloom-engine-version`, and set `maxInFlight=1000`.
+- [X] T120 [P] [US2] RabbitMQ v2 in `packages/sinks/src/rabbitmq/publisher.ts`: resolve from the confirm-channel publish callback, map a nack to `ok:false, retryable:true`, set `saturated` when `publish()` returns false with `waitForCapacity` on `'drain'`, and set `maxInFlight=256`.
+- [X] T121 [P] [US2] Webhook v2 in `packages/sinks/src/webhook/publisher.ts`: remove the internal retry loop, use `AbortSignal.any([signal, AbortSignal.timeout(timeout_ms)])`, classify 408, 429, 5xx and network errors as retryable and other 4xx as not, and set `maxInFlight=32`.
+- [X] T122 [US2] Create `packages/sinks/src/wire.ts` with `encodeWirePayload(payload): Uint8Array` and the partition-key extraction (contracts/wire-format.md).
+- [X] T123 [US2] Create `packages/sinks/src/pump.ts`, the `DeliveryPump` (contracts/sink-plugin.md items 1–3 and 6):
   - an in-flight window and a retry min-heap with jittered backoff;
   - `onDropped(label)` and `onDelivered()` callbacks;
   - a `metrics()` snapshot;
@@ -466,8 +466,8 @@ against its answer key (SC-004; quickstart.md § US2).
   - a pacing hook interface, implemented in US7.
 
   Export it from `packages/sinks/src/index.ts`.
-- [ ] T124 [US2] Implement migration `apps/api/src/db/migrations/014_run_deliveries.ts` and the repository `apps/api/src/db/repositories/run-deliveries.ts` (data-model.md §1.6).
-- [ ] T125 [US2] Create the `deliver` job `apps/worker/src/jobs/deliver.ts`:
+- [X] T124 [US2] Implement migration `apps/api/src/db/migrations/014_run_deliveries.ts` and the repository `apps/api/src/db/repositories/run-deliveries.ts` (data-model.md §1.6).
+- [X] T125 [US2] Create the `deliver` job `apps/worker/src/jobs/deliver.ts`:
   - stream `delivered/<sink>/part-*.parquet` in partition and row order, starting from the cursor;
   - publish through the pump to the destination's connection, resolved as in T043;
   - checkpoint the cursor and counts every 10k rows;
@@ -476,13 +476,13 @@ against its answer key (SC-004; quickstart.md § US2).
   - end in `done` or `failed`.
 
   Add a `deliver` queue to `apps/api/src/services/queues.ts`.
-- [ ] T126 [US2] In `apps/worker/src/index.ts`, when generation completes and `run.replay_history` is set, create the `run_deliveries` rows and enqueue one `deliver` job per bound non-file sink.
-- [ ] T127 [US2] Add `replay_history` to `LaunchRequest` in `apps/api/src/routes/runs-launch.ts`; persist it to `runs.replay_history`. Add `POST /runs/:id/deliveries/:sink/retry|skip` in `apps/api/src/routes/run-control.ts`, and `409 replay_pending` on stream start in `apps/api/src/routes/stream-control.ts`.
-- [ ] T128 [US2] Add `phase` (`generating`, `replaying`, `live`, `done`) and `deliveries[]` to the `run-progress` WebSocket payload in `apps/api/src/ws/run-progress.ts`, derived from `runs.status`, `run_deliveries` and the stream state.
-- [ ] T129 [US2] Switch `apps/worker/src/jobs/stream-drive.ts` from serial `sink.publish` to the `DeliveryPump`. Failed live deliveries emit `dropped` labels to `deliveries/<sink>/dropped-*.parquet` and to the label channel, and the metrics report `failed_total`.
-- [ ] T130 [P] [US2] Add `replay_history` to MCP `launch_run` in `packages/agent-tools/src/tools.ts`, and `--replay-history` to the CLI in `apps/cli/src/commands/run.ts`.
-- [ ] T131 [P] [US2] Update `analytics-flink/jobs/java/src/main/java/dev/txloom/flink/common/Event.java` (add `delivered_at` using `EpochMillisJson`), `analytics-flink/jobs/java/src/main/java/dev/txloom/flink/CleanAndOrderJob.java` (order by `delivered_at`) and `analytics-flink/README.md` (the `ts` semantics).
-- [ ] T132 [US2] Add CHANGELOG entries in `CHANGELOG.md`: "Wire format", covering `ts` semantics, `delivered_at` and `sent_at`; "Sink plugin API v2"; and confirm the "Engine output changes" entry from T114 covers the transformer and late-arrival semantics. Update the plugin authoring guide `docs/extending.md` to Sink v2, with a migration section.
+- [X] T126 [US2] In `apps/worker/src/index.ts`, when generation completes and `run.replay_history` is set, create the `run_deliveries` rows and enqueue one `deliver` job per bound non-file sink.
+- [X] T127 [US2] Add `replay_history` to `LaunchRequest` in `apps/api/src/routes/runs-launch.ts`; persist it to `runs.replay_history`. Add `POST /runs/:id/deliveries/:sink/retry|skip` in `apps/api/src/routes/run-control.ts`, and `409 replay_pending` on stream start in `apps/api/src/routes/stream-control.ts`.
+- [X] T128 [US2] Add `phase` (`generating`, `replaying`, `live`, `done`) and `deliveries[]` to the `run-progress` WebSocket payload in `apps/api/src/ws/run-progress.ts`, derived from `runs.status`, `run_deliveries` and the stream state.
+- [X] T129 [US2] Switch `apps/worker/src/jobs/stream-drive.ts` from serial `sink.publish` to the `DeliveryPump`. Failed live deliveries emit `dropped` labels to `deliveries/<sink>/dropped-*.parquet` and to the label channel, and the metrics report `failed_total`.
+- [X] T130 [P] [US2] Add `replay_history` to MCP `launch_run` in `packages/agent-tools/src/tools.ts`, and `--replay-history` to the CLI in `apps/cli/src/commands/run.ts`.
+- [X] T131 [P] [US2] Update `analytics-flink/jobs/java/src/main/java/dev/txloom/flink/common/Event.java` (add `delivered_at` using `EpochMillisJson`), `analytics-flink/jobs/java/src/main/java/dev/txloom/flink/CleanAndOrderJob.java` (order by `delivered_at`) and `analytics-flink/README.md` (the `ts` semantics).
+- [X] T132 [US2] Add CHANGELOG entries in `CHANGELOG.md`: "Wire format", covering `ts` semantics, `delivered_at` and `sent_at`; "Sink plugin API v2"; and confirm the "Engine output changes" entry from T114 covers the transformer and late-arrival semantics. Update the plugin authoring guide `docs/extending.md` to Sink v2, with a migration section.
 
 **Checkpoint**: US2 is complete. The answer key is honest for files, brokers and webhooks.
 

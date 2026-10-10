@@ -7,10 +7,11 @@ export function registerExportTools(server: McpServer, app: FastifyInstance): vo
   server.registerTool(
     createExportTool.name,
     { description: createExportTool.description, inputSchema: createExportTool.inputSchema },
-    async ({ run_id, format, include_labels, acknowledged_warning }) => {
+    async ({ run_id, format, include_labels, acknowledged_warning, source }) => {
       const payload: Record<string, unknown> = { format };
       if (include_labels !== undefined) payload.include_labels = include_labels;
       if (acknowledged_warning !== undefined) payload.acknowledged_warning = acknowledged_warning;
+      if (source !== undefined) payload.source = source;
       return toolResult(
         (await injectJson(app, { method: "POST", url: `/api/v1/runs/${run_id}/exports`, payload }))
           .body,

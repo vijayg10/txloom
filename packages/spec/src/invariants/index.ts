@@ -6,6 +6,7 @@ import { dormancySatisfiableInvariant } from "./dormancy-satisfiable.js";
 import { imperfectionBoundsInvariant } from "./imperfection-bounds.js";
 import { referenceIntegrityInvariant } from "./reference-integrity.js";
 import { scaleEnvelopeInvariant } from "./scale-envelope.js";
+import { seedRangeInvariant } from "./seed-range.js";
 
 export {
   seasonalityWindowInvariant,
@@ -15,6 +16,7 @@ export {
   imperfectionBoundsInvariant,
   referenceIntegrityInvariant,
   scaleEnvelopeInvariant,
+  seedRangeInvariant,
 };
 
 /** The full semantic-invariant battery — every entry runs against every spec. */
@@ -26,4 +28,5 @@ export const ALL_INVARIANTS: readonly { name: string; fn: InvariantFn }[] = [
   { name: "imperfection-bounds", fn: imperfectionBoundsInvariant },
   { name: "reference-integrity", fn: referenceIntegrityInvariant },
   { name: "scale-envelope", fn: scaleEnvelopeInvariant },
+  { name: "seed-range", fn: seedRangeInvariant },
 ];

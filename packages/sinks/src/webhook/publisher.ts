@@ -4,6 +4,7 @@ import type {
   SinkDeliveryEnvelope,
   SinkFactory,
   SinkPublishResult,
+  SinkTarget,
 } from "../interface.js";
 import {
   webhookConfigSchema,
@@ -14,65 +15,68 @@ import {
 
 export type { WebhookConnectionConfig as WebhookSinkConfig };
 
-function jitteredBackoffMs(attempt: number, baseDelayMs: number, rand: () => number): number {
-  const exp = baseDelayMs * 2 ** (attempt - 1);
-  return exp / 2 + rand() * (exp / 2);
+const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_MAX_ATTEMPTS = 5;
+
+/** Whether an HTTP status is worth retrying: request timeout, rate limiting and server errors. */
+function retryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
 }
 
 /**
- * Plain HTTP POST webhook sink (D15 — no signing secret in v1). Retries failed
- * deliveries with exponential backoff + jitter (`config.max_attempts`, default 5); Sink v2
- * (US2, T121) removes this internal retry loop in favor of the shared `DeliveryPump`.
- * `probe()` is a bare `POST {}` bounded by `config.timeout_ms`, with the secret headers
- * attached, used to tell "unreachable" from "TLS problem" apart (research R11).
+ * Plain HTTP POST webhook sink (D15 — no signing secret in v1; Sink v2). `publish` makes exactly
+ * one attempt, bounded by `config.timeout_ms`, and resolves `ok` on a 2xx; retries and backoff
+ * belong to the shared `DeliveryPump`, which uses `config.max_attempts`. 408, 429, 5xx and
+ * network errors are retryable; other 4xx are not. `probe()` is a bare `POST {}` with the secret
+ * headers attached, used to tell "unreachable" from "TLS problem" apart (research R11).
  */
 export class WebhookSink implements Sink {
   readonly type = "webhook" as const;
-  private readonly rand: () => number;
-  private readonly sleep: (ms: number) => Promise<void>;
-  private readonly baseDelayMs: number;
+  readonly maxInFlight = 32;
+
+  get maxAttempts(): number {
+    return this.config.max_attempts ?? DEFAULT_MAX_ATTEMPTS;
+  }
+
+  /** A connection saved before schema defaults were applied may lack its timeout. */
+  private get timeoutMs(): number {
+    return this.config.timeout_ms ?? DEFAULT_TIMEOUT_MS;
+  }
 
   constructor(
     readonly name: string,
     private readonly config: WebhookConnectionConfig,
     private readonly secrets: WebhookConnectionSecrets | null = null,
-    overrides: { rand?: () => number; sleep?: (ms: number) => Promise<void>; baseDelayMs?: number } = {},
-  ) {
-    this.rand = overrides.rand ?? Math.random;
-    this.sleep = overrides.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-    this.baseDelayMs = overrides.baseDelayMs ?? 200;
-  }
+  ) {}
 
   private get headers(): Record<string, string> {
     return this.secrets?.headers ?? {};
   }
 
   async publish(
-    payload: Record<string, unknown>,
-    envelope: SinkDeliveryEnvelope,
+    _target: SinkTarget,
+    body: Uint8Array,
+    _envelope: SinkDeliveryEnvelope,
+    signal: AbortSignal,
   ): Promise<SinkPublishResult> {
-    const body = JSON.stringify({ ...payload, delivery_id: envelope.delivery_id, ts: envelope.ts });
-    let lastError = "unknown error";
-    const maxAttempts = this.config.max_attempts;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const response = await fetch(this.config.url, {
-          method: "POST",
-          headers: { "content-type": "application/json", ...this.headers },
-          body,
-          signal: AbortSignal.timeout(this.config.timeout_ms),
-        });
-        if (response.ok) return { ok: true };
-        lastError = `HTTP ${response.status}`;
-      } catch (error) {
-        lastError = (error as Error).message;
-      }
-      if (attempt < maxAttempts) {
-        await this.sleep(jitteredBackoffMs(attempt, this.baseDelayMs, this.rand));
-      }
+    try {
+      const response = await fetch(this.config.url, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...this.headers },
+        body: Buffer.from(body),
+        signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs)]),
+      });
+      // Drain the body so the connection can be reused.
+      await response.arrayBuffer().catch(() => {});
+      if (response.ok) return { ok: true };
+      return {
+        ok: false,
+        retryable: retryableStatus(response.status),
+        error: `HTTP ${response.status}`,
+      };
+    } catch (error) {
+      return { ok: false, retryable: true, error: (error as Error).message };
     }
-    return { ok: false, error: lastError };
   }
 
   async probe(): Promise<ProbeResult> {
@@ -83,7 +87,7 @@ export class WebhookSink implements Sink {
         method: "POST",
         headers: { "content-type": "application/json", ...this.headers },
         body: "{}",
-        signal: AbortSignal.timeout(this.config.timeout_ms),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
       return {
         ok: response.ok,
@@ -95,7 +99,12 @@ export class WebhookSink implements Sink {
       const err = error as Error;
       const message = err.message;
       if (err.name === "TimeoutError" || /timed? ?out|timeout/i.test(message)) {
-        return { ok: false, stage: "connect", detail: `Timed out after ${this.config.timeout_ms}ms`, latency_ms: latency() };
+        return {
+          ok: false,
+          stage: "connect",
+          detail: `Timed out after ${this.timeoutMs}ms`,
+          latency_ms: latency(),
+        };
       }
       if (/certificate|ssl|tls/i.test(message)) {
         return { ok: false, stage: "tls", detail: message, latency_ms: latency() };

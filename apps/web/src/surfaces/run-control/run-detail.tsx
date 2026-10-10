@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { apiClient } from "../../api/client.js";
+import { apiClient, ApiError } from "../../api/client.js";
 import { Button } from "../../components/ui/button.js";
 import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
 import { StatusBadge, runStatusTone } from "../../components/ui/status-badge.js";
@@ -9,6 +9,14 @@ interface RunRow {
   id: string;
   status: RunStatus;
   seed: string;
+  error?: string | null;
+}
+
+interface PartitionLog {
+  partition_no: number;
+  state: string;
+  attempts: number;
+  last_error: string | null;
 }
 
 interface PartitionTick {
@@ -26,6 +34,18 @@ export function RunDetail({ runId }: { runId: string }) {
   const [run, setRun] = useState<RunRow | null>(null);
   const [ticks, setTicks] = useState<Record<number, PartitionTick>>({});
   const wsRef = useRef<WebSocket | null>(null);
+  const [partitionLogs, setPartitionLogs] = useState<PartitionLog[]>([]);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  // A failed run explains itself: which partitions ran out of attempts, and why.
+  useEffect(() => {
+    if (run?.status !== "failed") return;
+    apiClient
+      .get<{ logs: PartitionLog[] }>(`/runs/${runId}/logs`)
+      .then((res) => setPartitionLogs(res.logs))
+      .catch(() => setPartitionLogs([]));
+  }, [runId, run?.status]);
 
   useEffect(() => {
     apiClient
@@ -52,6 +72,24 @@ export function RunDetail({ runId }: { runId: string }) {
   async function control(action: "pause" | "resume" | "cancel") {
     const updated = await apiClient.post<RunRow>(`/runs/${runId}/${action}`);
     setRun(updated);
+  }
+
+  async function retry() {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      setRun(await apiClient.post<RunRow>(`/runs/${runId}/retry`));
+    } catch (err) {
+      setRetryError(
+        err instanceof ApiError && err.code === "engine_version_mismatch"
+          ? "This run was made by another engine version. Use Regenerate instead."
+          : err instanceof Error
+            ? err.message
+            : "Retry failed",
+      );
+    } finally {
+      setRetrying(false);
+    }
   }
 
   if (!run) {
@@ -103,6 +141,37 @@ export function RunDetail({ runId }: { runId: string }) {
         </div>
       </CardHeader>
       <CardBody>
+        {run.status === "failed" && (
+          <div data-testid="run-failure" className="border-danger/40 mb-4 rounded-xl border p-3.5">
+            <p className="text-danger text-sm font-medium">This run failed.</p>
+            {run.error && (
+              <p data-testid="run-last-error" className="text-text-secondary mt-1 text-sm">
+                {run.error}
+              </p>
+            )}
+            <ul className="mt-2 flex flex-col gap-1" data-testid="run-partition-attempts">
+              {partitionLogs
+                .filter((p) => p.state !== "done")
+                .map((p) => (
+                  <li key={p.partition_no} className="text-text-secondary text-xs tabular-nums">
+                    partition {p.partition_no}: {p.state}, {p.attempts}{" "}
+                    {p.attempts === 1 ? "attempt" : "attempts"}
+                    {p.last_error ? ` — ${p.last_error}` : ""}
+                  </li>
+                ))}
+            </ul>
+            <div className="mt-3">
+              <Button data-testid="run-retry" onClick={() => void retry()} loading={retrying}>
+                Retry failed partitions
+              </Button>
+              {retryError && (
+                <p role="alert" className="text-danger mt-2 text-sm">
+                  {retryError}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
         <ul className="flex flex-col gap-2" data-testid="run-progress" aria-live="polite">
           {Object.values(ticks)
             .sort((a, b) => a.partition_no - b.partition_no)

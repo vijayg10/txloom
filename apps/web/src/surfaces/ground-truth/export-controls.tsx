@@ -1,25 +1,37 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { apiClient } from "../../api/client.js";
+import {
+  createApiClient,
+  type ExportFormat,
+  type ExportManifest,
+  type ExportSource,
+} from "../../api/client.js";
 import { Button } from "../../components/ui/button.js";
 import { Checkbox } from "../../components/ui/checkbox.js";
 import { FormField } from "../../components/ui/form-field.js";
 import { Select } from "../../components/ui/select.js";
 
-type ExportFormat = "csv" | "parquet" | "json";
-
-interface ExportManifest {
-  export_id: string;
-  file_name: string;
-  answer_key_file_name: string | null;
+/** The `<select>` value for an export source: `truth`, or `sink:<name>`. */
+function sourceValue(source: ExportSource): string {
+  return source.kind === "truth" ? "truth" : `sink:${source.name}`;
 }
 
-/** Export controls (FR-021/022): format selection plus an include-labels
- * toggle. Including labels in the main export requires explicitly
- * acknowledging the warning — the submit button stays disabled until the
- * acknowledgment checkbox is ticked, so a user can't reach the 422 the API
- * would otherwise return. */
-export function ExportControls({ runId }: { runId: string }) {
+function sourceFromValue(value: string): ExportSource {
+  return value.startsWith("sink:")
+    ? { kind: "sink", name: value.slice("sink:".length) }
+    : { kind: "truth" };
+}
+
+/** Export controls (FR-021/022, R19): source (the truth store, or a file sink's delivered copy),
+ * format, and an include-labels toggle. Including labels in the main export requires explicitly
+ * acknowledging the warning — the submit button stays disabled until the acknowledgment checkbox
+ * is ticked, so a user can't reach the 422 the API would otherwise return. Exports are built by
+ * a worker job, so the status is polled and the download link appears only once it is
+ * `completed`. */
+export function ExportControls({ runId, pollMs = 1000 }: { runId: string; pollMs?: number }) {
+  const api = useMemo(() => createApiClient(), []);
+  const [fileSinks, setFileSinks] = useState<string[]>([]);
+  const [source, setSource] = useState("truth");
   const [format, setFormat] = useState<ExportFormat>("csv");
   const [includeLabels, setIncludeLabels] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -27,6 +39,38 @@ export function ExportControls({ runId }: { runId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const blocked = includeLabels && !acknowledged;
+
+  // The source defaults to the first file sink the run's spec declares, else the truth store.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getRun(runId)
+      .then((run) => {
+        if (cancelled) return;
+        const sinks =
+          (run.spec_snapshot as { output?: { sinks?: { type: string; name: string }[] } } | null)
+            ?.output?.sinks ?? [];
+        const names = sinks.filter((sink) => sink.type === "file").map((sink) => sink.name);
+        setFileSinks(names);
+        if (names[0]) setSource(`sink:${names[0]}`);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [api, runId]);
+
+  // Poll the export job until it finishes.
+  useEffect(() => {
+    if (!manifest || manifest.status === "completed" || manifest.status === "failed") return;
+    const timer = setTimeout(() => {
+      api
+        .getExport(runId, manifest.export_id)
+        .then(setManifest)
+        .catch((err: unknown) => setError(err instanceof Error ? err.message : "export failed"));
+    }, pollMs);
+    return () => clearTimeout(timer);
+  }, [api, manifest, pollMs, runId]);
 
   function toggleIncludeLabels(next: boolean) {
     setIncludeLabels(next);
@@ -38,9 +82,12 @@ export function ExportControls({ runId }: { runId: string }) {
     if (blocked) return;
     setError(null);
     try {
-      const body: Record<string, unknown> = { format, include_labels: includeLabels };
-      if (includeLabels) body.acknowledged_warning = true;
-      const created = await apiClient.post<ExportManifest>(`/runs/${runId}/exports`, body);
+      const created = await api.createExport(runId, {
+        format,
+        include_labels: includeLabels,
+        ...(includeLabels ? { acknowledged_warning: true } : {}),
+        source: sourceFromValue(source),
+      });
       setManifest(created);
     } catch (err) {
       setError(err instanceof Error ? err.message : "export failed");
@@ -49,6 +96,23 @@ export function ExportControls({ runId }: { runId: string }) {
 
   return (
     <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+      <div className="max-w-xs">
+        <FormField label="Source">
+          <Select
+            data-testid="export-source"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+          >
+            <option value="truth">Truth</option>
+            {fileSinks.map((name) => (
+              <option key={name} value={sourceValue({ kind: "sink", name })}>
+                {name} (file sink)
+              </option>
+            ))}
+          </Select>
+        </FormField>
+      </div>
+
       <div className="max-w-xs">
         <FormField label="Format">
           <Select
@@ -109,7 +173,19 @@ export function ExportControls({ runId }: { runId: string }) {
         </p>
       )}
 
-      {manifest && (
+      {manifest && manifest.status !== "completed" && manifest.status !== "failed" && (
+        <p data-testid="export-status" role="status" className="text-text-secondary text-sm">
+          {manifest.status === "queued" ? "Export queued…" : "Building export…"}
+        </p>
+      )}
+
+      {manifest?.status === "failed" && (
+        <p data-testid="export-status" role="alert" className="text-danger text-sm">
+          Export failed: {manifest.error ?? "unknown error"}
+        </p>
+      )}
+
+      {manifest?.status === "completed" && (
         <div
           data-testid="export-result"
           className="border-border bg-hover rounded-xl border px-4 py-3 text-sm"

@@ -16,7 +16,7 @@ describe("history -> live continuity (SC-006)", () => {
     const merchants = generateMerchantPool(spec, seed);
 
     const history = generatePartition(spec, seed, 0, 1, merchants);
-    const live = resumeLiveWorld(spec, seed, 0, 1, merchants);
+    const live = resumeLiveWorld(spec, seed, history.worldCheckpoint, merchants);
 
     expect(live.consumers).toEqual(history.worldCheckpoint.consumers);
   });
@@ -29,7 +29,7 @@ describe("history -> live continuity (SC-006)", () => {
     const history = generatePartition(spec, seed, 0, 1, merchants);
     const historyIds = new Set(history.truthEvents.map((e) => e.event_id));
 
-    const live = resumeLiveWorld(spec, seed, 0, 1, merchants);
+    const live = resumeLiveWorld(spec, seed, history.worldCheckpoint, merchants);
     const liveEventIds = Array.from(
       { length: 25 },
       (_, i) =>
@@ -49,8 +49,9 @@ describe("history -> live continuity (SC-006)", () => {
     const seed = BigInt(spec.seed);
     const merchants = generateMerchantPool(spec, seed);
 
-    const worldA = resumeLiveWorld(spec, seed, 0, 1, merchants);
-    const worldB = resumeLiveWorld(spec, seed, 0, 1, merchants);
+    const history = generatePartition(spec, seed, 0, 1, merchants);
+    const worldA = resumeLiveWorld(spec, seed, history.worldCheckpoint, merchants);
+    const worldB = resumeLiveWorld(spec, seed, history.worldCheckpoint, merchants);
 
     const nowMs = Date.parse("2026-02-01T00:00:00.000Z");
     const eventsA = Array.from({ length: 10 }, (_, i) =>

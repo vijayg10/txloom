@@ -114,22 +114,32 @@ describe("stream control contract", () => {
       spec_snapshot: spec,
       seed: 1n,
       params: {},
-      mode: "batch_then_stream",
+      mode: "history_then_live",
     });
 
     const response = await app.inject({
       method: "POST",
       url: `/api/v1/runs/${otherRun.id}/stream/start`,
-      payload: { sink: { type: "webhook", config: { url: "http://localhost:9/nowhere" } } },
+      payload: {},
     });
     expect(response.statusCode).toBe(409);
+  });
+
+  it("rejects an inline sink with inline_sink_removed", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/v1/runs/${runId}/stream/start`,
+      payload: { sink: { type: "webhook", config: { url: "http://localhost:9/nowhere" } } },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("inline_sink_removed");
   });
 
   it("starts a stream, falling back to spec.clock.then_stream_tps when target_tps is omitted", async () => {
     const response = await app.inject({
       method: "POST",
       url: `/api/v1/runs/${runId}/stream/start`,
-      payload: { sink: { type: "webhook", config: { url: "http://localhost:9/nowhere" } } },
+      payload: {},
     });
     expect(response.statusCode).toBe(200);
     const body = response.json();
@@ -141,7 +151,7 @@ describe("stream control contract", () => {
     const response = await app.inject({
       method: "POST",
       url: `/api/v1/runs/${runId}/stream/start`,
-      payload: { sink: { type: "webhook", config: { url: "http://localhost:9/nowhere" } } },
+      payload: {},
     });
     expect(response.statusCode).toBe(409);
   });

@@ -3,6 +3,7 @@ import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../src/app.js";
 import { closeDb, getDb } from "../../src/db/knex.js";
+import { ENGINE_VERSION } from "@txloom/engine";
 import { closeQueues } from "../../src/services/queues.js";
 
 const validSpec = {
@@ -122,5 +123,53 @@ describe("runs contract", () => {
     const response = await app.inject({ method: "GET", url: `/api/v1/runs/${runId}` });
     expect(response.statusCode).toBe(200);
     expect(response.json().id).toBe(runId);
+  });
+
+  async function launch(payload: Record<string, unknown>) {
+    return app.inject({
+      method: "POST",
+      url: `/api/v1/scenarios/${scenarioId}/runs`,
+      payload,
+    });
+  }
+
+  it("round-trips a 64-bit string seed exactly", async () => {
+    const response = await launch({ seed: "18446744073709551615" });
+    expect(response.statusCode).toBe(201);
+    expect(response.json().seed).toBe("18446744073709551615");
+
+    const read = await app.inject({ method: "GET", url: `/api/v1/runs/${response.json().id}` });
+    expect(read.json().seed).toBe("18446744073709551615");
+  });
+
+  it.each([
+    ["a JSON number above 2^53", 2 ** 53 + 2],
+    ["a negative string", "-1"],
+    ["a string above 2^64-1", "18446744073709551616"],
+    ["a non-numeric string", "2^64"],
+  ])("rejects %s with invalid_seed and states the range", async (_label, seed) => {
+    const response = await launch({ seed });
+    expect(response.statusCode).toBe(400);
+    const { error } = response.json();
+    expect(error.code).toBe("invalid_seed");
+    expect(error.message).toContain("18446744073709551615");
+  });
+
+  it("GET /runs/:id includes engine_version and partition_count", async () => {
+    const launched = await launch({});
+    const read = await app.inject({ method: "GET", url: `/api/v1/runs/${launched.json().id}` });
+    const body = read.json();
+    expect(body.engine_version).toBe(ENGINE_VERSION);
+    expect(body.partition_count).toBe(1);
+  });
+
+  it("a launch with no seed uses spec.seed, and a request seed overrides it", async () => {
+    const first = (await launch({})).json();
+    const second = (await launch({})).json();
+    expect(first.seed).toBe(String(validSpec.seed));
+    expect(second.seed).toBe(first.seed);
+
+    const overridden = (await launch({ seed: "42" })).json();
+    expect(overridden.seed).toBe("42");
   });
 });

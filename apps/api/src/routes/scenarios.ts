@@ -3,6 +3,7 @@ import type { SimulationSpec } from "@txloom/spec";
 import { getDb } from "../db/knex.js";
 import { ScenarioRepository } from "../db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../db/repositories/spec-versions.js";
+import { checkStoredSpec } from "../services/spec-guard.js";
 
 interface TemplateRow {
   slug: string;
@@ -46,6 +47,12 @@ export default async function scenarioRoutes(app: FastifyInstance) {
       const spec = (
         typeof template.spec === "string" ? JSON.parse(template.spec) : template.spec
       ) as SimulationSpec;
+
+      const invalid = checkStoredSpec(`Template "${body.template_slug}"`, spec);
+      if (invalid) {
+        reply.status(400);
+        return invalid;
+      }
 
       const scenario = await repo.create({
         name: body.name,

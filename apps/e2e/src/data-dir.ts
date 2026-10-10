@@ -20,10 +20,13 @@ export function runDir(runId: string): string {
 /** Reads every `.parquet` file in `dir` via an out-of-process reader (see
  * parquet-reader-cli.ts for why). Returns `[]` for a directory that doesn't
  * exist yet (e.g. no events routed to this sink). */
-export async function readParquetRows(dir: string): Promise<Record<string, unknown>[]> {
+export async function readParquetRows(
+  dir: string,
+  filePrefix = "",
+): Promise<Record<string, unknown>[]> {
   const { stdout } = await execFileAsync(
     process.execPath,
-    ["--import", "tsx", READER_SCRIPT, dir],
+    ["--import", "tsx", READER_SCRIPT, dir, filePrefix],
     { cwd: E2E_PACKAGE_DIR, maxBuffer: 1024 * 1024 * 64 },
   );
   return JSON.parse(stdout) as Record<string, unknown>[];
@@ -37,7 +40,28 @@ export function readDeliveredEvents(
   runId: string,
   sinkName: string,
 ): Promise<Record<string, unknown>[]> {
-  return readParquetRows(path.join(runDir(runId), "delivered", sinkName));
+  return readParquetRows(path.join(runDir(runId), "delivered", sinkName), "part-");
+}
+
+/** Fraud labels aligned 1:1 with a sink's delivered rows. */
+export function readDeliveredLabels(
+  runId: string,
+  sinkName: string,
+): Promise<Record<string, unknown>[]> {
+  return readParquetRows(path.join(runDir(runId), "delivered", sinkName), "labels-part-");
+}
+
+/** Imperfection labels for one sink (`corruptions/<sink>/`). */
+export function readCorruptions(
+  runId: string,
+  sinkName: string,
+): Promise<Record<string, unknown>[]> {
+  return readParquetRows(path.join(runDir(runId), "corruptions", sinkName));
+}
+
+/** Labels for deliveries that failed (`deliveries/<sink>/dropped-*`). */
+export function readDropped(runId: string, sinkName: string): Promise<Record<string, unknown>[]> {
+  return readParquetRows(path.join(runDir(runId), "deliveries", sinkName));
 }
 
 export function readLabels(runId: string): Promise<Record<string, unknown>[]> {
