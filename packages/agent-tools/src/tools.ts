@@ -74,7 +74,7 @@ export const saveSpecVersionTool: AgentToolDefinition<typeof saveSpecVersionInpu
 export const launchRunInputShape = {
   scenario_id: z.string().min(1),
   seed: z.number().int().optional(),
-  mode: z.enum(["batch", "batch_then_stream"]).optional(),
+  mode: z.enum(["batch", "batch_then_stream", "history_only", "history_then_live"]).optional(),
 };
 export const launchRunTool: AgentToolDefinition<typeof launchRunInputShape> = {
   name: "launch_run",

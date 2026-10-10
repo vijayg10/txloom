@@ -21,6 +21,10 @@
     "test:e2e": "pnpm --filter @txloom/e2e test:e2e",
     "bench:smoke": "tsx benchmarks/kafka/bench-smoke.ts",
     "bench:kafka": "tsx benchmarks/kafka/bench.ts",
+    "bench:reference": "tsx benchmarks/batch/bench-reference.ts",
+    "bench:memory-flatness": "tsx benchmarks/batch/bench-memory-flatness.ts",
+    "bench:refund-scaling": "tsx benchmarks/batch/bench-refund-scaling.ts",
+    "bench:batch-smoke": "tsx benchmarks/batch/bench-smoke.ts",
     "build:agent-docs": "tsx scripts/build-agent-docs.ts"
   },
   "devDependencies": {

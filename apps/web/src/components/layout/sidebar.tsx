@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { ChevronsLeft, ChevronsRight, HelpCircle, X } from "lucide-react";
 import { cn } from "@/lib/cn.js";
-import { NAV_ITEMS } from "./nav-items.js";
+import { FOOTER_NAV_ITEMS, NAV_ITEMS } from "./nav-items.js";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -85,6 +85,26 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
         </nav>
 
         <div className="border-border shrink-0 border-t p-3">
+          <ul className="flex flex-col gap-1">
+            {FOOTER_NAV_ITEMS.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  onClick={onCloseMobile}
+                  className={({ isActive }) =>
+                    cn(
+                      "text-text-secondary hover:bg-hover hover:text-text flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200",
+                      isActive &&
+                        "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
+                    )
+                  }
+                >
+                  <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                  <span className={cn(collapsed && "md:hidden")}>{item.label}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
           <a
             href="https://github.com/vijayg10/txloom"
             target="_blank"

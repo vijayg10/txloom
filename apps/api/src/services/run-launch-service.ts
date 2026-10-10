@@ -1,7 +1,8 @@
 import type { SimulationSpec } from "@txloom/spec";
-import { defaultPartitionCount, generateMerchantPool } from "@txloom/engine";
+import { ENGINE_VERSION, defaultPartitionCount, generateMerchantPool } from "@txloom/engine";
 import type { RunMode, RunRepository, RunRow } from "../db/repositories/runs.js";
 import type { RunPartitionRepository } from "../db/repositories/runs.js";
+import type { RunDestinationInput, RunDestinationRepository } from "../db/repositories/run-destinations.js";
 import { getQueues } from "./queues.js";
 
 export interface LaunchGenerationInput {
@@ -11,6 +12,7 @@ export interface LaunchGenerationInput {
   seed: bigint;
   params: unknown;
   mode: RunMode;
+  destinations?: RunDestinationInput[];
 }
 
 /**
@@ -21,9 +23,12 @@ export interface LaunchGenerationInput {
 export async function launchGeneration(
   runs: RunRepository,
   runPartitions: RunPartitionRepository,
+  runDestinations: RunDestinationRepository,
   dataDir: string,
   input: LaunchGenerationInput,
 ): Promise<RunRow> {
+  const partitionCount = defaultPartitionCount(input.spec.population.consumers.count);
+
   const run = await runs.create({
     scenario_id: input.scenario_id,
     spec_version_id: input.spec_version_id,
@@ -31,9 +36,11 @@ export async function launchGeneration(
     seed: input.seed,
     params: input.params,
     mode: input.mode,
+    engine_version: ENGINE_VERSION,
+    partition_count: partitionCount,
   });
 
-  const partitionCount = defaultPartitionCount(input.spec.population.consumers.count);
+  await runDestinations.insertAll(run.id, input.destinations ?? []);
   await runPartitions.createPending(run.id, partitionCount);
   const merchants = generateMerchantPool(input.spec, input.seed);
 

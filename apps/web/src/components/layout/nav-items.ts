@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Database, FileText, Globe, PlayCircle, Radio, Settings } from "lucide-react";
+import { FileText, Plug, PlayCircle, Settings } from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -9,11 +9,12 @@ export interface NavItem {
 
 // Terminology (scenario, spec, run, world, typology, sink) must match UI/CLI/API/docs
 // identically (constitution Principle IV) — labels below are the canonical set.
+// Navigation per contracts/ui-routes.md: Scenarios · Runs · Connections, with
+// Settings kept separately in the sidebar footer (T018).
 export const NAV_ITEMS: NavItem[] = [
-  { to: "/scenarios", label: "Scenario workspace", icon: FileText },
-  { to: "/runs", label: "Run control", icon: PlayCircle },
-  { to: "/stream", label: "Stream console", icon: Radio },
-  { to: "/inspector", label: "World inspector", icon: Globe },
-  { to: "/ground-truth", label: "Ground-truth explorer", icon: Database },
-  { to: "/settings", label: "Connections & settings", icon: Settings },
+  { to: "/scenarios", label: "Scenarios", icon: FileText },
+  { to: "/runs", label: "Runs", icon: PlayCircle },
+  { to: "/connections", label: "Connections", icon: Plug },
 ];
+
+export const FOOTER_NAV_ITEMS: NavItem[] = [{ to: "/settings", label: "Settings", icon: Settings }];

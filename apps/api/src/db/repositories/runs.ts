@@ -1,7 +1,7 @@
 import type { Knex } from "knex";
 import { ulid } from "ulid";
 
-export type RunMode = "batch" | "batch_then_stream";
+export type RunMode = "history_only" | "history_then_live";
 export type RunStatus = "queued" | "running" | "paused" | "completed" | "failed" | "cancelled";
 
 export interface RunRow {
@@ -13,6 +13,12 @@ export interface RunRow {
   params: unknown;
   mode: RunMode;
   status: RunStatus;
+  engine_version: number;
+  partition_count: number;
+  replay_history: boolean;
+  target_tps: number | null;
+  label_channel: boolean;
+  source_run_id: string | null;
   outputs_deleted_at: Date | null;
   progress: unknown;
   error: string | null;
@@ -28,6 +34,12 @@ export interface CreateRunInput {
   seed: bigint;
   params: unknown;
   mode: RunMode;
+  engine_version: number;
+  partition_count: number;
+  replay_history?: boolean;
+  target_tps?: number | null;
+  label_channel?: boolean;
+  source_run_id?: string | null;
 }
 
 export class RunRepository {
@@ -43,6 +55,12 @@ export class RunRepository {
       seed: input.seed.toString(),
       params: JSON.stringify(input.params),
       mode: input.mode,
+      engine_version: input.engine_version,
+      partition_count: input.partition_count,
+      replay_history: input.replay_history ?? false,
+      target_tps: input.target_tps ?? null,
+      label_channel: input.label_channel ?? false,
+      source_run_id: input.source_run_id ?? null,
       status: "queued",
     });
     const row = await this.getById(id);
@@ -95,6 +113,8 @@ export interface RunPartitionRow {
   state: PartitionState;
   rng_checkpoint: unknown;
   events_generated: number;
+  attempts: number;
+  last_error: string | null;
   updated_at: Date;
 }
 
@@ -134,6 +154,21 @@ export class RunPartitionRepository {
       .update({
         rng_checkpoint: JSON.stringify(checkpoint),
         events_generated: eventsGenerated,
+        updated_at: this.db.fn.now(),
+      });
+  }
+
+  async recordAttempt(
+    runId: string,
+    partitionNo: number,
+    attempts: number,
+    error: string | null,
+  ): Promise<void> {
+    await this.db("run_partitions")
+      .where({ run_id: runId, partition_no: partitionNo })
+      .update({
+        attempts,
+        last_error: error,
         updated_at: this.db.fn.now(),
       });
   }

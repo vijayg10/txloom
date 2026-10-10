@@ -15,11 +15,16 @@ describe("RabbitMQ sink: publisher confirms drive backpressure", () => {
   let container: StartedTestContainer;
   let url: string;
 
+  let host: string;
+  let port: number;
+
   beforeAll(async () => {
     container = await new GenericContainer("rabbitmq:4-management-alpine")
       .withExposedPorts(5672)
       .start();
-    url = `amqp://guest:guest@${container.getHost()}:${container.getMappedPort(5672)}`;
+    host = container.getHost();
+    port = container.getMappedPort(5672);
+    url = `amqp://guest:guest@${host}:${port}`;
   }, 120_000);
 
   afterAll(async () => {
@@ -27,11 +32,19 @@ describe("RabbitMQ sink: publisher confirms drive backpressure", () => {
   });
 
   it("reports backpressure once the channel's internal write buffer signals full", async () => {
-    const sink = new RabbitMqSink("primary", {
-      url,
-      exchange: "txloom.stream",
-      routingKey: "events",
-    });
+    const sink = new RabbitMqSink(
+      "primary",
+      {
+        host,
+        port,
+        vhost: "/",
+        tls: false,
+        exchange: "txloom.stream",
+        exchange_type: "topic",
+        default_routing_key: "events",
+      },
+      { username: "guest", password: "guest" },
+    );
 
     // A queue with no consumer draining it, bound to the exchange, lets
     // messages pile up so the confirm-channel's socket write buffer (and

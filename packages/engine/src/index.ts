@@ -1,4 +1,5 @@
 export * from "./types.js";
+export * from "./version.js";
 export * from "./rng.js";
 export * from "./clock.js";
 export * from "./rng-checkpoint.js";

@@ -11,6 +11,7 @@ import { StreamRepository } from "../../api/src/db/repositories/streams.js";
 import { startGeneratePartitionWorker } from "./jobs/generate-partition.js";
 import { startStreamDriveWorker } from "./jobs/stream-drive.js";
 import { startReportBuildWorker } from "./jobs/report-build.js";
+import { startConnectionTestWorker } from "./jobs/connection-test.js";
 import { resumeIncompletePartitions, type IncompletePartition } from "./pool/resume.js";
 import { StreamLabelChannel } from "./jobs/stream-label-channel.js";
 import { closePartitionPool } from "./pool/piscina-pool.js";
@@ -112,6 +113,8 @@ const reportBuildWorker = startReportBuildWorker({
   onReportReady: async () => {},
 });
 
+const connectionTestWorker = startConnectionTestWorker({ connection });
+
 /** Boot-time resume (FR-018, SC-011): re-enqueues every partition not yet
  * `done` for runs still marked `running` from before a crash/restart, and
  * completes any run whose partitions all finished but never got flipped to
@@ -153,7 +156,9 @@ async function resumeAfterRestart(): Promise<void> {
 }
 
 await resumeAfterRestart();
-console.log("txloom worker: generate-partition, stream-drive, report-build consumers running");
+console.log(
+  "txloom worker: generate-partition, stream-drive, report-build, connection-test consumers running",
+);
 
 let shuttingDown = false;
 async function shutdown(signal: string): Promise<void> {
@@ -164,6 +169,7 @@ async function shutdown(signal: string): Promise<void> {
     generatePartitionWorker.close(),
     streamDriveWorker.close(),
     reportBuildWorker.close(),
+    connectionTestWorker.close(),
   ]);
   await closePartitionPool();
   await closeQueues();

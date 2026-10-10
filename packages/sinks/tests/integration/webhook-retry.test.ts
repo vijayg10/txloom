@@ -37,9 +37,11 @@ describe("webhook sink retry with exponential backoff", () => {
     let callCount = 0;
     const sink = new WebhookSink(
       "primary",
-      { url: started.url, maxAttempts: 5, baseDelayMs: 10 },
+      { url: started.url, timeout_ms: 5000, max_attempts: 5 },
+      null,
       {
         rand: () => 0.5,
+        baseDelayMs: 10,
         sleep: async (ms) => {
           delays.push(ms);
         },
@@ -78,8 +80,9 @@ describe("webhook sink retry with exponential backoff", () => {
 
     const sink = new WebhookSink(
       "primary",
-      { url: started.url, maxAttempts: 3, baseDelayMs: 5 },
-      { rand: () => 0, sleep: async () => {} },
+      { url: started.url, timeout_ms: 5000, max_attempts: 3 },
+      null,
+      { rand: () => 0, baseDelayMs: 5, sleep: async () => {} },
     );
 
     const result = await sink.publish({ foo: "bar" }, envelope);

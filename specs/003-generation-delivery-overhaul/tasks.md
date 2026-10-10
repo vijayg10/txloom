@@ -39,14 +39,14 @@ T083 (per-day simulator), T114 (transformer), T151 (live generation) and T190 (r
 
 **Purpose**: Test-runner wiring, scripts and changelog that every later phase uses.
 
-- [ ] T001 Register the new DB-backed contract test files `test_connections.ts`, `test_destinations.ts`, `test_launch.ts`, `test_estimate.ts`, `test_run_retry.ts`, `test_stream_sessions.ts` and `test_deliveries.ts` (all in `apps/api/tests/contract/`): add each to the `integration` project's `include` and to the `contract` project's `exclude` in `vitest.workspace.ts`.
-- [ ] T002 [P] Add root scripts to `package.json`:
+- [X] T001 Register the new DB-backed contract test files `test_connections.ts`, `test_destinations.ts`, `test_launch.ts`, `test_estimate.ts`, `test_run_retry.ts`, `test_stream_sessions.ts` and `test_deliveries.ts` (all in `apps/api/tests/contract/`): add each to the `integration` project's `include` and to the `contract` project's `exclude` in `vitest.workspace.ts`.
+- [X] T002 [P] Add root scripts to `package.json`:
   - `bench:reference` → `tsx benchmarks/batch/bench-reference.ts`
   - `bench:memory-flatness` → `tsx benchmarks/batch/bench-memory-flatness.ts`
   - `bench:refund-scaling` → `tsx benchmarks/batch/bench-refund-scaling.ts`
   - `bench:batch-smoke` → `tsx benchmarks/batch/bench-smoke.ts`
-- [ ] T003 [P] Create `CHANGELOG.md` at the repo root with an `## Unreleased` section and four empty subsections: "Engine output changes (breaking; one `ENGINE_VERSION` bump per entry)", "Sink plugin API v2 (breaking)", "Wire format (breaking)" and "API removals". Later tasks append entries to them.
-- [ ] T004 [P] Create the e2e fixture `apps/e2e/fixtures/imperfections-all.json`. Base it on `apps/e2e/fixtures/tiny-scenario.json`, with:
+- [X] T003 [P] Create `CHANGELOG.md` at the repo root with an `## Unreleased` section and four empty subsections: "Engine output changes (breaking; one `ENGINE_VERSION` bump per entry)", "Sink plugin API v2 (breaking)", "Wire format (breaking)" and "API removals". Later tasks append entries to them.
+- [X] T004 [P] Create the e2e fixture `apps/e2e/fixtures/imperfections-all.json`. Base it on `apps/e2e/fixtures/tiny-scenario.json`, with:
   - `output.sinks`: `[{type:"file",name:"archive",format:"parquet"}, {type:"kafka",name:"events"}]`;
   - all four imperfections at a rate of 0.05, each targeting both sinks;
   - all three fraud typologies.
@@ -59,27 +59,27 @@ T083 (per-day simulator), T114 (transformer), T151 (live generation) and T190 (r
 
 **⚠️ CRITICAL**: No user story work begins until this phase is complete.
 
-- [ ] T005 Write failing migration tests in `apps/api/tests/integration/db-migrate.test.ts` for migration 010:
+- [X] T005 Write failing migration tests in `apps/api/tests/integration/db-migrate.test.ts` for migration 010:
   - `runs.engine_version` is backfilled to 1;
   - `runs.partition_count` is backfilled from `COUNT(run_partitions)`;
   - `mode` is mapped `batch`→`history_only` and `batch_then_stream`→`history_then_live`;
   - the new columns `replay_history`, `target_tps`, `label_channel` and `source_run_id` have their defaults;
   - `run_partitions.attempts` and `run_partitions.last_error` exist.
-- [ ] T006 Implement migration `apps/api/src/db/migrations/010_runs_engine_version.ts` exactly as in data-model.md §1.2–1.3, including the backfill and the ENUM change, and include its `down`.
-- [ ] T007 Update `apps/api/src/db/repositories/runs.ts` for the new schema:
+- [X] T006 Implement migration `apps/api/src/db/migrations/010_runs_engine_version.ts` exactly as in data-model.md §1.2–1.3, including the backfill and the ENUM change, and include its `down`.
+- [X] T007 Update `apps/api/src/db/repositories/runs.ts` for the new schema:
   - `RunMode = "history_only" | "history_then_live"`;
   - `RunRow` gets `engine_version`, `partition_count`, `replay_history`, `target_tps`, `label_channel` and `source_run_id`;
   - `CreateRunInput` accepts the same fields;
   - `RunPartitionRow` gets `attempts` and `last_error`, and there is a new `recordAttempt(runId, partitionNo, attempts, error)`.
-- [ ] T008 [P] Create `packages/engine/src/version.ts` exporting `ENGINE_VERSION = 1`, and re-export it from `packages/engine/src/index.ts`.
-- [ ] T009 Add an `"engine_version": 1` field to `packages/engine/tests/golden-master/reference-output.json`. In `packages/engine/tests/golden-master/reference-scenario.test.ts`, assert that it equals `ENGINE_VERSION`, and fail with the message "output changed: bump ENGINE_VERSION or revert" whenever the output diverges (research R1).
-- [ ] T010 Move every reader of the old run-mode values to the new enum:
+- [X] T008 [P] Create `packages/engine/src/version.ts` exporting `ENGINE_VERSION = 1`, and re-export it from `packages/engine/src/index.ts`.
+- [X] T009 Add an `"engine_version": 1` field to `packages/engine/tests/golden-master/reference-output.json`. In `packages/engine/tests/golden-master/reference-scenario.test.ts`, assert that it equals `ENGINE_VERSION`, and fail with the message "output changed: bump ENGINE_VERSION or revert" whenever the output diverges (research R1).
+- [X] T010 Move every reader of the old run-mode values to the new enum:
   - `apps/api/src/routes/runs-launch.ts`: accept `batch` and `batch_then_stream`, map them, and set a `Deprecation: true` response header;
   - `apps/api/src/routes/run-regenerate.ts`;
   - `apps/web/src/surfaces/run-control/run-status.ts`;
   - `apps/cli/src/commands/run.ts`;
   - the `launch_run` input schema in `packages/agent-tools/src/tools.ts`.
-- [ ] T011 [P] Extend the typed web client `apps/web/src/api/client.ts` with these types from contracts/api.md:
+- [X] T011 [P] Extend the typed web client `apps/web/src/api/client.ts` with these types from contracts/api.md:
   - `Connection`, `ConnectionInput`, `ProbeResult`;
   - `LaunchRequest`, `DestinationInput`, `Destination`, `RunEstimate`;
   - `StreamMetrics`, `StreamSession`;
@@ -97,21 +97,21 @@ T083 (per-day simulator), T114 (transformer), T151 (live generation) and T190 (r
 in parallel with backend work, and it blocks **only** the UI tasks of US1, US5 and US8.
 Components built here become the real ones; later phases wire and test them.
 
-- [ ] T012 Create the mock adapter in `apps/web/src/api/mock/index.ts`, with fixtures in `apps/web/src/api/mock/fixtures.ts`:
+- [X] T012 Create the mock adapter in `apps/web/src/api/mock/index.ts`, with fixtures in `apps/web/src/api/mock/fixtures.ts`:
   - it implements the full client surface from T011;
   - fixtures: `local-kafka` and `staging-msk` connections (the latter with a failed test, stage `auth`), three runs in different phases, launch defaults, an estimate, and a ticking `StreamMetrics` generator;
   - `createApiClient()` in `apps/web/src/api/client.ts` returns it when `import.meta.env.VITE_TXLOOM_MOCK === "1"`.
-- [ ] T013 [P] Build the Connections page: cards with a health indicator in `apps/web/src/surfaces/connections/index.tsx`, and the typed Kafka/RabbitMQ/webhook form in `apps/web/src/surfaces/connections/connection-form.tsx`. Show only the fields that apply, add the localhost warning, use test-before-save, and use the `data-testid`s from contracts/ui-routes.md.
-- [ ] T014 [P] Build the reusable `DestinationPicker` in `apps/web/src/components/data/destination-picker.tsx`:
+- [X] T013 [P] Build the Connections page: cards with a health indicator in `apps/web/src/surfaces/connections/index.tsx`, and the typed Kafka/RabbitMQ/webhook form in `apps/web/src/surfaces/connections/connection-form.tsx`. Show only the fields that apply, add the localhost warning, use test-before-save, and use the `data-testid`s from contracts/ui-routes.md.
+- [X] T014 [P] Build the reusable `DestinationPicker` in `apps/web/src/components/data/destination-picker.tsx`:
   - one row per spec sink, with a connection select plus a `__new__` "New connection…" item and a topic input defaulting to the connection's `default_topic`;
   - file sinks show "File download".
-- [ ] T015 Build the Launch drawer in `apps/web/src/surfaces/scenario-workspace/launch-drawer.tsx`:
+- [X] T015 Build the Launch drawer in `apps/web/src/surfaces/scenario-workspace/launch-drawer.tsx`:
   - it uses `DestinationPicker` (T014), the mode radios, the rate, the Advanced section (seed, label channel, scale, replay history) and the estimate line;
   - "New connection…" opens `connection-form.tsx` (T013) in a nested drawer.
-- [ ] T016 [P] Build the run page shell with tabs Progress · Live · Inspect · Ground truth · Export in `apps/web/src/surfaces/run/index.tsx`. Include the read-only destination chip `apps/web/src/surfaces/run/destination-chip.tsx`.
-- [ ] T017 [P] Build the first-run card in `apps/web/src/surfaces/home/first-run.tsx`.
-- [ ] T018 Wire the prototype navigation in `apps/web/src/components/layout/nav-items.ts` (Scenarios · Runs · Connections, with Settings in the footer) and `apps/web/src/components/layout/app-shell.tsx` (the routes from contracts/ui-routes.md).
-- [ ] T019 Hold the prototype review. Walk the quickstart flows for US8, US5 and US1 with `VITE_TXLOOM_MOCK=1 pnpm --filter @txloom/web dev`. Record the findings in `specs/003-generation-delivery-overhaul/prototype-review.md`, and apply any agreed changes to `specs/003-generation-delivery-overhaul/contracts/ui-routes.md` and `contracts/api.md` **before** the UI tasks T046–T047 (US1), T143 (US5) and T175–T178 (US8).
+- [X] T016 [P] Build the run page shell with tabs Progress · Live · Inspect · Ground truth · Export in `apps/web/src/surfaces/run/index.tsx`. Include the read-only destination chip `apps/web/src/surfaces/run/destination-chip.tsx`.
+- [X] T017 [P] Build the first-run card in `apps/web/src/surfaces/home/first-run.tsx`.
+- [X] T018 Wire the prototype navigation in `apps/web/src/components/layout/nav-items.ts` (Scenarios · Runs · Connections, with Settings in the footer) and `apps/web/src/components/layout/app-shell.tsx` (the routes from contracts/ui-routes.md).
+- [X] T019 Hold the prototype review. Walk the quickstart flows for US8, US5 and US1 with `VITE_TXLOOM_MOCK=1 pnpm --filter @txloom/web dev`. Record the findings in `specs/003-generation-delivery-overhaul/prototype-review.md`, and apply any agreed changes to `specs/003-generation-delivery-overhaul/contracts/ui-routes.md` and `contracts/api.md` **before** the UI tasks T046–T047 (US1), T143 (US5) and T175–T178 (US8).
 
 **Checkpoint**: The UI contract is frozen, and the UI tasks in US1, US5 and US8 may proceed.
 
@@ -130,7 +130,7 @@ chosen topic (quickstart.md § US1).
 
 ### Tests for User Story 1 (write first; they must fail) ⚠️
 
-- [ ] T020 [P] [US1] Write migration-011 tests in `apps/api/tests/integration/db-migrate.test.ts`:
+- [X] T020 [P] [US1] Write migration-011 tests in `apps/api/tests/integration/db-migrate.test.ts`:
   - `sink_connections` is renamed to `connections`;
   - `file` rows are deleted;
   - an old Kafka `{brokers, topic}` row with credentials maps to `SASL_SSL` + `PLAIN`, and one without maps to `PLAINTEXT`;
@@ -176,32 +176,32 @@ chosen topic (quickstart.md § US1).
 
 ### Implementation for User Story 1
 
-- [ ] T028 [US1] Implement migration `apps/api/src/db/migrations/011_connections.ts` (data-model.md §1.1), with the config mapping and `managed_by` and `last_test_result` columns.
-- [ ] T029 [US1] Rename and rewrite `apps/api/src/db/repositories/sink-connections.ts` as `apps/api/src/db/repositories/connections.ts`:
+- [X] T028 [US1] Implement migration `apps/api/src/db/migrations/011_connections.ts` (data-model.md §1.1), with the config mapping and `managed_by` and `last_test_result` columns.
+- [X] T029 [US1] Rename and rewrite `apps/api/src/db/repositories/sink-connections.ts` as `apps/api/src/db/repositories/connections.ts`:
   - typed `ConnectionRow<T>`, `create` and `update` with secret semantics (omitted = keep, `null` = clear);
   - `recordTestResult(id, probe)` stores `last_test_result`;
   - `decryptSecrets(row)` returns the typed secrets.
-- [ ] T030 [P] [US1] Add a JSON Schema `configSchema` and `secretsSchema` per connection type in `packages/sinks/src/kafka/config.ts`, `packages/sinks/src/rabbitmq/config.ts` and `packages/sinks/src/webhook/config.ts`, as in data-model.md §1.1.1–1.1.2. Expose them on each `SinkFactory`.
-- [ ] T031 [P] [US1] Add the pure helper `addressWarnings(type, config)` in `packages/spec/src/connection-warnings.ts`, which returns the `localhost_address` warning text from contracts/api.md, and export it from `packages/spec/src/index.ts`.
-- [ ] T032 [US1] Add `ProbeStage`, `ProbeResult` and `Sink.probe(target)` to `packages/sinks/src/interface.ts`, replacing `testConnection`, as in contracts/sink-plugin.md.
-- [ ] T033 [US1] Rewrite the Kafka sink constructor and probe in `packages/sinks/src/kafka/producer.ts`:
+- [X] T030 [P] [US1] Add a JSON Schema `configSchema` and `secretsSchema` per connection type in `packages/sinks/src/kafka/config.ts`, `packages/sinks/src/rabbitmq/config.ts` and `packages/sinks/src/webhook/config.ts`, as in data-model.md §1.1.1–1.1.2. Expose them on each `SinkFactory`.
+- [X] T031 [P] [US1] Add the pure helper `addressWarnings(type, config)` in `packages/spec/src/connection-warnings.ts`, which returns the `localhost_address` warning text from contracts/api.md, and export it from `packages/spec/src/index.ts`.
+- [X] T032 [US1] Add `ProbeStage`, `ProbeResult` and `Sink.probe(target)` to `packages/sinks/src/interface.ts`, replacing `testConnection`, as in contracts/sink-plugin.md.
+- [X] T033 [US1] Rewrite the Kafka sink constructor and probe in `packages/sinks/src/kafka/producer.ts`:
   - build librdkafka top-level properties: `bootstrap.servers`, `security.protocol`, `sasl.mechanisms`, `sasl.username`, `sasl.password` and `ssl.ca.pem`, outside the `kafkaJS` block (research R10);
   - remove the forced `ssl:true` with SASL PLAIN;
   - implement `probe()` with `KafkaJS.Kafka(...).admin()` / `AdminClient.createFrom(producer)` to fetch topic metadata, partitions, `retention.ms` and `auto.create.topics.enable`, mapping errors to stages. A missing topic on a broker with auto-creation disabled returns `ok:false`, `stage:"topic"` (research R11).
-- [ ] T034 [P] [US1] Rewrite the RabbitMQ sink connection setup and probe in `packages/sinks/src/rabbitmq/publisher.ts`: build an `amqp(s)://` URL from host, port, vhost and TLS plus the secrets, pass the `ca` buffer, and in `probe()` check the exchange with `checkExchange`.
-- [ ] T035 [P] [US1] Implement the webhook `probe()` in `packages/sinks/src/webhook/publisher.ts`: a POST of `{}` with `AbortSignal.timeout(config.timeout_ms)`, with secret headers from the secrets, mapping errors to `connect` or `tls`.
-- [ ] T036 [US1] Add a `connectionTest` queue and a `QueueEvents` instance in `apps/api/src/services/queues.ts`. Implement the worker consumer `apps/worker/src/jobs/connection-test.ts`: unseal the secrets with `decryptSecret` under `getOrCreateInstanceKey(DATA_DIR)`, create the sink through its factory, run `probe(target)`, then `close()`. Register it in `apps/worker/src/index.ts`.
-- [ ] T037 [US1] Implement `apps/api/src/services/connection-probe.ts`: seal the secrets with `encryptSecret`, enqueue `connection-test` with `removeOnComplete:true`, wait with `job.waitUntilFinished(queueEvents, 15_000)`, and map a timeout to `503 worker_unavailable` with the remedy "start the worker container".
-- [ ] T038 [US1] Implement `apps/api/src/routes/connections.ts` per contracts/api.md:
+- [X] T034 [P] [US1] Rewrite the RabbitMQ sink connection setup and probe in `packages/sinks/src/rabbitmq/publisher.ts`: build an `amqp(s)://` URL from host, port, vhost and TLS plus the secrets, pass the `ca` buffer, and in `probe()` check the exchange with `checkExchange`.
+- [X] T035 [P] [US1] Implement the webhook `probe()` in `packages/sinks/src/webhook/publisher.ts`: a POST of `{}` with `AbortSignal.timeout(config.timeout_ms)`, with secret headers from the secrets, mapping errors to `connect` or `tls`.
+- [X] T036 [US1] Add a `connectionTest` queue and a `QueueEvents` instance in `apps/api/src/services/queues.ts`. Implement the worker consumer `apps/worker/src/jobs/connection-test.ts`: unseal the secrets with `decryptSecret` under `getOrCreateInstanceKey(DATA_DIR)`, create the sink through its factory, run `probe(target)`, then `close()`. Register it in `apps/worker/src/index.ts`.
+- [X] T037 [US1] Implement `apps/api/src/services/connection-probe.ts`: seal the secrets with `encryptSecret`, enqueue `connection-test` with `removeOnComplete:true`, wait with `job.waitUntilFinished(queueEvents, 15_000)`, and map a timeout to `503 worker_unavailable` with the remedy "start the worker container".
+- [X] T038 [US1] Implement `apps/api/src/routes/connections.ts` per contracts/api.md:
   - CRUD with Ajv validation from the factory schemas, plus the conditional rules from T021;
   - `POST /connections/test` and `POST /connections/:id/test`;
   - warnings come from T031, plus `topic_missing` when the stored `last_test_result` reports a missing topic that can't be auto-created;
   - `managed_by:"env"` → 403 on PATCH and DELETE.
 
   Delete `apps/api/src/routes/sinks.ts` and `apps/api/src/routes/sink-test.ts`, add the 410 `/sinks*` shim, and register the routes in `apps/api/src/app.ts`.
-- [ ] T039 [US1] Write and implement migration `apps/api/src/db/migrations/012_destinations.ts`: `run_destinations` (immutable after launch, no update path), `scenario_destination_defaults` and `scenario_launch_defaults` (data-model.md §1.4, 1.5, 1.5a). Add the repositories `apps/api/src/db/repositories/run-destinations.ts` (insert and read only), `apps/api/src/db/repositories/destination-defaults.ts` and `apps/api/src/db/repositories/launch-defaults.ts`.
-- [ ] T040 [US1] Add `apps/api/src/services/destinations.ts` with `validateDestinations(spec, destinations, connections)` and `snapshotDestinations()`. The validation returns `sink_without_destination`, `destination_type_mismatch` and unknown-connection errors with `details.sink`.
-- [ ] T041 [US1] Extend `POST /scenarios/:id/runs` in `apps/api/src/routes/runs-launch.ts`: accept `destinations`, validate them with T040, persist them through `run_destinations`, upsert `scenario_destination_defaults`, and drop `sink_connection_ids` (accepted with a `Deprecation` header and ignored). Add `GET /scenarios/:id/launch-defaults` there too.
+- [X] T039 [US1] Write and implement migration `apps/api/src/db/migrations/012_destinations.ts`: `run_destinations` (immutable after launch, no update path), `scenario_destination_defaults` and `scenario_launch_defaults` (data-model.md §1.4, 1.5, 1.5a). Add the repositories `apps/api/src/db/repositories/run-destinations.ts` (insert and read only), `apps/api/src/db/repositories/destination-defaults.ts` and `apps/api/src/db/repositories/launch-defaults.ts`.
+- [X] T040 [US1] Add `apps/api/src/services/destinations.ts` with `validateDestinations(spec, destinations, connections)` and `snapshotDestinations()`. The validation returns `sink_without_destination`, `destination_type_mismatch` and unknown-connection errors with `details.sink`.
+- [X] T041 [US1] Extend `POST /scenarios/:id/runs` in `apps/api/src/routes/runs-launch.ts`: accept `destinations`, validate them with T040, persist them through `run_destinations`, upsert `scenario_destination_defaults`, and drop `sink_connection_ids` (accepted with a `Deprecation` header and ignored). Add `GET /scenarios/:id/launch-defaults` there too.
 - [ ] T042 [US1] Rewrite `POST /runs/:id/stream/start` in `apps/api/src/routes/stream-control.ts`:
   - reject an inline `sink` with `400 inline_sink_removed`;
   - load `run_destinations` and return `409 destination_connection_missing` if a `connection_id` is null;

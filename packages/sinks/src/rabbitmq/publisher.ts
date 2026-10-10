@@ -1,26 +1,35 @@
 import amqp, { type ChannelModel, type ConfirmChannel } from "amqplib";
 import type {
+  ProbeResult,
   Sink,
   SinkDeliveryEnvelope,
   SinkFactory,
   SinkPublishResult,
-  SinkTestResult,
+  SinkTarget,
 } from "../interface.js";
+import {
+  rabbitConfigSchema,
+  rabbitSecretsSchema,
+  type RabbitConnectionConfig,
+  type RabbitConnectionSecrets,
+} from "./config.js";
 
-export interface RabbitMqSinkConfig {
-  url: string;
-  exchange: string;
-  routingKey: string;
-  exchangeType?: "direct" | "topic" | "fanout";
+export type { RabbitConnectionConfig as RabbitMqSinkConfig };
+
+function buildUrl(config: RabbitConnectionConfig, secrets: RabbitConnectionSecrets | null): string {
+  const scheme = config.tls ? "amqps" : "amqp";
+  const auth = secrets
+    ? `${encodeURIComponent(secrets.username)}:${encodeURIComponent(secrets.password)}@`
+    : "";
+  const vhost = encodeURIComponent(config.vhost === "/" ? "" : config.vhost);
+  return `${scheme}://${auth}${config.host}:${config.port}/${vhost}`;
 }
 
 /**
- * RabbitMQ publisher (D9): a confirm-channel wrapper so `publish()`'s
- * write-buffer-full signal maps directly onto `SinkPublishResult.backpressure`
- * — amqplib's `channel.publish()` returns `false` exactly when the caller
- * should pause until `drain` fires — plus lazy reconnect: a dropped
- * connection/channel is detected via `error`/`close` events and re-created on
- * the next publish rather than crashing the sink.
+ * RabbitMQ publisher (D9, research R10): a confirm-channel wrapper so `publish()`'s
+ * write-buffer-full signal maps directly onto `SinkPublishResult.backpressure` — amqplib's
+ * `channel.publish()` returns `false` exactly when the caller should pause until `drain`
+ * fires — plus lazy reconnect, and a `probe()` that checks the target exchange.
  */
 export class RabbitMqSink implements Sink {
   readonly type = "rabbitmq" as const;
@@ -30,11 +39,16 @@ export class RabbitMqSink implements Sink {
 
   constructor(
     readonly name: string,
-    private readonly config: RabbitMqSinkConfig,
+    private readonly config: RabbitConnectionConfig,
+    private readonly secrets: RabbitConnectionSecrets | null = null,
   ) {}
 
   private async connect(): Promise<ConfirmChannel> {
-    const connection = await amqp.connect(this.config.url);
+    const url = buildUrl(this.config, this.secrets);
+    const socketOptions = this.config.tls && this.config.ca_pem
+      ? { ca: [Buffer.from(this.config.ca_pem)] }
+      : undefined;
+    const connection = await amqp.connect(url, socketOptions);
     connection.on("error", () => {
       this.channel = null;
       this.connection = null;
@@ -44,7 +58,7 @@ export class RabbitMqSink implements Sink {
       this.connection = null;
     });
     const channel = await connection.createConfirmChannel();
-    await channel.assertExchange(this.config.exchange, this.config.exchangeType ?? "topic", {
+    await channel.assertExchange(this.config.exchange, this.config.exchange_type, {
       durable: true,
     });
     this.connection = connection;
@@ -71,7 +85,7 @@ export class RabbitMqSink implements Sink {
       const body = Buffer.from(
         JSON.stringify({ ...payload, delivery_id: envelope.delivery_id, ts: envelope.ts }),
       );
-      const ok = channel.publish(this.config.exchange, this.config.routingKey, body, {
+      const ok = channel.publish(this.config.exchange, this.config.default_routing_key, body, {
         persistent: true,
       });
       return { ok: true, backpressure: !ok };
@@ -82,12 +96,41 @@ export class RabbitMqSink implements Sink {
     }
   }
 
-  async testConnection(): Promise<SinkTestResult> {
+  async probe(target: SinkTarget): Promise<ProbeResult> {
+    const startedAt = Date.now();
+    const latency = () => Date.now() - startedAt;
     try {
-      await this.ensureChannel();
-      return { ok: true, detail: `connected to exchange "${this.config.exchange}"` };
+      const channel = await this.ensureChannel();
+      if (target.routing_key) {
+        // checkExchange only confirms the exchange exists; binding/queue existence is the
+        // consumer's concern, so there is nothing further to check for a routing key.
+        await channel.checkExchange(this.config.exchange);
+      }
+      return {
+        ok: true,
+        stage: "done",
+        detail: `Connected. Exchange "${this.config.exchange}" exists.`,
+        latency_ms: latency(),
+      };
     } catch (error) {
-      return { ok: false, detail: (error as Error).message };
+      const message = (error as Error).message;
+      const lower = message.toLowerCase();
+      if (/auth|access.?refused|login/.test(lower)) {
+        return { ok: false, stage: "auth", detail: message, latency_ms: latency() };
+      }
+      if (/ssl|tls|certificate/.test(lower)) {
+        return { ok: false, stage: "tls", detail: message, latency_ms: latency() };
+      }
+      if (/not.?found|no exchange/.test(lower)) {
+        return {
+          ok: false,
+          stage: "topic",
+          detail: `Exchange "${this.config.exchange}" does not exist.`,
+          topic: { name: this.config.exchange, exists: false },
+          latency_ms: latency(),
+        };
+      }
+      return { ok: false, stage: "connect", detail: message, latency_ms: latency() };
     }
   }
 
@@ -99,9 +142,11 @@ export class RabbitMqSink implements Sink {
   }
 }
 
-export const rabbitMqSinkFactory: SinkFactory<RabbitMqSinkConfig> = {
+export const rabbitMqSinkFactory: SinkFactory<RabbitConnectionConfig, RabbitConnectionSecrets> = {
   type: "rabbitmq",
-  create(name, config) {
-    return new RabbitMqSink(name, config);
+  configSchema: rabbitConfigSchema,
+  secretsSchema: rabbitSecretsSchema,
+  create(name, config, secrets) {
+    return new RabbitMqSink(name, config, secrets);
   },
 };
