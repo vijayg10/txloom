@@ -11,6 +11,12 @@ export default defineUserConfig({
   // Served from https://vijayg10.github.io/txloom/ on GitHub Pages
   base: '/txloom/',
 
+  head: [
+    ['link', { rel: 'icon', href: '/txloom/favicon.ico', sizes: '48x48' }],
+    ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/txloom/favicon-32x32.png' }],
+    ['link', { rel: 'apple-touch-icon', href: '/txloom/apple-touch-icon.png' }],
+  ],
+
   theme: defaultTheme({
     logo: '/images/txloom_logo.png',
 
