@@ -46,7 +46,15 @@ export function formatRunTitle(run: Pick<Run, "scenario" | "spec_version" | "sta
   return `${run.scenario.name} · v${run.spec_version.number} · ${when}`;
 }
 
-function TabPanel({ runId, tab }: { runId: string; tab: TabKey }) {
+function TabPanel({
+  runId,
+  tab,
+  runStatus,
+}: {
+  runId: string;
+  tab: TabKey;
+  runStatus: Run["status"] | undefined;
+}) {
   switch (tab) {
     case "progress":
       return (
@@ -66,7 +74,7 @@ function TabPanel({ runId, tab }: { runId: string; tab: TabKey }) {
     case "inspect":
       return (
         <div data-testid="run-tab-panel-inspect">
-          <InspectTab runId={runId} />
+          <InspectTab runId={runId} runStatus={runStatus} />
         </div>
       );
     case "truth":
@@ -269,7 +277,7 @@ export function RunPage({ pollMs = 2000 }: { pollMs?: number }) {
       </nav>
 
       <ErrorBoundary key={`${runId}/${tab}`} label="This tab">
-        <TabPanel runId={runId} tab={tab} />
+        <TabPanel runId={runId} tab={tab} runStatus={run?.status} />
       </ErrorBoundary>
     </div>
   );

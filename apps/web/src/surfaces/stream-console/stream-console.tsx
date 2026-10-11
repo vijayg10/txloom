@@ -282,6 +282,9 @@ export function StreamConsole({ runId }: { runId: string }) {
         </form>
 
         <h3 className="text-text mt-6 mb-2 text-sm font-semibold">Live events</h3>
+        <p className="text-text-secondary mb-2 text-xs">
+          Sampled at 1/sec for display, actual delivery rate is shown in Throughput above.
+        </p>
         <ul
           className="flex max-h-80 flex-col gap-1.5 overflow-y-auto"
           data-testid="stream-ticker"

@@ -29,11 +29,11 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
         aria-label="Primary"
       >
         <div className="border-border flex h-[72px] shrink-0 items-center justify-between border-b px-4">
-          <span
-            className={cn("text-text text-lg font-bold tracking-tight", collapsed && "md:hidden")}
-          >
-            TxLoom
-          </span>
+          <img
+            src="/txloom-logo.png"
+            alt="TxLoom"
+            className={cn("h-8 w-auto object-contain", collapsed && "md:hidden")}
+          />
           <button
             type="button"
             onClick={onCloseMobile}
