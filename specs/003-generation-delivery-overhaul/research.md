@@ -2,8 +2,7 @@
 
 **Date**: 2026-10-10 | **Plan**: [plan.md](./plan.md) | **Spec**: [spec.md](./spec.md)
 
-**Sources.** Every decision below was checked against the code at commit `9882a84`, against
-[docs/architecture-review.md](../../docs/architecture-review.md), and, for library behaviour,
+**Sources.** Every decision below was checked against the code at commit `9882a84`, and, for library behaviour,
 against current documentation:
 
 - BullMQ docs (bullmq.io, via Context7): duplicate `jobId`s are not added; `concurrency`;

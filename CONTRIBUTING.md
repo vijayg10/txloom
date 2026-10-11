@@ -1,8 +1,8 @@
 # Contributing to TxLoom
 
 TxLoom is Apache-2.0 and built to be extended — see
-[`docs/extending.md`](docs/extending.md) for the sink/typology/imperfection
-plugin surfaces (FR-027) and [`docs/security.md`](docs/security.md) for the
+[Extending TxLoom](https://vijayg10.github.io/txloom/technical/extending.html) for the sink/typology/imperfection
+plugin surfaces (FR-027) and [Security](https://vijayg10.github.io/txloom/guide/security.html) for the
 trust-boundary/secrets model.
 
 ## Before you start
@@ -70,7 +70,7 @@ one before review continues.
 - One logical change per PR; commit messages explain _why_, not just _what_.
 - If your change touches `packages/engine` output, regenerate and commit the
   golden-master fixture, and call out the breaking change explicitly.
-- New sinks/typologies/imperfections: follow `docs/extending.md`'s steps and
+- New sinks/typologies/imperfections: follow the [Extending TxLoom](https://vijayg10.github.io/txloom/technical/extending.html) guide's steps and
   wire every integration point it lists (routes, worker job dispatch,
   migrations) — a plugin that only half-registers won't be usable from the
   UI/CLI/MCP surfaces, which breaks Principle IV (one API, every client
@@ -79,4 +79,4 @@ one before review continues.
 ## Reporting issues
 
 Use the repository's issue tracker. For security issues, see
-[`docs/security.md`](docs/security.md) before filing publicly.
+[Security](https://vijayg10.github.io/txloom/guide/security.html) before filing publicly.

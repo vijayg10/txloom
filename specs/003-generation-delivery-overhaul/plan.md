@@ -3,7 +3,7 @@
 **Branch**: `003-generation-delivery-overhaul` | **Date**: 2026-10-10 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/003-generation-delivery-overhaul/spec.md`, derived
-from [docs/architecture-review.md](../../docs/architecture-review.md) (gaps G1–G16, U1–U3 and the
+from an architecture review of the generation-to-delivery flow (gaps G1–G16, U1–U3 and the
 Kafka configuration gaps in §4).
 
 **Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow.

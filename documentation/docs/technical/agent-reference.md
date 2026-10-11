@@ -72,11 +72,11 @@ An account_takeover typology's dormancy_days must be less than clock.days.
 
 Every configured imperfection's rate must be between 0 and 0.2 inclusive.
 
-**Remedy:** Lower the offending imperfections.<type>.rate into [0, 0.2].
+**Remedy:** Lower the offending `imperfections.<type>.rate` into [0, 0.2].
 
 ## `imperfection-sink-not-declared`
 
-imperfections.<type>.sinks entries must name a sink declared in output.sinks[].name.
+`imperfections.<type>.sinks` entries must name a sink declared in `output.sinks[].name`.
 
 **Remedy:** Either add the missing sink to output.sinks, or remove/rename the entry in the imperfection's sinks list.
 

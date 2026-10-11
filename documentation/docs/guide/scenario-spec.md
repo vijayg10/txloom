@@ -64,7 +64,7 @@ A small UPI-style scenario with all three fraud typologies, two imperfections an
 }
 ```
 
-The four gallery templates are complete worked examples. They are also listed in the [agent authoring guide](https://github.com/vijayg10/txloom/blob/main/docs/agent/README.md).
+The four gallery templates are complete worked examples. They are also listed in the [agent reference](../technical/agent-reference.md).
 
 ---
 

@@ -109,4 +109,4 @@ These come from the authoring docs the agent reads.
 
 ## Authoring Docs
 
-The documentation agents read is generated from the same package that defines the tools, so it stays in step with the validator. It is served at `GET /api/v1/spec/docs` and published in the repository as [docs/agent/README.md](https://github.com/vijayg10/txloom/blob/main/docs/agent/README.md).
+The documentation agents read is generated from the same package that defines the tools, so it stays in step with the validator. It is served at `GET /api/v1/spec/docs` and published on this site as the [Agent Reference](./agent-reference.md).

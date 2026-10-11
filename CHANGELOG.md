@@ -40,7 +40,7 @@ All notable changes to TxLoom are recorded here.
 ### Sink plugin API v2 (breaking)
 
 `SINK_PLUGIN_API_VERSION` is `2`. Third-party sinks must migrate (the table in
-`docs/extending.md` lists each change):
+the [Extending TxLoom](https://vijayg10.github.io/txloom/technical/extending.html) guide lists each change):
 
 - `publish(target, body, envelope, signal)` takes an already wire-encoded `Uint8Array` body.
   `envelope.ts` is gone.

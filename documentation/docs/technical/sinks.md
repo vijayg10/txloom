@@ -137,4 +137,4 @@ Join labels to events on `event_id`, and to one physical delivery on `delivery_i
 
 ## Writing a New Sink
 
-Broker sinks implement a small plugin interface: `publish`, `probe` and `close`, plus an in-flight limit. Retries, backoff and backpressure come from the pump. The steps and the full interface are in [docs/extending.md](https://github.com/vijayg10/txloom/blob/main/docs/extending.md).
+Broker sinks implement a small plugin interface: `publish`, `probe` and `close`, plus an in-flight limit. Retries, backoff and backpressure come from the pump. The steps and the full interface are in [Extending TxLoom](./extending.md).

@@ -69,7 +69,7 @@ paced rate against the target, failed deliveries, and an error banner if the des
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development setup and
-quality gates, and [`docs/extending.md`](docs/extending.md) for the
+quality gates, and [Extending TxLoom](https://vijayg10.github.io/txloom/technical/extending.html) for the
 sink/typology/imperfection extension points.
 
 ## License

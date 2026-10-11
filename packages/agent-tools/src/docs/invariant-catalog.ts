@@ -8,7 +8,7 @@ export interface InvariantCatalogEntry {
  * packages/spec/src/invariants — the same codes validate_spec's `violations[]`
  * returns, so an agent's repair loop can look up "what do I change" directly
  * (FR-009/010). Kept as data, one source rendered into both `/spec/docs` and
- * the published `docs/agent/` markdown. */
+ * the published `documentation/docs/technical/agent-reference.md` markdown. */
 export const INVARIANT_CATALOG: readonly InvariantCatalogEntry[] = [
   {
     code: "seed-out-of-range",
@@ -51,12 +51,12 @@ export const INVARIANT_CATALOG: readonly InvariantCatalogEntry[] = [
   {
     code: "imperfection-rate-out-of-bounds",
     invariant: "Every configured imperfection's rate must be between 0 and 0.2 inclusive.",
-    remedy: "Lower the offending imperfections.<type>.rate into [0, 0.2].",
+    remedy: "Lower the offending `imperfections.<type>.rate` into [0, 0.2].",
   },
   {
     code: "imperfection-sink-not-declared",
     invariant:
-      "imperfections.<type>.sinks entries must name a sink declared in output.sinks[].name.",
+      "`imperfections.<type>.sinks` entries must name a sink declared in `output.sinks[].name`.",
     remedy:
       "Either add the missing sink to output.sinks, or remove/rename the entry in the imperfection's sinks list.",
   },

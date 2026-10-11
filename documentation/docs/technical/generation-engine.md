@@ -119,4 +119,4 @@ The documented reference scale is 200,000 consumers and 5,000 merchants over 90 
 
 ## Extending the Engine
 
-Adding a typology, an imperfection type or a locale name pack is described in [docs/extending.md](https://github.com/vijayg10/txloom/blob/main/docs/extending.md).
+Adding a typology, an imperfection type or a locale name pack is described in [Extending TxLoom](./extending.md).

@@ -11,7 +11,6 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/coverage/**",
       "data/**",
-      "docs/agent/**",
       "apps/e2e/playwright-report/**",
       "apps/e2e/test-results/**",
       "apps/e2e/blob-report/**",

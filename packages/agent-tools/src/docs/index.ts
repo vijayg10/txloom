@@ -25,7 +25,7 @@ export function buildAuthoringDocs(): AuthoringDocs {
   };
 }
 
-/** Markdown rendering — used by scripts/build-agent-docs.ts to publish docs/agent/. */
+/** Markdown rendering — used by scripts/build-agent-docs.ts to publish the documentation site's agent reference. */
 /** How an agent runs a spec once it is saved: the parts of launch that are not in the spec. */
 export function renderRunningGuide(): string {
   return [

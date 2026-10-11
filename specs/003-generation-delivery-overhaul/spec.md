@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Refer the file docs/architecture-review.md" — the architecture review of the path from scenario creation to synthetic events landing in a sink (files, Kafka, RabbitMQ, webhook), its gaps (G1–G16, U1–U3, Kafka configuration), and its proposed changes (P0–P4, UI-1–UI-3, CONN-1–CONN-5).
+**Input**: User description: "Refer the file docs/architecture-review.md" (since removed) — the architecture review of the path from scenario creation to synthetic events landing in a sink (files, Kafka, RabbitMQ, webhook), its gaps (G1–G16, U1–U3, Kafka configuration), and its proposed changes (P0–P4, UI-1–UI-3, CONN-1–CONN-5).
 
 ## Context
 

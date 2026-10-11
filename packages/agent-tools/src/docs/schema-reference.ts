@@ -6,7 +6,7 @@ export interface FieldNote {
 /** Per-field annotations beyond what raw JSON Schema conveys — the "why" and
  * "typical range" an agent needs to author a plausible spec on the first try
  * (FR-009). Kept as data so it can render into both `/spec/docs` and the
- * published `docs/agent/` markdown from one source. */
+ * published `documentation/docs/technical/agent-reference.md` markdown from one source. */
 export const SCHEMA_FIELD_NOTES: readonly FieldNote[] = [
   {
     path: "/seed",
