@@ -1,0 +1,300 @@
+// Custom styles for the TxLoom documentation site
+
+// Import Inter font
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+// Hero section
+.vp-hero {
+  // The logo is a wide wordmark — keep it from filling the page
+  img {
+    max-height: 9rem !important;
+    width: auto !important;
+  }
+
+  h1 {
+    font-size: 2.75rem !important;
+    font-weight: 800 !important;
+    color: #1E293B !important;
+    line-height: 1.15 !important;
+  }
+
+  .description {
+    color: #475569 !important;
+    font-size: 1.15rem !important;
+    line-height: 1.7 !important;
+  }
+}
+
+// Hero action buttons — match frontend dark/outlined style
+.vp-hero-action-button {
+  border-radius: 0.5rem !important;
+  font-weight: 600 !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.875rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.025em !important;
+  transition: all 0.2s ease !important;
+
+  &.primary {
+    background: #1E293B !important;
+    border: 1px solid #1E293B !important;
+    color: #ffffff !important;
+
+    &:hover {
+      background: #0F172A !important;
+      border-color: #0F172A !important;
+    }
+  }
+
+  &.secondary {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1E293B !important;
+
+    &:hover {
+      background: #f8fafc !important;
+      border-color: #94a3b8 !important;
+    }
+  }
+}
+
+// Feature cards on homepage
+.vp-features {
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+.vp-feature {
+  h2 {
+    font-weight: 700 !important;
+    color: #1E293B !important;
+    border-bottom: none !important;
+  }
+
+  p {
+    color: #64748B !important;
+    line-height: 1.7 !important;
+  }
+}
+
+// Navbar — match frontend AppNavbar style
+.vp-navbar {
+  --navbar-height: 4.75rem;
+  border-bottom: none !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
+  background: #ffffff !important;
+  padding: 0.5rem 1rem !important;
+
+  // Brand logo image — replaces the old "AI" badge + site name text
+  .vp-navbar-logo {
+    height: 4rem !important;
+    margin-right: 0 !important;
+  }
+
+  // Hide the redundant site name — the logo image already contains it
+  .vp-site-name {
+    display: none !important;
+  }
+
+  // Nav links — match frontend rounded pill style
+  .vp-navbar-items {
+    .vp-navbar-item > a,
+    .vp-navbar-item > .vp-navbar-dropdown-wrapper > button {
+      font-size: 0.875rem !important;
+      font-weight: 500 !important;
+      color: #1E293B !important;
+      border-radius: 9999px !important;
+      padding: 0.4rem 0.75rem !important;
+      border: none !important;
+      border-bottom: none !important;
+      margin-bottom: 0 !important;
+      transition: background-color 0.2s ease !important;
+
+      &:hover,
+      &.auto-link-active,
+      &.route-link-active {
+        background: #f1f5f9 !important;
+        border: none !important;
+        border-bottom: none !important;
+        margin-bottom: 0 !important;
+      }
+    }
+
+    .vp-navbar-item > a.route-link-active,
+    .vp-navbar-item > a.auto-link-active {
+      color: #1E293B !important;
+      background: #f1f5f9 !important;
+      border: none !important;
+      border-bottom: none !important;
+      margin-bottom: 0 !important;
+    }
+  }
+
+  // Hide dark mode toggle — not supported
+  .vp-toggle-color-mode-button {
+    display: none !important;
+  }
+}
+
+// Navbar dropdown
+.vp-navbar-dropdown-wrapper {
+  .vp-navbar-dropdown {
+    border-radius: 0.75rem !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+    padding: 0.375rem !important;
+    min-width: 200px !important;
+
+    .vp-navbar-dropdown-item {
+      margin: 0.125rem 0 !important;
+
+      a.route-link {
+        display: block !important;
+        font-size: 0.875rem !important;
+        font-weight: 500 !important;
+        color: #334155 !important;
+        padding: 0.5rem 0.875rem !important;
+        border-radius: 0.5rem !important;
+        transition: background 0.15s ease, color 0.15s ease !important;
+        border-bottom: none !important;
+
+        &:hover {
+          background: #f1f5f9 !important;
+          color: #1E293B !important;
+        }
+
+        &.route-link-active,
+        &.auto-link-active {
+          background: #f1f5f9 !important;
+          color: #1E293B !important;
+          font-weight: 600 !important;
+        }
+      }
+    }
+  }
+}
+
+// Sidebar
+.vp-sidebar {
+  border-right-color: #e2e8f0 !important;
+}
+
+// Content pages
+.vp-content {
+  h1, h2, h3, h4, h5, h6 {
+    color: #1E293B;
+    font-weight: 700;
+  }
+
+  h2 {
+    border-bottom-color: #e2e8f0;
+  }
+
+  p {
+    color: #334155;
+    line-height: 1.8;
+  }
+
+  a:not(.header-anchor) {
+    color: #3066FF;
+    font-weight: 500;
+
+    &:hover {
+      color: #1E293B;
+    }
+  }
+
+  code:not([class*="language-"]) {
+    background: #f1f5f9;
+    color: #1E293B;
+    border-radius: 0.25rem;
+  }
+
+  blockquote {
+    border-left-color: #3066FF;
+    background: #f8fafc;
+    color: #475569;
+  }
+}
+
+// Code blocks
+div[class*="language-"] {
+  border-radius: 0.5rem !important;
+  background: #0F172A !important;
+}
+
+// Tables
+table {
+  border-color: #e2e8f0;
+
+  tr:nth-child(2n) {
+    background: #f8fafc;
+  }
+
+  th {
+    background: #f1f5f9;
+    color: #1E293B;
+    font-weight: 600;
+  }
+}
+
+// Custom containers
+.custom-container {
+  border-radius: 0.5rem;
+
+  &.tip {
+    border-color: #3066FF;
+    background: #eff6ff;
+  }
+
+  &.warning {
+    border-color: #F19937;
+    background: #fffbeb;
+  }
+
+  &.danger {
+    border-color: #EA4E3D;
+    background: #fef2f2;
+  }
+}
+
+// Footer
+.vp-page-meta,
+.vp-footer {
+  border-top-color: #e2e8f0 !important;
+}
+
+// Gallery button
+.gallery-button {
+  appearance: none;
+  background-color: #1E293B;
+  border: 2px solid #1E293B;
+  border-radius: 0.5rem;
+  box-sizing: border-box;
+  color: #FFFFFF;
+  cursor: pointer;
+  display: inline-block;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: normal;
+  min-height: 0;
+  outline: none;
+  padding: 0.85rem 2rem;
+  text-align: center;
+  text-decoration: none !important;
+  transition: all 300ms cubic-bezier(.23, 1, 0.32, 1);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  will-change: transform;
+
+  &:hover {
+    box-shadow: rgba(0, 0, 0, 0.25) 0 8px 15px;
+    transform: translateY(-2px);
+    color: #FFFFFF;
+  }
+
+  &:active {
+    box-shadow: none;
+    transform: translateY(0);
+  }
+}

@@ -1,8 +1,10 @@
 # TxLoom
 
-> **Status: active development.** TxLoom is not yet ready for production
-> or general usage — APIs, data formats, and behavior may change without
-> notice.
+<p align="center">
+  <img src="assets/images/txloom_logo_whitebg_h.png" alt="TxLoom" width="360" />
+</p>
+
+**📖 [Documentation](https://vijayg10.github.io/txloom/)**
 
 Synthetic Transaction Studio — a self-hosted payments world simulator.
 TxLoom simulates a world of consumer personas, a merchant population, and

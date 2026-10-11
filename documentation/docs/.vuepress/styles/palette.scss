@@ -1,0 +1,33 @@
+// Override VuePress 2 default theme CSS variables
+// for the TxLoom documentation site
+
+:root {
+  // accent colors — dark slate
+  --vp-c-accent: #1E293B;
+  --vp-c-accent-bg: #1E293B;
+  --vp-c-accent-hover: #0F172A;
+  --vp-c-accent-text: #ffffff;
+  --vp-c-accent-soft: rgb(30 41 59 / 10%);
+
+  // background colors
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #f8fafc;
+  --vp-c-bg-elv: #ffffff;
+
+  // text colors — match frontend slate palette
+  --vp-c-text: #1E293B;
+  --vp-c-text-mute: #475569;
+  --vp-c-text-subtle: #64748B;
+
+  // border colors
+  --vp-c-gutter: #e2e8f0;
+  --vp-c-border: #cbd5e1;
+  --vp-c-border-hard: #94a3b8;
+
+  // font — match frontend Inter
+  --font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+
+  // layout
+  --content-width: 960px;
+  --homepage-width: 960px;
+}

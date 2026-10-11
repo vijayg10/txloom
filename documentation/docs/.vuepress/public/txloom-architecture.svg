@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" font-family="Inter, system-ui, Helvetica, Arial, sans-serif" role="img" aria-label="TxLoom architecture: three clients, one API, a worker, MySQL, Redis, a data volume, and four sinks">
+  <defs>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#64748B"/></marker>
+  </defs>
+  <rect width="960" height="600" fill="#ffffff"/>
+
+  <!-- clients -->
+  <text x="30" y="30" font-size="12" font-weight="700" fill="#64748B" letter-spacing="1">CLIENTS</text>
+  <g font-size="13" text-anchor="middle">
+    <rect x="30" y="42" width="270" height="62" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="165" y="68" font-weight="700" fill="#1E293B" font-size="14">Web Studio</text>
+    <text x="165" y="88" fill="#475569">React single-page app</text>
+    <rect x="345" y="42" width="270" height="62" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="480" y="68" font-weight="700" fill="#1E293B" font-size="14">CLI</text>
+    <text x="480" y="88" fill="#475569">txloom command</text>
+    <rect x="660" y="42" width="270" height="62" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="795" y="68" font-weight="700" fill="#1E293B" font-size="14">Your AI agent</text>
+    <text x="795" y="88" fill="#475569">Any MCP client</text>
+  </g>
+  <g stroke="#64748B" stroke-width="1.5" fill="none" marker-end="url(#b)">
+    <path d="M165 104V148"/><path d="M480 104V148"/><path d="M795 104V148"/>
+  </g>
+  <g font-size="11.5" fill="#64748B">
+    <text x="173" y="130">REST + WebSocket</text>
+    <text x="488" y="130">REST</text>
+    <text x="803" y="130">MCP (HTTP)</text>
+  </g>
+
+  <!-- api -->
+  <rect x="30" y="150" width="900" height="96" rx="12" fill="#1E293B"/>
+  <text x="50" y="178" font-size="15" font-weight="700" fill="#ffffff">API (Fastify)</text>
+  <g font-size="12.5" text-anchor="middle" fill="#E2E8F0">
+    <rect x="50" y="192" width="200" height="38" rx="7" fill="#334155"/><text x="150" y="216">REST /api/v1</text>
+    <rect x="262" y="192" width="200" height="38" rx="7" fill="#334155"/><text x="362" y="216">MCP server /mcp</text>
+    <rect x="474" y="192" width="220" height="38" rx="7" fill="#334155"/><text x="584" y="216">Spec validator</text>
+    <rect x="706" y="192" width="204" height="38" rx="7" fill="#334155"/><text x="808" y="216">Connections + secrets</text>
+  </g>
+
+  <!-- stores -->
+  <g stroke="#64748B" stroke-width="1.5" fill="none" marker-end="url(#b)">
+    <path d="M150 246V292"/><path d="M480 246V292"/>
+  </g>
+  <g font-size="13" text-anchor="middle">
+    <rect x="30" y="294" width="240" height="66" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="150" y="320" font-weight="700" fill="#1E293B" font-size="14">MySQL</text>
+    <text x="150" y="340" fill="#475569">Scenarios, versions, runs</text>
+    <rect x="360" y="294" width="240" height="66" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="480" y="320" font-weight="700" fill="#1E293B" font-size="14">Redis</text>
+    <text x="480" y="340" fill="#475569">Job queues (BullMQ)</text>
+    <rect x="690" y="294" width="240" height="66" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="810" y="320" font-weight="700" fill="#1E293B" font-size="14">Data volume</text>
+    <text x="810" y="340" fill="#475569">Truth, labels, exports, report</text>
+  </g>
+  <g stroke="#64748B" stroke-width="1.5" fill="none" marker-end="url(#b)">
+    <path d="M480 360V404"/>
+    <path d="M810 404V362"/>
+  </g>
+  <path d="M810 246V292" stroke="#64748B" stroke-width="1.5" fill="none" stroke-dasharray="4 4" marker-end="url(#b)"/>
+  <g font-size="11.5" fill="#64748B">
+    <text x="488" y="386">jobs</text>
+    <text x="818" y="386">writes</text>
+    <text x="818" y="274">reads</text>
+  </g>
+
+  <!-- worker -->
+  <rect x="30" y="406" width="900" height="96" rx="12" fill="#1E293B"/>
+  <text x="50" y="434" font-size="15" font-weight="700" fill="#ffffff">Worker (BullMQ)</text>
+  <g font-size="12.5" text-anchor="middle" fill="#E2E8F0">
+    <rect x="50" y="448" width="270" height="38" rx="7" fill="#334155"/><text x="185" y="472">Generation engine (worker threads)</text>
+    <rect x="332" y="448" width="180" height="38" rx="7" fill="#334155"/><text x="422" y="472">Imperfections</text>
+    <rect x="524" y="448" width="180" height="38" rx="7" fill="#334155"/><text x="614" y="472">Delivery pump</text>
+    <rect x="716" y="448" width="194" height="38" rx="7" fill="#334155"/><text x="813" y="472">Live stream driver</text>
+  </g>
+
+  <!-- sinks -->
+  <g stroke="#64748B" stroke-width="1.5" fill="none" marker-end="url(#b)">
+    <path d="M135 502V536"/><path d="M365 502V536"/><path d="M595 502V536"/><path d="M825 502V536"/>
+  </g>
+  <g font-size="13" text-anchor="middle">
+    <rect x="30" y="538" width="210" height="46" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/><text x="135" y="566" font-weight="700" fill="#1E293B">Files</text>
+    <rect x="260" y="538" width="210" height="46" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/><text x="365" y="566" font-weight="700" fill="#1E293B">Kafka</text>
+    <rect x="490" y="538" width="210" height="46" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/><text x="595" y="566" font-weight="700" fill="#1E293B">RabbitMQ</text>
+    <rect x="720" y="538" width="210" height="46" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/><text x="825" y="566" font-weight="700" fill="#1E293B">Webhook</text>
+  </g>
+</svg>
