@@ -18,15 +18,23 @@ test("golden path via Web UI @us1", async ({ page }) => {
     await ui.saveSpecVersion();
   });
 
-  await test.step("launch a batch run and watch it reach completed", async () => {
-    runId = await ui.launchRunFromScenario(scenarioId);
+  await test.step("launch a history-only run from the Launch drawer and watch it reach completed", async () => {
+    // open → (no broker sinks, so no destinations to pick) → submit
+    await page.goto(`/scenarios/${scenarioId}`);
+    await expect(page.getByTestId("launch-open")).toBeEnabled();
+    await page.getByTestId("launch-open").click();
+    await expect(page.getByTestId("launch-drawer")).toBeVisible();
+    await expect(page.getByTestId("launch-estimate")).toBeVisible();
+    await page.getByTestId("launch-submit").click();
+    await expect(page).toHaveURL(/\/runs\/[^/?]+\/progress$/);
+    runId = /\/runs\/([^/?]+)\/progress$/.exec(page.url())![1]!;
     await ui.openRun(runId);
     await expect(page.getByTestId("run-progress")).toBeVisible({ timeout: 30_000 });
     await ui.waitForRunStatus("completed", 120_000);
   });
 
   await test.step("open Stream Console, World Inspector, and Ground Truth after completion", async () => {
-    await page.goto(`/stream/${runId}`);
+    await page.goto(`/runs/${runId}/live`);
     await expect(page.getByTestId("stream-launcher")).toBeVisible();
 
     await ui.openInspector(runId);

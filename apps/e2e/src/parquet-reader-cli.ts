@@ -10,11 +10,14 @@ import { readParquet } from "@txloom/sinks";
  * module graph entirely. */
 async function main(): Promise<void> {
   const dir = process.argv[2];
-  if (!dir) throw new Error("usage: parquet-reader-cli <dir>");
+  // Optional second argument: only read files whose name starts with this prefix (so
+  // `delivered/<sink>/part-*` can be read apart from its `labels-part-*` companions).
+  const prefix = process.argv[3] ?? "";
+  if (!dir) throw new Error("usage: parquet-reader-cli <dir> [file-prefix]");
 
   let files: string[] = [];
   try {
-    files = (await readdir(dir)).filter((f) => f.endsWith(".parquet"));
+    files = (await readdir(dir)).filter((f) => f.endsWith(".parquet") && f.startsWith(prefix));
   } catch {
     files = [];
   }

@@ -4,7 +4,8 @@ import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import { Queue, type ConnectionOptions } from "bullmq";
 import { KafkaJS } from "@confluentinc/kafka-javascript";
 import type { SimulationSpec } from "@txloom/spec";
-import { generateMerchantPool } from "@txloom/engine";
+import { ENGINE_VERSION, generateMerchantPool, generatePartition } from "@txloom/engine";
+import { kafkaSinkFactory } from "@txloom/sinks";
 import {
   startStreamDriveWorker,
   type StreamControlSnapshot,
@@ -125,8 +126,22 @@ describe("stream-drive job: sustained Kafka delivery", () => {
     let state: StreamControlSnapshot["state"] = "streaming";
     const metricsSamples: StreamMetrics[] = [];
 
+    const history = generatePartition(
+      spec,
+      BigInt(spec.seed),
+      0,
+      1,
+      generateMerchantPool(spec, BigInt(spec.seed)),
+    );
     const worker = startStreamDriveWorker({
       connection,
+      loadCheckpoint: async () => history.worldCheckpoint,
+      createSink: () =>
+        kafkaSinkFactory.create(
+          "primary",
+          { bootstrap_servers: brokers, security_protocol: "PLAINTEXT", default_topic: topic },
+          null,
+        ),
       getStreamControl: async () => ({ state, targetTps }),
       onMetrics: async (_streamId, metrics) => {
         metricsSamples.push(metrics);
@@ -153,22 +168,25 @@ describe("stream-drive job: sustained Kafka delivery", () => {
     await consumer.subscribe({ topics: [topic] });
 
     let received = 0;
+    const payloads: { ts: string; sent_at: string; delivered_at: string }[] = [];
     await consumer.run({
-      eachMessage: async () => {
+      eachMessage: async ({ message }) => {
         received++;
+        payloads.push(JSON.parse(message.value!.toString()));
       },
     });
 
     const seed = BigInt(spec.seed);
-    const merchants = generateMerchantPool(spec, seed);
     await queue.add("stream", {
       runId: "stream-test-run",
       streamId: "stream-test-1",
+      sessionId: "stream-test-session",
+      sessionSeq: 1,
       spec,
       seed: seed.toString(),
       partitionCount: 1,
-      merchants,
-      sink: { type: "kafka", config: { brokers, topic } },
+      engineVersion: ENGINE_VERSION,
+      destinations: [{ sink: "primary", connectionId: "test-connection", topic }],
       labelChannelEnabled: false,
     });
 
@@ -183,5 +201,99 @@ describe("stream-drive job: sustained Kafka delivery", () => {
     expect(achievedTps).toBeGreaterThan(targetTps * 0.5);
     expect(achievedTps).toBeLessThan(targetTps * 1.5);
     expect(metricsSamples.length).toBeGreaterThan(0);
+
+    // `ts` is simulated time, continuing from the end of history; `sent_at` is the wall clock.
+    const liveStartMs =
+      Date.parse(`${spec.clock.start}T00:00:00.000Z`) + spec.clock.days * 86_400_000;
+    expect(payloads.length).toBeGreaterThan(0);
+    for (const payload of payloads) {
+      expect(Date.parse(payload.ts)).toBeGreaterThanOrEqual(liveStartMs);
+      expect(Math.abs(Date.parse(payload.sent_at) - Date.now())).toBeLessThan(60_000);
+    }
+    expect(metricsSamples.some((m) => m.sim_time !== undefined)).toBe(true);
   }, 60_000);
+
+  it("with label_topic set, the label topic receives labels with fraud and corruption types", async () => {
+    const topic = "txloom.stream.labelled";
+    const labelTopic = "txloom.stream.labelled.labels";
+    const labelled = structuredClone(spec);
+    labelled.population.consumers.count = 300;
+    labelled.fraud = {
+      target_rate: 0.1,
+      typologies: [
+        {
+          type: "card_testing",
+          share: 1,
+          params: {
+            burst_size_min: 3,
+            burst_size_max: 5,
+            burst_window_minutes: 5,
+            amount_min: 1,
+            amount_max: 50,
+          },
+        },
+      ],
+    };
+    labelled.imperfections = { duplicate_delivery: { rate: 0.2, sinks: ["primary"] } };
+    const seed = BigInt(labelled.seed);
+    const history = generatePartition(labelled, seed, 0, 1, generateMerchantPool(labelled, seed));
+    let state: StreamControlSnapshot["state"] = "streaming";
+    const worker = startStreamDriveWorker({
+      connection,
+      loadCheckpoint: async () => history.worldCheckpoint,
+      createSink: () =>
+        kafkaSinkFactory.create(
+          "primary",
+          { bootstrap_servers: brokers, security_protocol: "PLAINTEXT", default_topic: topic },
+          null,
+        ),
+      getStreamControl: async () => ({ state, targetTps: 300 }),
+      onMetrics: async () => {},
+      onLabel: async () => {},
+      tickMs: 100,
+    });
+    const admin = new KafkaJS.Kafka({ kafkaJS: { brokers } }).admin();
+    await admin.connect();
+    await admin.createTopics({
+      topics: [
+        { topic, numPartitions: 1 },
+        { topic: labelTopic, numPartitions: 1 },
+      ],
+    });
+    await admin.disconnect();
+
+    const consumer = new KafkaJS.Kafka({ kafkaJS: { brokers } }).consumer({
+      kafkaJS: { groupId: "label-group", fromBeginning: true },
+    });
+    await consumer.connect();
+    await consumer.subscribe({ topics: [labelTopic] });
+    const labels: { is_fraud: boolean; corruption_type: string | null }[] = [];
+    await consumer.run({
+      eachMessage: async ({ message }) => {
+        labels.push(JSON.parse(message.value!.toString()));
+      },
+    });
+
+    const queue = new Queue<StreamDriveJobData>("stream-drive", { connection });
+    await queue.add("stream", {
+      runId: "label-run",
+      streamId: "label-stream",
+      sessionId: "label-session",
+      sessionSeq: 1,
+      spec: labelled,
+      seed: seed.toString(),
+      partitionCount: 1,
+      engineVersion: ENGINE_VERSION,
+      destinations: [{ sink: "primary", connectionId: "c", topic, labelTopic }],
+      labelChannelEnabled: true,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 6000));
+    state = "stopped";
+    await worker.close();
+    await consumer.disconnect();
+    await queue.close();
+
+    expect(labels.some((l) => l.is_fraud)).toBe(true);
+    expect(labels.some((l) => l.corruption_type === "duplicate")).toBe(true);
+  }, 90_000);
 });

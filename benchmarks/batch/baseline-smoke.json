@@ -1,0 +1,7 @@
+{
+  "consumers": 20000,
+  "days": 14,
+  "events_per_second": 12000,
+  "max_regression": 0.15,
+  "note": "Conservative floor: a dev laptop measured 30,308 events/s through the compose stack (20k consumers x 14 days, 912,497 events in 30.1 s). Recalibrate from the first run on the CI runner class (R18) and commit that number."
+}

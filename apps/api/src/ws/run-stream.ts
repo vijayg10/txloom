@@ -32,7 +32,9 @@ export function createRunStreamHandler(): (socket: WebSocket, runId: string) => 
 
         if (stream.state !== lastState) {
           lastState = stream.state;
-          socket.send(JSON.stringify({ state: stream.state }));
+          socket.send(
+            JSON.stringify({ state: stream.state, last_error: stream.last_error ?? null }),
+          );
         }
 
         const metrics =

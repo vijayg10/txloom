@@ -65,7 +65,7 @@ test("launch + complete a run via MCP reaches completed with equivalent output @
     // Same seed as the UI baseline (research.md: same seed+spec is
     // byte-identical by construction) turns "equivalent output" into an
     // exact, checkable claim rather than a fuzzy scale comparison.
-    const run = await mcp.launchRun(scenario.id, { seed: baselineSeed });
+    const run = await mcp.launchRun(scenario.id, { seed: String(baselineSeed) });
     mcpRunId = run.id;
 
     await expect

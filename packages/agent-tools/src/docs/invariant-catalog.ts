@@ -11,6 +11,12 @@ export interface InvariantCatalogEntry {
  * the published `docs/agent/` markdown. */
 export const INVARIANT_CATALOG: readonly InvariantCatalogEntry[] = [
   {
+    code: "seed-out-of-range",
+    invariant: "seed must be an integer from 0 to 9007199254740991 (2^53-1).",
+    remedy:
+      "Lower spec.seed into range, or pass larger seeds as the launch `seed` string (up to 18446744073709551615).",
+  },
+  {
     code: "seasonality-window-outside-clock",
     invariant: "Every seasonality window must intersect [clock.start, clock.start + clock.days).",
     remedy:

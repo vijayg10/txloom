@@ -1,29 +1,17 @@
-import { Route, Routes, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 import { PageHeader } from "../../components/layout/page-header.js";
-import { ExportControls } from "../ground-truth/export-controls.js";
-import { RunDetail } from "./run-detail.js";
-import { RunLaunch } from "./run-launch.js";
 import { RunList } from "./run-list.js";
-import { RunRecord } from "./run-record.js";
 
 function RunControlIndex() {
   const [searchParams] = useSearchParams();
   const scenarioId = searchParams.get("scenario");
 
-  if (scenarioId) {
-    return (
-      <div>
-        <PageHeader title="Launch a run" />
-        <div data-testid="run-launch-control">
-          <RunLaunch scenarioId={scenarioId} />
-        </div>
-      </div>
-    );
-  }
+  // The old stand-alone launch page: launching now happens in the scenario page's drawer.
+  if (scenarioId) return <Navigate to={`/scenarios/${scenarioId}?launch=1`} replace />;
 
   return (
     <div>
-      <PageHeader title="Run control" />
+      <PageHeader title="Runs" />
       <div data-testid="run-list">
         <RunList />
       </div>
@@ -31,30 +19,19 @@ function RunControlIndex() {
   );
 }
 
-function RunDetailView() {
-  const { runId } = useParams<{ runId: string }>();
-  if (!runId) return null;
-  return (
-    <div>
-      <PageHeader title="Run detail" />
-      <div className="flex flex-col gap-6">
-        <div data-testid="run-status-panel">
-          <RunDetail runId={runId} />
-        </div>
-        <RunRecord runId={runId} />
-        <div data-testid="export-controls">
-          <ExportControls runId={runId} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
+/** `/runs` (the list) and `/runs/new?scenario=` (redirect). A run itself lives at
+ * `/runs/:id/:tab`, which the app shell routes to the run page. */
 export function RunControlPage() {
   return (
     <Routes>
       <Route index element={<RunControlIndex />} />
-      <Route path=":runId" element={<RunDetailView />} />
+      <Route path="new" element={<RunControlIndex />} />
+      <Route path=":runId" element={<RunRedirect />} />
     </Routes>
   );
+}
+
+function RunRedirect() {
+  const { runId } = useParams<{ runId: string }>();
+  return <Navigate to={`/runs/${runId}/progress`} replace />;
 }

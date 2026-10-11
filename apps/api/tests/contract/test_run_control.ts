@@ -3,6 +3,7 @@ import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../src/app.js";
 import { closeDb, getDb } from "../../src/db/knex.js";
+import { ENGINE_VERSION } from "@txloom/engine";
 import { closeQueues } from "../../src/services/queues.js";
 import { ScenarioRepository } from "../../src/db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../../src/db/repositories/spec-versions.js";
@@ -161,5 +162,72 @@ describe("run control contract", () => {
     const run = await runRepo.getById(runId);
     expect(run).toBeDefined();
     expect(run!.outputs_deleted_at).not.toBeNull();
+  });
+
+  describe("engine version policy", () => {
+    async function launchOldEngineRun(): Promise<string> {
+      const runId = await launchRun();
+      await getDb()("runs")
+        .where({ id: runId })
+        .update({ engine_version: ENGINE_VERSION - 1, status: "completed" });
+      return runId;
+    }
+
+    it("regenerate on a different engine version returns 409 engine_version_mismatch", async () => {
+      const runId = await launchOldEngineRun();
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/v1/runs/${runId}/regenerate`,
+      });
+      expect(response.statusCode).toBe(409);
+      const { error } = response.json();
+      expect(error.code).toBe("engine_version_mismatch");
+      expect(error.details.run_engine_version).toBe(ENGINE_VERSION - 1);
+      expect(error.details.current_engine_version).toBe(ENGINE_VERSION);
+    });
+
+    it("accept_engine_change records the new version and source_run_id", async () => {
+      const runId = await launchOldEngineRun();
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/v1/runs/${runId}/regenerate`,
+        payload: { accept_engine_change: true },
+      });
+      expect(response.statusCode).toBe(201);
+      expect(response.json().engine_version).toBe(ENGINE_VERSION);
+      expect(response.json().source_run_id).toBe(runId);
+    });
+
+    it("regenerate reuses the stored partition_count even if the chunk size changes", async () => {
+      const runId = await launchRun();
+      await getDb()("runs").where({ id: runId }).update({ partition_count: 3 });
+      process.env.TXLOOM_PARTITION_CHUNK_SIZE = "1000000";
+      try {
+        const response = await app.inject({
+          method: "POST",
+          url: `/api/v1/runs/${runId}/regenerate`,
+        });
+        expect(response.statusCode).toBe(201);
+        expect(response.json().partition_count).toBe(3);
+      } finally {
+        delete process.env.TXLOOM_PARTITION_CHUNK_SIZE;
+      }
+    });
+
+    it("stream start and resume on a mismatched run return 409 engine_version_mismatch", async () => {
+      const runId = await launchOldEngineRun();
+      const start = await app.inject({
+        method: "POST",
+        url: `/api/v1/runs/${runId}/stream/start`,
+        payload: {},
+      });
+      expect(start.statusCode).toBe(409);
+      expect(start.json().error.code).toBe("engine_version_mismatch");
+
+      await getDb()("runs").where({ id: runId }).update({ status: "paused" });
+      const resume = await app.inject({ method: "POST", url: `/api/v1/runs/${runId}/resume` });
+      expect(resume.statusCode).toBe(409);
+      expect(resume.json().error.code).toBe("engine_version_mismatch");
+    });
   });
 });

@@ -4,6 +4,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { ALL_AGENT_TOOLS } from "@txloom/agent-tools";
 import { buildApp } from "../../src/app.js";
 import type { FastifyInstance } from "fastify";
+import { tinySpec } from "../support/tiny-spec.js";
 
 /** Every packages/agent-tools tool must map 1:1 onto its REST endpoint
  * response shape (FR-008/012). This suite exercises the DB-free tools
@@ -61,6 +62,22 @@ describe("MCP tool ↔ REST parity", () => {
         method: "POST",
         url: "/api/v1/spec/validate",
         payload: spec,
+      });
+      expect(toolBody).toEqual(restResponse.json());
+    }
+  });
+
+  it("estimate_run matches POST /spec/estimate for a valid spec, with and without replay, and for an invalid one", async () => {
+    const spec = tinySpec({ consumers: 100, days: 5 });
+    spec.output.sinks.push({ type: "kafka", name: "events" } as never);
+    for (const payload of [{ spec }, { spec, replay_history: true }, { spec: { seed: 1 } }]) {
+      const toolResult = await client.callTool({ name: "estimate_run", arguments: payload });
+      const toolBody = JSON.parse((toolResult.content as { text: string }[])[0]!.text);
+
+      const restResponse = await app.inject({
+        method: "POST",
+        url: "/api/v1/spec/estimate",
+        payload,
       });
       expect(toolBody).toEqual(restResponse.json());
     }

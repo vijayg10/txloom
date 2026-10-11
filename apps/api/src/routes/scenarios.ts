@@ -3,6 +3,7 @@ import type { SimulationSpec } from "@txloom/spec";
 import { getDb } from "../db/knex.js";
 import { ScenarioRepository } from "../db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../db/repositories/spec-versions.js";
+import { checkStoredSpec } from "../services/spec-guard.js";
 
 interface TemplateRow {
   slug: string;
@@ -47,6 +48,12 @@ export default async function scenarioRoutes(app: FastifyInstance) {
         typeof template.spec === "string" ? JSON.parse(template.spec) : template.spec
       ) as SimulationSpec;
 
+      const invalid = checkStoredSpec(`Template "${body.template_slug}"`, spec);
+      if (invalid) {
+        reply.status(400);
+        return invalid;
+      }
+
       const scenario = await repo.create({
         name: body.name,
         ...(body.description !== undefined ? { description: body.description } : {}),
@@ -61,7 +68,11 @@ export default async function scenarioRoutes(app: FastifyInstance) {
       await repo.setCurrentVersion(scenario.id, version.id);
 
       reply.status(201);
-      return (await repo.getById(scenario.id))!;
+      // The clone is saved as version 1; say so, so the UI can confirm it (FR-053).
+      return {
+        ...(await repo.getById(scenario.id))!,
+        current_version: { id: version.id, number: version.version_no },
+      };
     }
 
     if (!body.currency) {

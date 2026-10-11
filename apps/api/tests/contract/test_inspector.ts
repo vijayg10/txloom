@@ -10,8 +10,8 @@ import { ScenarioRepository } from "../../src/db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../../src/db/repositories/spec-versions.js";
 import { RunRepository } from "../../src/db/repositories/runs.js";
 import {
-  applyImperfections,
-  derivePartitionRng,
+  ImperfectionTransformer,
+  deriveNamedRng,
   generateMerchantPool,
   generatePartition,
 } from "@txloom/engine";
@@ -108,7 +108,7 @@ describe("world inspector & run compare contract", () => {
       spec_snapshot: spec,
       seed: BigInt(spec.seed),
       params: {},
-      mode: "batch",
+      mode: "history_only",
     });
 
     const merchants = generateMerchantPool(spec as never, BigInt(spec.seed));
@@ -119,16 +119,17 @@ describe("world inspector & run compare contract", () => {
       1,
       merchants,
     );
-    // Mirrors apps/worker/src/pool/partition-worker.ts: corruption labels come
-    // from applyImperfections, not generatePartition — without this the
-    // imperfection-audit endpoint has nothing to find.
-    const deliveryRng = derivePartitionRng(BigInt(spec.seed), 0);
-    const { corruptionLabels } = applyImperfections(
-      truthEvents,
-      spec.output.sinks as never,
+    // Mirrors apps/worker/src/pool/partition-worker.ts: corruption labels come from the
+    // per-sink transformer, not generatePartition — without this the imperfection-audit
+    // endpoint has nothing to find.
+    const sinkName = (spec.output.sinks as { name: string }[])[0]!.name;
+    const transformer = ImperfectionTransformer.create(
+      sinkName,
       spec.imperfections as never,
-      deliveryRng,
+      deriveNamedRng(BigInt(spec.seed), `imperfections:${sinkName}:p0`),
     );
+    truthEvents.forEach((event, i) => transformer.push(event, labelRecords[i]!));
+    const corruptionLabels = transformer.flush().flatMap((d) => d.corruptions);
     const runDir = path.join(dataDir, "runs", run.id);
     await writeParquet(
       path.join(runDir, "truth", "part-0.parquet"),
@@ -137,14 +138,20 @@ describe("world inspector & run compare contract", () => {
     );
     // corruption_detail is a JS object on LabelRecord but a UTF8 string in
     // the parquet schema — matches corruptionRow() in partition-worker.ts.
-    const labelRows = [...labelRecords, ...corruptionLabels].map((label) => ({
-      ...label,
-      corruption_detail: label.corruption_detail ? JSON.stringify(label.corruption_detail) : null,
-    }));
+    const toRows = (labels: typeof labelRecords) =>
+      labels.map((label) => ({
+        ...label,
+        corruption_detail: label.corruption_detail ? JSON.stringify(label.corruption_detail) : null,
+      })) as unknown as Record<string, unknown>[];
     await writeParquet(
       path.join(runDir, "labels", "part-0.parquet"),
       LABEL_RECORD_SCHEMA,
-      labelRows as unknown as Record<string, unknown>[],
+      toRows(labelRecords),
+    );
+    await writeParquet(
+      path.join(runDir, "corruptions", sinkName, "part-0.parquet"),
+      LABEL_RECORD_SCHEMA,
+      toRows(corruptionLabels),
     );
     return run.id;
   }

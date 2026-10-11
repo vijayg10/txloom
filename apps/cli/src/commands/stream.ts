@@ -10,18 +10,12 @@ interface StreamRow {
 export const streamStartCommand: Command = {
   name: "stream-start",
   description:
-    "Start a stream: txloom stream-start <run_id> <sink_type> <sink_config_json> [target_tps]",
+    "Start a stream to the run's launch destinations: txloom stream-start <run_id> [target_tps]",
   async run(args) {
-    const [runId, sinkType, sinkConfigJson, targetTps] = args;
-    if (!runId || !sinkType || !sinkConfigJson) {
-      throw new Error(
-        "Usage: txloom stream-start <run_id> <sink_type> <sink_config_json> [target_tps]",
-      );
-    }
+    const [runId, targetTps] = args;
+    if (!runId) throw new Error("Usage: txloom stream-start <run_id> [target_tps]");
     const client = new ApiClient();
-    const body: Record<string, unknown> = {
-      sink: { type: sinkType, config: JSON.parse(sinkConfigJson) as Record<string, unknown> },
-    };
+    const body: Record<string, unknown> = {};
     if (targetTps !== undefined) body.target_tps = Number(targetTps);
     const stream = await client.post<StreamRow>(`/runs/${runId}/stream/start`, body);
     console.log(`stream ${stream.id}: ${stream.state} @ ${stream.target_tps} tps`);

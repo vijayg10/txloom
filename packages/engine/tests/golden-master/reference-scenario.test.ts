@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { generatePartition, generateMerchantPool } from "../../src/index.js";
+import { ENGINE_VERSION, generatePartition, generateMerchantPool } from "../../src/index.js";
 import { referenceScenarioSpec } from "../fixtures.js";
 
 // Fixed seed + fixed spec asserted against committed reference output
@@ -17,13 +17,16 @@ describe("golden master: reference scenario", () => {
 
     const referencePath = path.join(import.meta.dirname, "reference-output.json");
     const reference = JSON.parse(readFileSync(referencePath, "utf-8")) as {
+      engine_version: number;
       truthEvents: unknown[];
       labelRecords: unknown[];
       achievedFraudRate: number;
     };
 
-    expect(result.truthEvents).toEqual(reference.truthEvents);
-    expect(result.labelRecords).toEqual(reference.labelRecords);
-    expect(result.achievedFraudRate).toBeCloseTo(reference.achievedFraudRate, 10);
+    const failureMessage = "output changed: bump ENGINE_VERSION or revert";
+    expect(reference.engine_version, failureMessage).toBe(ENGINE_VERSION);
+    expect(result.truthEvents, failureMessage).toEqual(reference.truthEvents);
+    expect(result.labelRecords, failureMessage).toEqual(reference.labelRecords);
+    expect(result.achievedFraudRate, failureMessage).toBeCloseTo(reference.achievedFraudRate, 10);
   });
 });

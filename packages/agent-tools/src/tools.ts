@@ -36,6 +36,14 @@ export const listTemplatesTool: AgentToolDefinition<Record<string, never>> = {
   restEndpoint: { method: "GET", path: "/templates" },
 };
 
+export const listConnectionsTool: AgentToolDefinition<Record<string, never>> = {
+  name: "list_connections",
+  description:
+    "List the saved delivery connections (Kafka, RabbitMQ, webhook) a run can be sent to. Secrets are never returned. Use a connection's id as a destination at launch.",
+  inputSchema: {},
+  restEndpoint: { method: "GET", path: "/connections" },
+};
+
 export const validateSpecInputShape = { spec: z.record(z.string(), z.unknown()) };
 export const validateSpecTool: AgentToolDefinition<typeof validateSpecInputShape> = {
   name: "validate_spec",
@@ -43,6 +51,18 @@ export const validateSpecTool: AgentToolDefinition<typeof validateSpecInputShape
     "Validate a candidate SimulationSpec document. Always 200s — even for an invalid spec — returning {valid, violations[]}, each violation located by JSON Pointer with a machine-readable code and human message. Side-effect-free: use this to iterate before saving.",
   inputSchema: validateSpecInputShape,
   restEndpoint: { method: "POST", path: "/spec/validate" },
+};
+
+export const estimateRunInputShape = {
+  spec: z.record(z.string(), z.unknown()),
+  replay_history: z.boolean().optional(),
+};
+export const estimateRunTool: AgentToolDefinition<typeof estimateRunInputShape> = {
+  name: "estimate_run",
+  description:
+    "Estimate how many events a spec will generate and how long generation takes, before launching: {history_events, replay_messages, partitions, generation_seconds, assumptions[]}. With replay_history, replay_messages counts what each broker destination would receive. Side-effect-free; an invalid spec returns 400 spec_invalid with located violations.",
+  inputSchema: estimateRunInputShape,
+  restEndpoint: { method: "POST", path: "/spec/estimate" },
 };
 
 export const createScenarioInputShape = {
@@ -73,13 +93,35 @@ export const saveSpecVersionTool: AgentToolDefinition<typeof saveSpecVersionInpu
 
 export const launchRunInputShape = {
   scenario_id: z.string().min(1),
-  seed: z.number().int().optional(),
-  mode: z.enum(["batch", "batch_then_stream"]).optional(),
+  seed: z
+    .union([z.string().regex(/^\d{1,20}$/), z.number().int().nonnegative()])
+    .optional()
+    .describe(
+      "Run seed, 0 to 18446744073709551615. Pass it as a decimal string: numbers above 9007199254740991 lose precision in JSON. Omit to use the spec's seed.",
+    ),
+  mode: z.enum(["batch", "batch_then_stream", "history_only", "history_then_live"]).optional(),
+  destinations: z
+    .array(
+      z.object({
+        sink: z.string().min(1),
+        connection_id: z.string().min(1),
+        topic: z.string().optional(),
+        routing_key: z.string().optional(),
+        label_topic: z.string().optional(),
+      }),
+    )
+    .optional(),
+  replay_history: z
+    .boolean()
+    .optional()
+    .describe(
+      "Send the whole generated history to the broker destinations once generation finishes, before any live stream. Default false.",
+    ),
 };
 export const launchRunTool: AgentToolDefinition<typeof launchRunInputShape> = {
   name: "launch_run",
   description:
-    "Launch a run of the scenario's current spec version. Snapshots the spec verbatim (immutable record) and starts generation.",
+    'Launch a run of the scenario\'s current spec version. Every non-file sink in the spec needs a destination: a saved connection (see list_connections) of the same type. Snapshots the spec verbatim (immutable record) and starts generation. With replay_history, each broker sink then receives the full history (watch run-progress phase "replaying"; a failed replay needs a retry or skip before streaming).',
   inputSchema: launchRunInputShape,
   restEndpoint: { method: "POST", path: "/scenarios/:id/runs" },
 };
@@ -90,6 +132,15 @@ export const getRunStatusTool: AgentToolDefinition<typeof getRunStatusInputShape
   description: "Fetch a run's immutable record: status, spec snapshot, seed.",
   inputSchema: getRunStatusInputShape,
   restEndpoint: { method: "GET", path: "/runs/:id" },
+};
+
+export const retryRunInputShape = { run_id: z.string().min(1) };
+export const retryRunTool: AgentToolDefinition<typeof retryRunInputShape> = {
+  name: "retry_run",
+  description:
+    "Retry a failed run: re-queues only the partitions that did not finish and returns the run to running. Allowed only from failed (409 invalid_state otherwise), and not for a run made by a different engine version (409 engine_version_mismatch — regenerate instead).",
+  inputSchema: retryRunInputShape,
+  restEndpoint: { method: "POST", path: "/runs/:id/retry" },
 };
 
 export const getRealismReportInputShape = { run_id: z.string().min(1) };
@@ -106,11 +157,17 @@ export const createExportInputShape = {
   format: z.enum(["csv", "parquet", "json"]),
   include_labels: z.boolean().optional(),
   acknowledged_warning: z.boolean().optional(),
+  source: z
+    .union([
+      z.object({ kind: z.literal("truth") }),
+      z.object({ kind: z.literal("sink"), name: z.string().min(1) }),
+    ])
+    .optional(),
 };
 export const createExportTool: AgentToolDefinition<typeof createExportInputShape> = {
   name: "create_export",
   description:
-    "Create a data export for a run. include_labels:true REQUIRES acknowledged_warning:true or the call fails (labels are excluded by default — FR-021/022).",
+    'Start a data export for a run. It is asynchronous: the call returns status "queued", and get_export reports queued, running, then completed (or failed with an error). source is {kind:"truth"} or {kind:"sink", name} for a file sink\'s delivered copy; it defaults to the first file sink, else truth. include_labels:true REQUIRES acknowledged_warning:true or the call fails (labels are excluded by default — FR-021/022).',
   inputSchema: createExportInputShape,
   restEndpoint: { method: "POST", path: "/runs/:id/exports" },
 };
@@ -118,7 +175,8 @@ export const createExportTool: AgentToolDefinition<typeof createExportInputShape
 export const getExportInputShape = { run_id: z.string().min(1), export_id: z.string().min(1) };
 export const getExportTool: AgentToolDefinition<typeof getExportInputShape> = {
   name: "get_export",
-  description: "Fetch an export's status and file names.",
+  description:
+    "Fetch an export's status (queued, running, completed or failed, with an error) and file names. Poll it after create_export until it is completed or failed.",
   inputSchema: getExportInputShape,
   restEndpoint: { method: "GET", path: "/runs/:id/exports/:exportId" },
 };
@@ -139,28 +197,21 @@ export const getTruthEventsTool: AgentToolDefinition<typeof getTruthEventsInputS
   restEndpoint: { method: "GET", path: "/runs/:id/truth/events" },
 };
 
-const streamSinkSchema = z.union([
-  z.object({
-    type: z.literal("kafka"),
-    config: z.object({ brokers: z.array(z.string()), topic: z.string() }),
-  }),
-  z.object({
-    type: z.literal("rabbitmq"),
-    config: z.object({ url: z.string(), exchange: z.string(), routingKey: z.string() }),
-  }),
-  z.object({ type: z.literal("webhook"), config: z.object({ url: z.string() }) }),
-]);
-
 export const startStreamInputShape = {
   run_id: z.string().min(1),
   target_tps: z.number().positive().optional(),
-  sink: streamSinkSchema,
   label_channel_enabled: z.boolean().optional(),
+  sink: z
+    .unknown()
+    .optional()
+    .describe(
+      "Removed: inline sinks are no longer accepted (returns 400 inline_sink_removed). A stream goes to the destinations the run was launched with.",
+    ),
 };
 export const startStreamTool: AgentToolDefinition<typeof startStreamInputShape> = {
   name: "start_stream",
   description:
-    "Continue a completed run's history phase into a live TPS-paced stream, delivered to the given inline sink (kafka/rabbitmq/webhook).",
+    "Continue a completed run's history phase into a live TPS-paced stream, delivered to the destinations the run was launched with.",
   inputSchema: startStreamInputShape,
   restEndpoint: { method: "POST", path: "/runs/:id/stream/start" },
 };
@@ -178,11 +229,14 @@ export const ALL_AGENT_TOOLS: readonly AgentToolDefinition[] = [
   getSpecSchemaTool,
   getAuthoringDocsTool,
   listTemplatesTool,
+  listConnectionsTool,
   validateSpecTool as AgentToolDefinition,
+  estimateRunTool as AgentToolDefinition,
   createScenarioTool as AgentToolDefinition,
   saveSpecVersionTool as AgentToolDefinition,
   launchRunTool as AgentToolDefinition,
   getRunStatusTool as AgentToolDefinition,
+  retryRunTool as AgentToolDefinition,
   getRealismReportTool as AgentToolDefinition,
   createExportTool as AgentToolDefinition,
   getExportTool as AgentToolDefinition,

@@ -25,7 +25,14 @@ function mockFetch() {
       return { ok: true, json: async () => ({ templates }) };
     }
     if (url.endsWith("/scenarios") && method === "POST") {
-      return { ok: true, json: async () => ({ id: "scenario1", name: "cloned" }) };
+      return {
+        ok: true,
+        json: async () => ({
+          id: "scenario1",
+          name: "cloned",
+          current_version: { id: "v1", number: 1 },
+        }),
+      };
     }
     return { ok: true, json: async () => ({}) };
   });
@@ -55,7 +62,7 @@ describe("TemplateGallery", () => {
     const [cloneButton] = screen.getAllByText("New from template");
     fireEvent.click(cloneButton!);
 
-    await vi.waitFor(() => expect(onCloned).toHaveBeenCalledWith("scenario1"));
+    await vi.waitFor(() => expect(onCloned).toHaveBeenCalledWith("scenario1", 1));
 
     expect(fetch).toHaveBeenCalledWith(
       "/api/v1/scenarios",

@@ -2,16 +2,25 @@
 // generate-partition, stream-drive, and report-build (US1/US4), wires their
 // callbacks to the same DB layer the API uses, resumes any run left mid-flight
 // by a previous crash, and shuts down cleanly on SIGTERM/SIGINT.
-import { generateMerchantPool } from "@txloom/engine";
 import type { SimulationSpec } from "@txloom/spec";
 import { getDb, closeDb, migrateWithLock } from "../../api/src/db/knex.js";
 import { getQueues, closeQueues } from "../../api/src/services/queues.js";
 import { RunRepository, RunPartitionRepository } from "../../api/src/db/repositories/runs.js";
+import { ConnectionRepository } from "../../api/src/db/repositories/connections.js";
 import { StreamRepository } from "../../api/src/db/repositories/streams.js";
+import { StreamSessionRepository } from "../../api/src/db/repositories/stream-sessions.js";
+import { createGeneratePartitionCallbacks } from "./handlers.js";
 import { startGeneratePartitionWorker } from "./jobs/generate-partition.js";
 import { startStreamDriveWorker } from "./jobs/stream-drive.js";
+import { startDeliverWorker } from "./jobs/deliver.js";
+import { RunDeliveryRepository } from "../../api/src/db/repositories/run-deliveries.js";
+import { deliverPayloadFor, enqueueDelivery } from "../../api/src/services/delivery-service.js";
+import { maybeAutoStartLive } from "../../api/src/services/stream-sessions.js";
+import { startExportBuildWorker } from "./jobs/export-build.js";
 import { startReportBuildWorker } from "./jobs/report-build.js";
+import { startConnectionTestWorker } from "./jobs/connection-test.js";
 import { resumeIncompletePartitions, type IncompletePartition } from "./pool/resume.js";
+import { readCheckpointFile, type CheckpointRef } from "@txloom/engine";
 import { StreamLabelChannel } from "./jobs/stream-label-channel.js";
 import { closePartitionPool } from "./pool/piscina-pool.js";
 
@@ -29,53 +38,14 @@ await migrateWithLock(db);
 const runs = new RunRepository(db);
 const runPartitions = new RunPartitionRepository(db);
 const streams = new StreamRepository(db);
+const streamSessions = new StreamSessionRepository(db);
 const queues = getQueues();
 const connection = queues.generatePartition.opts.connection!;
 
-async function loadBenchmarkRefs(runId: string): Promise<Record<string, unknown> | null> {
-  const run = await runs.getById(runId);
-  const templateSlug = run
-    ? ((await db("scenarios").where({ id: run.scenario_id }).first())?.template_slug ?? null)
-    : null;
-  if (!templateSlug) return null;
-  const template = await db("templates").where({ slug: templateSlug }).first();
-  return (template?.benchmark_refs as Record<string, unknown> | undefined) ?? null;
-}
+const generateCallbacks = createGeneratePartitionCallbacks({ db, queues, dataDir });
+const { maybeCompleteRun } = generateCallbacks;
 
-/** Flips a run to `completed` and kicks off report-build the moment its last
- * partition lands in `done` — nothing else in the system currently does this
- * (FR generation was previously only wired for tests, never at boot). */
-async function maybeCompleteRun(runId: string): Promise<void> {
-  const partitions = await runPartitions.listByRun(runId);
-  if (partitions.length === 0 || !partitions.every((p) => p.state === "done")) return;
-
-  const run = await runs.getById(runId);
-  if (!run || run.status !== "running") return;
-
-  await runs.setStatus(runId, "completed");
-  const benchmarkRefs = await loadBenchmarkRefs(runId);
-  await queues.reportBuild.add(
-    `report-${runId}`,
-    { runId, dataDir, benchmarkRefs },
-    { jobId: `report-${runId}` },
-  );
-}
-
-const generatePartitionWorker = startGeneratePartitionWorker({
-  connection,
-  onPartitionRunning: async (data) => {
-    await runPartitions.setState(data.runId, data.partitionNo, "running");
-  },
-  onPartitionDone: async (data, result) => {
-    await runPartitions.checkpoint(data.runId, data.partitionNo, null, result.eventsGenerated);
-    await runPartitions.setState(data.runId, data.partitionNo, "done");
-    await maybeCompleteRun(data.runId);
-  },
-  onPartitionFailed: async (data, error) => {
-    await runPartitions.setState(data.runId, data.partitionNo, "failed");
-    await runs.setStatus(data.runId, "failed", { error: error.message });
-  },
-});
+const generatePartitionWorker = startGeneratePartitionWorker({ connection, ...generateCallbacks });
 
 const streamLabelChannels = new Map<string, StreamLabelChannel>();
 async function getLabelChannel(streamId: string): Promise<StreamLabelChannel | undefined> {
@@ -91,11 +61,45 @@ async function getLabelChannel(streamId: string): Promise<StreamLabelChannel | u
 
 const streamDriveWorker = startStreamDriveWorker({
   connection,
+  dataDir,
+  connections: new ConnectionRepository(db, dataDir),
+  loadCheckpoint: async (runId, partitionNo) => {
+    const partition = (await runPartitions.listByRun(runId)).find(
+      (p) => p.partition_no === partitionNo,
+    );
+    const raw = partition?.rng_checkpoint;
+    const ref = (typeof raw === "string" ? JSON.parse(raw) : raw) as
+      CheckpointRef | null | undefined;
+    if (!ref?.path) {
+      throw new Error(
+        `Partition ${partitionNo} of run ${runId} has no world checkpoint — regenerate the run.`,
+      );
+    }
+    return readCheckpointFile(ref);
+  },
   getStreamControl: async (streamId) => {
     const stream = await streams.getById(streamId);
     if (!stream) return { state: "stopped", targetTps: 0 };
-    return { state: stream.state, targetTps: stream.target_tps };
+    return {
+      state: stream.state,
+      targetTps: stream.target_tps,
+      currentSessionId: stream.current_session_id,
+    };
   },
+  onSessionProgress: (sessionId, progress) => streamSessions.recordProgress(sessionId, progress),
+  onStreamError: async (streamId, message) => {
+    await streams.setLastError(streamId, message);
+    await streams.setState(streamId, "error");
+  },
+  getSessionResume: async (sessionId) => {
+    const session = await streamSessions.getById(sessionId);
+    if (session?.last_checkpoint_day == null) return null;
+    return {
+      dayIndex: Number(session.last_checkpoint_day),
+      skip: Number(session.delivered_since_checkpoint ?? 0),
+    };
+  },
+  onSessionEnded: (sessionId, error) => streamSessions.end(sessionId, error),
   onMetrics: async (streamId, metrics) => {
     await streams.setMetrics(streamId, metrics);
   },
@@ -105,12 +109,26 @@ const streamDriveWorker = startStreamDriveWorker({
   },
 });
 
+const deliverWorker = startDeliverWorker({
+  connection,
+  deliveries: new RunDeliveryRepository(db),
+  connections: new ConnectionRepository(db, dataDir),
+  // The last replay finishing is what releases a `history_then_live` run into live (FR-022).
+  onDeliveryFinished: async (runId) => {
+    await maybeAutoStartLive(db, runId);
+  },
+});
+
+const exportBuildWorker = startExportBuildWorker({ connection });
+
 const reportBuildWorker = startReportBuildWorker({
   connection,
   // report.json landing on disk is the completion signal — run-report.ts reads
   // it directly, so there's no DB row to flip here.
   onReportReady: async () => {},
 });
+
+const connectionTestWorker = startConnectionTestWorker({ connection });
 
 /** Boot-time resume (FR-018, SC-011): re-enqueues every partition not yet
  * `done` for runs still marked `running` from before a crash/restart, and
@@ -128,8 +146,6 @@ async function resumeAfterRestart(): Promise<void> {
     }
 
     const spec = run.spec_snapshot as SimulationSpec;
-    const seed = BigInt(run.seed);
-    const merchants = generateMerchantPool(spec, seed);
     for (const partition of partitions) {
       if (partition.state === "done") continue;
       incomplete.push({
@@ -137,10 +153,10 @@ async function resumeAfterRestart(): Promise<void> {
         jobData: {
           runId: run.id,
           spec,
-          seed: seed.toString(),
+          seed: run.seed,
           partitionNo: partition.partition_no,
-          partitionCount: partitions.length,
-          merchants,
+          partitionCount: run.partition_count,
+          engineVersion: run.engine_version,
           dataDir,
         },
       });
@@ -152,8 +168,50 @@ async function resumeAfterRestart(): Promise<void> {
   }
 }
 
+/** Boot reconciliation (R5, contracts/api.md invariant 4): a stream reported as `streaming` or
+ * `paused` must have a BullMQ job for its current session. If that job is *missing* (Redis lost
+ * it), the stream is moved to `stopped` so the UI doesn't show a stream that is not running.
+ * A merely *stalled* job is left alone — BullMQ re-runs it in the same session. */
+async function reconcileStreams(): Promise<void> {
+  for (const stream of await streams.listByState(["streaming", "paused"])) {
+    const session = stream.current_session_id
+      ? await streamSessions.getById(stream.current_session_id)
+      : undefined;
+    const job = session
+      ? await queues.streamDrive.getJob(`stream-${stream.run_id}-${session.seq}`)
+      : undefined;
+    if (job) continue;
+    await streams.setState(stream.id, "stopped");
+    await streams.setLastError(stream.id, "session job lost; start the stream again");
+    if (session) await streamSessions.end(session.id, "session job lost");
+  }
+}
+
+/** A replay that was pending or running must have a live `deliver` job. If Redis lost it, the
+ * job is queued again; it continues from the saved cursor, so nothing is re-sent. */
+async function reconcileDeliveries(): Promise<void> {
+  const deliveries = new RunDeliveryRepository(db);
+  for (const run of await runs.listByStatus("completed")) {
+    if (!run.replay_history) continue;
+    for (const delivery of await deliveries.listByRun(run.id)) {
+      if (delivery.state !== "pending" && delivery.state !== "running") continue;
+      const jobs = await queues.deliver.getJobs(["waiting", "active", "delayed", "prioritized"]);
+      const hasJob = jobs.some(
+        (job) => job.data.runId === run.id && job.data.sinkName === delivery.sink_name,
+      );
+      if (hasJob) continue;
+      const payload = await deliverPayloadFor(db, run, delivery.sink_name, dataDir);
+      if (payload) await enqueueDelivery(payload, Date.now());
+    }
+  }
+}
+
 await resumeAfterRestart();
-console.log("txloom worker: generate-partition, stream-drive, report-build consumers running");
+await reconcileStreams();
+await reconcileDeliveries();
+console.log(
+  "txloom worker: generate-partition, stream-drive, deliver, export-build, report-build, connection-test consumers running",
+);
 
 let shuttingDown = false;
 async function shutdown(signal: string): Promise<void> {
@@ -163,7 +221,10 @@ async function shutdown(signal: string): Promise<void> {
   await Promise.all([
     generatePartitionWorker.close(),
     streamDriveWorker.close(),
+    deliverWorker.close(),
+    exportBuildWorker.close(),
     reportBuildWorker.close(),
+    connectionTestWorker.close(),
   ]);
   await closePartitionPool();
   await closeQueues();

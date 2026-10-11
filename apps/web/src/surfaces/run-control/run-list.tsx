@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { apiClient } from "../../api/client.js";
+import { Link, useSearchParams } from "react-router-dom";
+import { createApiClient, type Run } from "../../api/client.js";
 import { EmptyState } from "../../components/ui/empty-state.js";
 import { StatusBadge, runStatusTone } from "../../components/ui/status-badge.js";
 import {
@@ -12,23 +13,19 @@ import {
   TableRow,
 } from "../../components/data/table.js";
 import { TableSkeleton } from "../../components/ui/loading-skeleton.js";
-import type { RunStatus } from "./run-status.js";
+import { formatRunTitle } from "../run/index.js";
 
-interface RunRow {
-  id: string;
-  status: RunStatus;
-  created_at: string;
-}
-
-/** Run list: status, links into run detail (FR-032). Live progress bars/
- * throughput/ETA render inside RunDetail via the WS channel once a run is open. */
+/** Run list (FR-050): each run is named by its scenario, version and start time, with the ID
+ * secondary. `?filter=streamable` keeps only runs whose history is complete. */
 export function RunList() {
-  const [runs, setRuns] = useState<RunRow[] | null>(null);
+  const [runs, setRuns] = useState<Run[] | null>(null);
+  const [searchParams] = useSearchParams();
+  const streamableOnly = searchParams.get("filter") === "streamable";
 
   useEffect(() => {
     let cancelled = false;
-    apiClient
-      .get<{ runs: RunRow[] }>("/runs")
+    createApiClient()
+      .listRuns()
       .then((res) => {
         if (!cancelled) setRuns(res.runs);
       })
@@ -42,9 +39,17 @@ export function RunList() {
 
   if (runs === null) return <TableSkeleton columns={3} />;
 
-  if (runs.length === 0) {
+  const shown = streamableOnly ? runs.filter((run) => run.status === "completed") : runs;
+  if (shown.length === 0) {
     return (
-      <EmptyState title="No runs yet" description="Launch a run from a scenario to see it here." />
+      <EmptyState
+        title={streamableOnly ? "No completed runs" : "No runs yet"}
+        description={
+          streamableOnly
+            ? "Complete a run to start streaming its events."
+            : "Launch a run from a scenario to see it here."
+        }
+      />
     );
   }
 
@@ -58,15 +63,20 @@ export function RunList() {
         </TableHeaderRow>
       </TableHead>
       <TableBody>
-        {runs.map((run) => (
+        {shown.map((run) => (
           <TableRow key={run.id}>
             <TableCell>
-              <a href={`/runs/${run.id}`} className="text-primary font-medium hover:underline">
-                {run.id}
-              </a>
+              <Link
+                to={`/runs/${run.id}/progress`}
+                data-testid="run-list-item"
+                className="text-primary font-medium hover:underline"
+              >
+                {formatRunTitle(run)}
+              </Link>
+              <p className="text-text-secondary font-mono text-xs">{run.id}</p>
             </TableCell>
             <TableCell>
-              <StatusBadge tone={runStatusTone(run.status)}>{run.status}</StatusBadge>
+              <StatusBadge tone={runStatusTone(run.status)}>{run.phase ?? run.status}</StatusBadge>
             </TableCell>
             <TableCell className="text-text-secondary">
               {new Date(run.created_at).toLocaleString()}

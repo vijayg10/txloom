@@ -18,8 +18,7 @@ import truthEventsRoutes from "./routes/truth-events.js";
 import actorStoryRoutes from "./routes/actor-story.js";
 import exportRoutes from "./routes/exports.js";
 import templatesRoutes from "./routes/templates.js";
-import sinksRoutes from "./routes/sinks.js";
-import sinkTestRoutes from "./routes/sink-test.js";
+import connectionsRoutes from "./routes/connections.js";
 import settingsRoutes from "./routes/settings.js";
 import runControlRoutes from "./routes/run-control.js";
 import runRegenerateRoutes from "./routes/run-regenerate.js";
@@ -34,7 +33,8 @@ export interface BuildAppOptions {
   /** Skip DB-touching plugin registration — used by contract tests that only
    * exercise DB-free routes (health, capabilities) without a live MySQL. */
   skipDb?: boolean;
-  logger?: boolean;
+  /** `true` logs to stdout; the object form lets a test capture the log stream. */
+  logger?: boolean | { level: string; stream: NodeJS.WritableStream };
 }
 
 const API_PREFIX = "/api/v1";
@@ -52,7 +52,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     async (api) => {
       await api.register(healthRoutes);
       await api.register(capabilitiesRoutes);
-      await api.register(specRoutes);
+      // The estimate reads the measured throughput from the database when there is one.
+      await api.register(specRoutes, { useDb: !options.skipDb });
       await api.register(specDocsRoutes);
 
       if (!options.skipDb) {
@@ -65,8 +66,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         await api.register(actorStoryRoutes);
         await api.register(exportRoutes);
         await api.register(templatesRoutes);
-        await api.register(sinksRoutes);
-        await api.register(sinkTestRoutes);
+        await api.register(connectionsRoutes);
         await api.register(settingsRoutes);
         await api.register(runControlRoutes);
         await api.register(runRegenerateRoutes);

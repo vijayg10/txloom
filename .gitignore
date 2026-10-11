@@ -24,6 +24,7 @@ apps/web/.vite/
 
 # Playwright e2e suite outputs — regenerated per run, never committed.
 apps/e2e/playwright-report/
+.playwright-mcp/
 apps/e2e/test-results/
 apps/e2e/blob-report/
 apps/e2e/.budget-start.json

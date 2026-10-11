@@ -5,6 +5,7 @@ import { ALL_INVARIANTS } from "./invariants/index.js";
 export * from "./types.js";
 export * from "./json-pointer.js";
 export * from "./diff.js";
+export * from "./connection-warnings.js";
 export { ALL_INVARIANTS } from "./invariants/index.js";
 export { ajvValidate, schema } from "./ajv-validate.js";
 

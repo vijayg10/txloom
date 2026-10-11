@@ -70,6 +70,15 @@ const cases: Case[] = [
     },
   },
   {
+    name: "seed-range",
+    fn: ALL_INVARIANTS.find((i) => i.name === "seed-range")!.fn,
+    expectedCode: "seed-out-of-range",
+    breakIt: (spec) => {
+      spec.seed = 2 ** 53;
+      return spec;
+    },
+  },
+  {
     name: "scale-envelope",
     fn: ALL_INVARIANTS.find((i) => i.name === "scale-envelope")!.fn,
     expectedCode: "population-above-reference-scale",
@@ -99,7 +108,7 @@ describe("invariant battery", () => {
     },
   );
 
-  it("registers exactly the seven documented invariants", () => {
+  it("registers exactly the eight documented invariants", () => {
     expect(ALL_INVARIANTS.map((i) => i.name).sort()).toEqual(
       [
         "dormancy-satisfiable",
@@ -108,8 +117,28 @@ describe("invariant battery", () => {
         "reference-integrity",
         "scale-envelope",
         "seasonality-window",
+        "seed-range",
         "weights-sum",
       ].sort(),
     );
+  });
+
+  describe("seed-range", () => {
+    const fn = ALL_INVARIANTS.find((i) => i.name === "seed-range")!.fn;
+
+    it.each([2 ** 53, -1])("rejects spec.seed %s at /seed and explains the remedy", (seed) => {
+      const spec = cloneSpec(baseValidSpec());
+      spec.seed = seed;
+      const [violation] = fn(spec);
+      expect(violation?.path).toBe("/seed");
+      expect(violation?.code).toBe("seed-out-of-range");
+      expect(violation?.message).toContain("pass larger seeds as the launch `seed` string");
+    });
+
+    it.each([0, 1, Number.MAX_SAFE_INTEGER])("accepts spec.seed %s", (seed) => {
+      const spec = cloneSpec(baseValidSpec());
+      spec.seed = seed;
+      expect(fn(spec)).toEqual([]);
+    });
   });
 });

@@ -19,9 +19,23 @@ has to own the entire access-control decision, not delegate any of it back.
 Per-user accounts, roles, and multi-tenancy are explicitly out of v1 scope
 (constitution § Technology & Architecture Constraints, "Scope discipline").
 
-## Secrets: sink connection credentials
+## Secrets: connection credentials
 
-Sink connections (`sink_connections.credentials_enc`) can hold a
+(Updated for the connections model: `connections` is now `connections`, and `/sinks*` routes
+are gone, returning `410`.)
+
+- **Sealed in job payloads.** A `connection-test` job carries the secrets sealed under the instance
+  key; the worker unseals them. Plaintext passwords never reach Redis (tested by
+  `connection-test-job.test.ts`), logs or API responses (`secret-redaction.test.ts`).
+- **`managed_by: env` connections** come from `TXLOOM_CONNECTIONS_JSON`, which lives in the
+  container environment, so treat that variable as a secret store. The API refuses to edit or
+  delete them.
+- **`ca_pem` is not a secret** (it is a public certificate) and is stored in the connection's
+  `config`, readable through the API.
+
+### Original notes
+
+Sink connections (`connections.credentials_enc`) can hold a
 username/password (Kafka SASL, RabbitMQ) for connections that need one.
 These are the only user-supplied secrets TxLoom stores.
 
@@ -58,7 +72,7 @@ and you'd need to re-enter credentials for each affected connection.
 **Rotating the instance key** (no automated command ships in v1 — this is
 a manual runbook):
 
-1. Before rotating, read every `sink_connections.credentials_enc` row and
+1. Before rotating, read every `connections.credentials_enc` row and
    decrypt it with the _current_ key (`decryptSecret`, the same function
    the test-connection route uses).
 2. Generate a new key and either overwrite `data/keys/instance.key` or set

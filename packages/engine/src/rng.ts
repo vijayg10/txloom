@@ -38,14 +38,53 @@ function makeRng(generator: RandomGenerator): Rng {
   };
 }
 
-/** Folds a run seed (arbitrary bigint) into the 32-bit int xoroshiro128plus expects,
- * deterministically — same seed always folds to the same generator seed. */
-function foldSeed(seed: bigint): number {
-  return Number(BigInt.asIntN(32, seed));
+const MASK_64 = (1n << 64n) - 1n;
+const MASK_32 = 0xffff_ffffn;
+
+/** One SplitMix64 step (Vigna): returns the advanced state and the mixed output. Used to
+ * spread a seed's full 64 bits across the generator state (research R2). */
+export function splitmix64(state: bigint): { state: bigint; value: bigint } {
+  const next = (state + 0x9e3779b97f4a7c15n) & MASK_64;
+  let z = next;
+  z = ((z ^ (z >> 30n)) * 0xbf58476d1ce4e5b9n) & MASK_64;
+  z = ((z ^ (z >> 27n)) * 0x94d049bb133111ebn) & MASK_64;
+  return { state: next, value: z ^ (z >> 31n) };
+}
+
+function fnv1a64(text: string): bigint {
+  let hash = 0xcbf29ce484222325n;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= BigInt(text.charCodeAt(i));
+    hash = (hash * 0x100000001b3n) & MASK_64;
+  }
+  return hash;
+}
+
+function int32(value: bigint): number {
+  return Number(BigInt.asIntN(32, value & MASK_32));
+}
+
+/** Expands all 64 bits of a seed into xoroshiro128+'s 4×int32 state. */
+function generatorFromSeed64(seed: bigint): RandomGenerator {
+  if (seed < 0n || seed > MASK_64) {
+    throw new RangeError(`seed must be in 0 … 2^64-1, got ${seed}`);
+  }
+  const first = splitmix64(seed);
+  const second = splitmix64(first.state);
+  const state = [
+    int32(first.value >> 32n),
+    int32(first.value),
+    int32(second.value >> 32n),
+    int32(second.value),
+  ];
+  // An all-zero state is the one fixed point of xoroshiro; SplitMix64 makes it astronomically
+  // unlikely, but keep the generator valid regardless.
+  if (state.reduce((acc, word) => acc | word, 0) === 0) state[0] = 1;
+  return prand.xoroshiro128plus.fromState(state);
 }
 
 export function createRng(seed: bigint): Rng {
-  return makeRng(prand.xoroshiro128plus(foldSeed(seed)));
+  return makeRng(generatorFromSeed64(seed));
 }
 
 /** Reconstructs an Rng from a previously captured checkpoint — the idempotent-resume path (D7). */
@@ -61,7 +100,7 @@ export function derivePartitionRng(rootSeed: bigint, partitionNo: number): Rng {
   if (partitionNo < 0 || !Number.isInteger(partitionNo)) {
     throw new Error(`partitionNo must be a non-negative integer, got ${partitionNo}`);
   }
-  let generator = prand.xoroshiro128plus(foldSeed(rootSeed));
+  let generator = generatorFromSeed64(rootSeed);
   for (let i = 0; i <= partitionNo; i++) {
     if (!generator.jump)
       throw new Error("RNG generator does not support jump() — cannot derive substreams.");
@@ -70,20 +109,13 @@ export function derivePartitionRng(rootSeed: bigint, partitionNo: number): Rng {
   return makeRng(generator);
 }
 
-/** Reserved substream range for cross-partition, world-scoped generation
- * (merchant pool, party naming) that must stay independent of however many
- * real generation partitions the run uses. */
-const NAMED_SUBSTREAM_BASE = 1_000_000;
-const NAMED_SUBSTREAM_SPAN = 1_000_000;
-
-/** Derives a deterministic, named substream — for generation steps that happen
- * once per world (not once per partition), e.g. the shared merchant pool or
- * party-name assignment (D18), so they never collide with a real partition's
- * substream regardless of partition count. */
+/** Derives a deterministic, named substream — for generation steps that happen once per
+ * world (not once per partition), e.g. the shared merchant pool or party-name assignment
+ * (D18). Seeded directly from the name's hash, so it costs nothing however many partitions
+ * the run uses and can never collide with a real partition's jump-derived stream. */
 export function deriveNamedRng(rootSeed: bigint, name: string): Rng {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  if (rootSeed < 0n || rootSeed > MASK_64) {
+    throw new RangeError(`seed must be in 0 … 2^64-1, got ${rootSeed}`);
   }
-  return derivePartitionRng(rootSeed, NAMED_SUBSTREAM_BASE + (hash % NAMED_SUBSTREAM_SPAN));
+  return makeRng(generatorFromSeed64(splitmix64(rootSeed ^ fnv1a64(name)).value));
 }

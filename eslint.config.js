@@ -29,9 +29,29 @@ export default tseslint.config(
     },
   },
   {
+    // FR-051: an in-app link goes through the router (<Link> / navigate), never a full page load.
+    // Links into the API (`/api/…`, downloads) are real URLs and stay plain anchors.
+    files: ["apps/web/src/**/*.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "JSXOpeningElement[name.name='a'] > JSXAttribute[name.name='href'] > Literal[value=/^\\/(?!api\\/)/]",
+          message: "Use the router's <Link to=…> for in-app links, not <a href>.",
+        },
+        {
+          selector:
+            "JSXOpeningElement[name.name='a'] > JSXAttribute[name.name='href'] > JSXExpressionContainer > TemplateLiteral[quasis.0.value.raw=/^\\/(?!api\\/)/]",
+          message: "Use the router's <Link to=…> for in-app links, not <a href>.",
+        },
+      ],
+    },
+  },
+  {
     // Plain Node ESM entry point (no tsconfig/type info, so Node globals
     // aren't picked up automatically the way they are for .ts files).
-    files: ["apps/worker/src/pool/worker-entry.mjs"],
+    files: ["apps/worker/src/pool/worker-entry.mjs", "apps/worker/src/live/live-world-entry.mjs"],
     languageOptions: {
       globals: { URL: "readonly" },
     },
