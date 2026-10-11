@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 250" font-family="Inter, system-ui, Helvetica, Arial, sans-serif" role="img" aria-label="TxLoom flow: author, connect, launch, generate, stream, inspect and export">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#64748B"/></marker>
+  </defs>
+  <rect width="960" height="250" fill="#ffffff"/>
+  <g font-size="13" text-anchor="middle">
+    <g>
+      <rect x="10" y="60" width="140" height="92" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="80" y="88" font-weight="700" fill="#1E293B" font-size="14">1. Author</text>
+      <text x="80" y="110" fill="#475569">Template, editor</text>
+      <text x="80" y="128" fill="#475569">or AI agent (MCP)</text>
+    </g>
+    <g>
+      <rect x="172" y="60" width="140" height="92" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="242" y="88" font-weight="700" fill="#1E293B" font-size="14">2. Connect</text>
+      <text x="242" y="110" fill="#475569">Kafka, RabbitMQ,</text>
+      <text x="242" y="128" fill="#475569">webhook</text>
+    </g>
+    <g>
+      <rect x="334" y="60" width="140" height="92" rx="10" fill="#1E293B" stroke="#1E293B"/>
+      <text x="404" y="88" font-weight="700" fill="#ffffff" font-size="14">3. Launch</text>
+      <text x="404" y="110" fill="#CBD5E1">Destinations, mode,</text>
+      <text x="404" y="128" fill="#CBD5E1">rate, seed</text>
+    </g>
+    <g>
+      <rect x="496" y="60" width="140" height="92" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="566" y="88" font-weight="700" fill="#1E293B" font-size="14">4. Run</text>
+      <text x="566" y="110" fill="#475569">Generate history,</text>
+      <text x="566" y="128" fill="#475569">then stream live</text>
+    </g>
+    <g>
+      <rect x="658" y="60" width="140" height="92" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="728" y="88" font-weight="700" fill="#1E293B" font-size="14">5. Inspect</text>
+      <text x="728" y="110" fill="#475569">Charts, audit,</text>
+      <text x="728" y="128" fill="#475569">realism report</text>
+    </g>
+    <g>
+      <rect x="820" y="60" width="130" height="92" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="885" y="88" font-weight="700" fill="#1E293B" font-size="14">6. Export</text>
+      <text x="885" y="110" fill="#475569">Data files and</text>
+      <text x="885" y="128" fill="#475569">the answer key</text>
+    </g>
+  </g>
+  <g stroke="#64748B" stroke-width="1.5" fill="none" marker-end="url(#a)">
+    <path d="M150 106H170"/><path d="M312 106H332"/><path d="M474 106H494"/><path d="M636 106H656"/><path d="M798 106H818"/>
+  </g>
+  <g font-size="12.5" fill="#475569" text-anchor="middle">
+    <rect x="10" y="186" width="302" height="40" rx="8" fill="#ffffff" stroke="#E2E8F0"/>
+    <text x="161" y="211">Spec validated: schema + invariants</text>
+    <rect x="334" y="186" width="302" height="40" rx="8" fill="#ffffff" stroke="#E2E8F0"/>
+    <text x="485" y="211">Seeded and deterministic: same seed, same data</text>
+    <rect x="658" y="186" width="292" height="40" rx="8" fill="#ffffff" stroke="#E2E8F0"/>
+    <text x="804" y="211">Labels kept apart from the data</text>
+  </g>
+  <text x="480" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#1E293B">From a described world to labeled transactions</text>
+</svg>
