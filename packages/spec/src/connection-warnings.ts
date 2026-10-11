@@ -12,7 +12,10 @@ export interface ConnectionWarning {
 export const LOCALHOST_WARNING_MESSAGE =
   "This address is resolved by the TxLoom worker. Inside Docker, localhost is the worker itself; the bundled demo broker is kafka:29092.";
 
-function hostsOf(type: "kafka" | "rabbitmq" | "webhook", config: Record<string, unknown>): string[] {
+function hostsOf(
+  type: "kafka" | "rabbitmq" | "webhook",
+  config: Record<string, unknown>,
+): string[] {
   if (type === "kafka") {
     const servers = (config.bootstrap_servers as string[] | undefined) ?? [];
     return servers.map((s) => s.split(":")[0] ?? s);

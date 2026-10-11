@@ -4,7 +4,9 @@ import { getQueues } from "./queues.js";
 
 export class WorkerUnavailableError extends Error {
   constructor() {
-    super("No worker is running to test this connection. Start the worker container and try again.");
+    super(
+      "No worker is running to test this connection. Start the worker container and try again.",
+    );
   }
 }
 
@@ -30,7 +32,9 @@ export async function probeConnection(
 ): Promise<ProbeResult> {
   const queues = getQueues();
   const sealedSecrets = candidate.secrets
-    ? encryptSecret(JSON.stringify(candidate.secrets), getOrCreateInstanceKey(dataDir)).toString("hex")
+    ? encryptSecret(JSON.stringify(candidate.secrets), getOrCreateInstanceKey(dataDir)).toString(
+        "hex",
+      )
     : null;
 
   const job = await queues.connectionTest.add(
@@ -47,7 +51,10 @@ export async function probeConnection(
   );
 
   try {
-    return (await job.waitUntilFinished(queues.connectionTestEvents, PROBE_TIMEOUT_MS)) as ProbeResult;
+    return (await job.waitUntilFinished(
+      queues.connectionTestEvents,
+      PROBE_TIMEOUT_MS,
+    )) as ProbeResult;
   } catch {
     throw new WorkerUnavailableError();
   }

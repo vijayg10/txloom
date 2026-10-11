@@ -14,6 +14,8 @@ interface StreamRow {
   state: StreamState;
   target_tps: number;
   label_channel_enabled: boolean;
+  session?: { seq: number } | null;
+  sessions_count?: number;
 }
 
 interface TickerEvent {
@@ -30,6 +32,10 @@ interface StreamMetricsMessage {
   target_tps?: number;
   sink_lag?: number;
   backpressure?: boolean;
+  sim_time?: string;
+  aimd_rate?: number;
+  failed_total?: number;
+  last_error?: string | null;
   ticker?: TickerEvent;
   state?: StreamRow["state"];
 }
@@ -58,6 +64,10 @@ export function StreamConsole({ runId }: { runId: string }) {
   const [achievedTps, setAchievedTps] = useState(0);
   const [sinkLag, setSinkLag] = useState(0);
   const [backpressure, setBackpressure] = useState(false);
+  const [aimdRate, setAimdRate] = useState<number | null>(null);
+  const [failedTotal, setFailedTotal] = useState(0);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [simTime, setSimTime] = useState<string | null>(null);
   const [ticker, setTicker] = useState<TickerEvent[]>([]);
   const [rateInput, setRateInput] = useState("");
   const [startError, setStartError] = useState<string | null>(null);
@@ -68,6 +78,17 @@ export function StreamConsole({ runId }: { runId: string }) {
       .get<StreamRow>(`/runs/${runId}/stream`)
       .then((row) => {
         setStream(row);
+        const known = row as { sim_time?: string; metrics?: { sim_time?: string } };
+        const flat = row as {
+          aimd_rate?: number;
+          failed_total?: number;
+          last_error?: string | null;
+        };
+        if (flat.aimd_rate !== undefined) setAimdRate(flat.aimd_rate);
+        if (flat.failed_total !== undefined) setFailedTotal(flat.failed_total);
+        if (flat.last_error) setLastError(flat.last_error);
+        const initial = known.sim_time ?? known.metrics?.sim_time;
+        if (initial) setSimTime(initial);
         setRateInput(String(row.target_tps));
       })
       .catch(() => setStream(null));
@@ -88,6 +109,10 @@ export function StreamConsole({ runId }: { runId: string }) {
       }
       if (data.sink_lag !== undefined) setSinkLag(data.sink_lag);
       if (data.backpressure !== undefined) setBackpressure(data.backpressure);
+      if (data.sim_time) setSimTime(data.sim_time);
+      if (data.aimd_rate !== undefined) setAimdRate(data.aimd_rate);
+      if (data.failed_total !== undefined) setFailedTotal(data.failed_total);
+      if (data.last_error !== undefined) setLastError(data.last_error);
       if (data.ticker) {
         setTicker((prev) => [data.ticker!, ...prev].slice(0, TICKER_LIMIT));
       }
@@ -186,12 +211,40 @@ export function StreamConsole({ runId }: { runId: string }) {
             {startError}
           </p>
         )}
+        {stream.state === "error" && (
+          <p
+            role="alert"
+            data-testid="stream-error"
+            className="border-danger/40 bg-danger/5 text-danger mb-3 rounded-xl border px-3.5 py-2.5 text-sm"
+          >
+            The stream stopped on an error: {lastError ?? "the destination looks down"}. Stop it,
+            fix the destination, then start it again.
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-3" data-testid="stream-dial">
           <Metric
             label="Throughput"
             value={`${achievedTps.toFixed(1)} / ${stream.target_tps} tps`}
           />
-          <Metric label="Sink lag" value={`${sinkLag}ms`} />
+          <div data-testid="stream-lag">
+            <Metric label="Sink lag (messages owed)" value={sinkLag.toLocaleString()} />
+          </div>
+          <div data-testid="stream-rate-paced">
+            <Metric
+              label="Paced rate"
+              value={`${(aimdRate ?? stream.target_tps).toFixed(0)} / ${stream.target_tps} tps`}
+              active={aimdRate !== null && aimdRate < stream.target_tps}
+            />
+          </div>
+          <div data-testid="stream-failed">
+            <Metric label="Failed" value={failedTotal.toLocaleString()} active={failedTotal > 0} />
+          </div>
+          <div data-testid="stream-sim-time">
+            <Metric
+              label={`Simulated time${stream.session ? ` · session ${stream.session.seq}` : ""}`}
+              value={simTime ? simTime.replace("T", " ").replace(/\.\d+Z$/, " UTC") : "—"}
+            />
+          </div>
           <div
             data-testid="stream-backpressure"
             className={backpressure ? "backpressure-active" : ""}
@@ -206,7 +259,7 @@ export function StreamConsole({ runId }: { runId: string }) {
             achieved {achievedTps.toFixed(1)} / target {stream.target_tps} tps
           </span>
           <span className="sr-only" data-testid="stream-sink-lag">
-            sink lag: {sinkLag}ms
+            sink lag: {sinkLag} messages
           </span>
         </div>
 

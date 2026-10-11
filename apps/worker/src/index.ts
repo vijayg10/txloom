@@ -15,6 +15,7 @@ import { startStreamDriveWorker } from "./jobs/stream-drive.js";
 import { startDeliverWorker } from "./jobs/deliver.js";
 import { RunDeliveryRepository } from "../../api/src/db/repositories/run-deliveries.js";
 import { deliverPayloadFor, enqueueDelivery } from "../../api/src/services/delivery-service.js";
+import { maybeAutoStartLive } from "../../api/src/services/stream-sessions.js";
 import { startExportBuildWorker } from "./jobs/export-build.js";
 import { startReportBuildWorker } from "./jobs/report-build.js";
 import { startConnectionTestWorker } from "./jobs/connection-test.js";
@@ -86,6 +87,18 @@ const streamDriveWorker = startStreamDriveWorker({
     };
   },
   onSessionProgress: (sessionId, progress) => streamSessions.recordProgress(sessionId, progress),
+  onStreamError: async (streamId, message) => {
+    await streams.setLastError(streamId, message);
+    await streams.setState(streamId, "error");
+  },
+  getSessionResume: async (sessionId) => {
+    const session = await streamSessions.getById(sessionId);
+    if (session?.last_checkpoint_day == null) return null;
+    return {
+      dayIndex: Number(session.last_checkpoint_day),
+      skip: Number(session.delivered_since_checkpoint ?? 0),
+    };
+  },
   onSessionEnded: (sessionId, error) => streamSessions.end(sessionId, error),
   onMetrics: async (streamId, metrics) => {
     await streams.setMetrics(streamId, metrics);
@@ -100,6 +113,10 @@ const deliverWorker = startDeliverWorker({
   connection,
   deliveries: new RunDeliveryRepository(db),
   connections: new ConnectionRepository(db, dataDir),
+  // The last replay finishing is what releases a `history_then_live` run into live (FR-022).
+  onDeliveryFinished: async (runId) => {
+    await maybeAutoStartLive(db, runId);
+  },
 });
 
 const exportBuildWorker = startExportBuildWorker({ connection });

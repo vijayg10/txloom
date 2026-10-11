@@ -34,6 +34,12 @@ export function makeConnections(): Connection[] {
         ok: true,
         summary: "Connected. Topic txloom.events has 3 partitions.",
         stage: "done",
+        topic: {
+          name: "txloom.events",
+          exists: true,
+          partitions: 3,
+          retention_ms: 30 * 24 * 60 * 60 * 1000,
+        },
       },
       warnings: [],
       created_at: "2026-10-01T00:00:00.000Z",
@@ -60,6 +66,34 @@ export function makeConnections(): Connection[] {
       warnings: [],
       created_at: "2026-09-20T00:00:00.000Z",
       updated_at: "2026-10-08T14:22:00.000Z",
+    },
+    {
+      id: "conn-short-retention",
+      type: "kafka",
+      name: "short-retention-kafka",
+      config: {
+        bootstrap_servers: ["kafka:29092"],
+        security_protocol: "PLAINTEXT",
+        default_topic: "short.events",
+      },
+      has_credentials: false,
+      managed_by: "user",
+      health: {
+        last_test_at: "2026-10-09T09:00:00.000Z",
+        ok: true,
+        summary: "Connected. Topic short.events has 1 partition.",
+        stage: "done",
+        // One day, shorter than any multi-day history replayed into it.
+        topic: {
+          name: "short.events",
+          exists: true,
+          partitions: 1,
+          retention_ms: 24 * 60 * 60 * 1000,
+        },
+      },
+      warnings: [],
+      created_at: "2026-10-02T00:00:00.000Z",
+      updated_at: "2026-10-09T09:00:00.000Z",
     },
   ];
 }
@@ -173,6 +207,23 @@ export function makeRuns(): Run[] {
           total: 182_400,
           destination_snapshot: destination("events", "conn-local-kafka", "local-kafka"),
           last_error: null,
+        },
+      ],
+    }),
+    baseRun({
+      id: "run-replay-failed",
+      phase: "replaying",
+      replay_history: true,
+      status: "completed",
+      deliveries: [
+        {
+          sink: "events",
+          state: "failed",
+          published: 91_000,
+          failed: 12,
+          total: 182_400,
+          destination_snapshot: destination("events", "conn-local-kafka", "local-kafka"),
+          last_error: "12 deliveries could not be delivered. Retry to continue, or skip this sink.",
         },
       ],
     }),

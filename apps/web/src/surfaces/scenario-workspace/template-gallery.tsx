@@ -13,11 +13,16 @@ interface Template {
 interface ScenarioRow {
   id: string;
   name: string;
+  current_version?: { id: string; number: number };
 }
 
 /** Template gallery (FR-006): browse the four seeded starter scenarios and
  * clone one into a new, immediately-editable scenario. */
-export function TemplateGallery({ onCloned }: { onCloned?: (scenarioId: string) => void }) {
+export function TemplateGallery({
+  onCloned,
+}: {
+  onCloned?: (scenarioId: string, versionNumber: number | undefined) => void;
+}) {
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [cloning, setCloning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +42,7 @@ export function TemplateGallery({ onCloned }: { onCloned?: (scenarioId: string) 
         name: `${template.name} (from template)`,
         template_slug: template.slug,
       });
-      onCloned?.(scenario.id);
+      onCloned?.(scenario.id, scenario.current_version?.number);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to clone template");
     } finally {

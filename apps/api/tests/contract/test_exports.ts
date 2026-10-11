@@ -159,7 +159,12 @@ describe("truth/exports contract", () => {
       path.join(runDir, "labels", "part-0.parquet"),
       LABEL_RECORD_SCHEMA,
       ids.map((id) =>
-        labelRow(id, id === "e2" ? { is_fraud: true, typology: "card_testing" } : {}),
+        labelRow(
+          id,
+          id === "e2"
+            ? { is_fraud: true, typology: "card_testing", actor_id: "actor_1", campaign_step: 0 }
+            : {},
+        ),
       ),
     );
     const delivered = [
@@ -179,7 +184,9 @@ describe("truth/exports contract", () => {
       delivered.map((d) =>
         labelRow(
           d.event_id,
-          d.event_id === "e2" ? { is_fraud: true, typology: "card_testing" } : {},
+          d.event_id === "e2"
+            ? { is_fraud: true, typology: "card_testing", actor_id: "actor_1", campaign_step: 0 }
+            : {},
         ),
       ),
     );
@@ -341,6 +348,44 @@ describe("truth/exports contract", () => {
       expect(header).toContain(column);
     }
     expect(lines.find((line) => line.startsWith("e2"))).toContain("card_testing");
+  });
+
+  it.each([
+    ["truth", { kind: "truth" }],
+    ["sink", { kind: "sink", name: "archive" }],
+  ])("include_labels keeps every label field on every row (%s source)", async (_label, source) => {
+    const response = await requestExport(archiveRunId, {
+      format: "json",
+      include_labels: true,
+      acknowledged_warning: true,
+      source,
+    });
+    const manifest = await untilFinished(archiveRunId, response.json().export_id);
+    const rows = JSON.parse(
+      await exportFile(archiveRunId, manifest.export_id, "data.json"),
+    ) as Record<string, unknown>[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      for (const field of [
+        "is_fraud",
+        "typology",
+        "actor_id",
+        "campaign_step",
+        "corruption_type",
+      ]) {
+        expect(row, field).toHaveProperty(field);
+      }
+    }
+    const fraud = rows.filter((row) => row.event_id === "e2");
+    expect(fraud.length).toBeGreaterThan(0);
+    for (const row of fraud) {
+      expect(row).toMatchObject({
+        is_fraud: true,
+        typology: "card_testing",
+        actor_id: "actor_1",
+        campaign_step: 0,
+      });
+    }
   });
 
   it("a completed export downloads; an unknown export 404s", async () => {

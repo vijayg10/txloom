@@ -18,6 +18,7 @@ import {
   makeRuns,
   makeStream,
   MOCK_SCENARIO_ID,
+  MOCK_SCENARIO_NAME,
 } from "./fixtures.js";
 
 function delay<T>(value: T, ms = 150): Promise<T> {
@@ -147,6 +148,14 @@ export function createMockApiClient(): TxLoomApiClient {
       return delay({ suggestions });
     },
 
+    listScenarios: () => delay({ scenarios: [{ id: MOCK_SCENARIO_ID, name: MOCK_SCENARIO_NAME }] }),
+    cloneTemplate: (_slug, name) =>
+      delay({
+        id: MOCK_SCENARIO_ID,
+        name,
+        current_version: { id: "specver-1", number: 1 },
+        spec: { output: { sinks: [{ type: "kafka", name: "events" }] } },
+      }),
     estimateRun: (_spec, replayHistory) => delay(makeEstimate(replayHistory), 300),
     getLaunchDefaults: () => delay(makeLaunchDefaults()),
     launchRun: (scenarioId, request: LaunchRequest) => {

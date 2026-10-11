@@ -6,6 +6,7 @@ import { closeDb, getDb } from "../../src/db/knex.js";
 import { closeQueues } from "../../src/services/queues.js";
 import { ScenarioRepository } from "../../src/db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../../src/db/repositories/spec-versions.js";
+import { StreamRepository } from "../../src/db/repositories/streams.js";
 import { RunRepository } from "../../src/db/repositories/runs.js";
 
 const spec = {
@@ -208,5 +209,80 @@ describe("stream control contract", () => {
       payload: { target_tps: 10 },
     });
     expect(patchAfterStop.statusCode).toBe(409);
+  });
+
+  it("GET returns every StreamMetrics field, even before the worker has reported", async () => {
+    const response = await app.inject({ method: "GET", url: `/api/v1/runs/${runId}/stream` });
+    const body = response.json();
+    for (const field of [
+      "achieved_tps",
+      "target_tps",
+      "aimd_rate",
+      "sink_lag",
+      "in_flight",
+      "retry_queue",
+      "backpressure",
+      "delivered_total",
+      "failed_total",
+      "sim_time",
+      "last_error",
+    ]) {
+      expect(body, field).toHaveProperty(field);
+    }
+    expect(body.backpressure).toBe(false);
+    expect(body.last_error).toBeNull();
+  });
+
+  describe("after the destination's breaker trips", () => {
+    it("reports the error state with last_error, and metrics the worker wrote", async () => {
+      const streams = new StreamRepository(getDb());
+      const stream = (await streams.getByRunId(runId))!;
+      await streams.setMetrics(stream.id, {
+        achieved_tps: 12,
+        aimd_rate: 7,
+        sink_lag: 340,
+        in_flight: 8,
+      });
+      await streams.setLastError(stream.id, "More than half of the last 120 deliveries failed");
+      await streams.setState(stream.id, "error");
+
+      const body = (
+        await app.inject({ method: "GET", url: `/api/v1/runs/${runId}/stream` })
+      ).json();
+      expect(body.state).toBe("error");
+      expect(body.last_error).toContain("More than half");
+      expect(body).toMatchObject({ achieved_tps: 12, aimd_rate: 7, sink_lag: 340, in_flight: 8 });
+    });
+
+    it("refuses a start from error, accepts stop, then start gives a new session", async () => {
+      const refused = await app.inject({
+        method: "POST",
+        url: `/api/v1/runs/${runId}/stream/start`,
+        payload: {},
+      });
+      expect(refused.statusCode).toBe(409);
+
+      const stopped = await app.inject({
+        method: "POST",
+        url: `/api/v1/runs/${runId}/stream/stop`,
+      });
+      expect(stopped.statusCode).toBe(200);
+      expect(stopped.json().state).toBe("stopped");
+
+      const sessionsBefore = (
+        await app.inject({ method: "GET", url: `/api/v1/runs/${runId}/stream/sessions` })
+      ).json().sessions.length;
+      const started = await app.inject({
+        method: "POST",
+        url: `/api/v1/runs/${runId}/stream/start`,
+        payload: {},
+      });
+      expect(started.statusCode).toBe(200);
+      expect(started.json().state).toBe("streaming");
+      const sessions = (
+        await app.inject({ method: "GET", url: `/api/v1/runs/${runId}/stream/sessions` })
+      ).json().sessions;
+      expect(sessions.length).toBe(sessionsBefore + 1);
+    });
   });
 });

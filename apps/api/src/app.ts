@@ -33,7 +33,8 @@ export interface BuildAppOptions {
   /** Skip DB-touching plugin registration — used by contract tests that only
    * exercise DB-free routes (health, capabilities) without a live MySQL. */
   skipDb?: boolean;
-  logger?: boolean;
+  /** `true` logs to stdout; the object form lets a test capture the log stream. */
+  logger?: boolean | { level: string; stream: NodeJS.WritableStream };
 }
 
 const API_PREFIX = "/api/v1";
@@ -51,7 +52,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     async (api) => {
       await api.register(healthRoutes);
       await api.register(capabilitiesRoutes);
-      await api.register(specRoutes);
+      // The estimate reads the measured throughput from the database when there is one.
+      await api.register(specRoutes, { useDb: !options.skipDb });
       await api.register(specDocsRoutes);
 
       if (!options.skipDb) {

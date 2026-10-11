@@ -2,17 +2,15 @@ import { Worker, UnrecoverableError, type ConnectionOptions, type Job } from "bu
 import type { SimulationSpec } from "@txloom/spec";
 import {
   ENGINE_VERSION,
-  resumeLiveWorld,
-  drawNextLiveEvent,
-  liveEventLabel,
   TokenBucket,
-  type LiveWorldState,
+  type Delivered,
   type WorldCheckpoint,
   type LabelRecord,
   type TruthEvent,
 } from "@txloom/engine";
 import path from "node:path";
 import {
+  AimdPacer,
   DeliveryPump,
   ParquetStreamWriter,
   LABEL_RECORD_SCHEMA,
@@ -24,7 +22,18 @@ import {
   type DroppedLabel,
   type Sink,
 } from "@txloom/sinks";
-import { getMerchants } from "../pool/merchant-cache.js";
+import {
+  ThreadedLiveSource,
+  type LiveChunk,
+  type LiveSource,
+  type LiveSourceInit,
+} from "../live/live-source.js";
+import {
+  pruneLiveDayCheckpointsBefore,
+  trimLiveDayCheckpoints,
+  readLiveDayCheckpoint,
+  writeLiveDayCheckpoint,
+} from "../live/live-checkpoints.js";
 import type { ConnectionRepository } from "../../../api/src/db/repositories/connections.js";
 
 /** One resolved-at-start destination: IDs and targets only, never secrets. */
@@ -76,6 +85,9 @@ export interface StreamDriveJobData {
   engineVersion: number;
   destinations: StreamDriveDestination[];
   labelChannelEnabled: boolean;
+  /** Continue from a previous session's day checkpoint instead of the end of history. `skip` is
+   * how many of that day's deliveries the previous session had already made. */
+  resume?: { sessionId: string; dayIndex: number; skip: number };
 }
 
 export interface StreamControlSnapshot {
@@ -91,6 +103,14 @@ export interface StreamMetrics {
   sink_lag: number;
   backpressure: boolean;
   ticker?: TruthEvent;
+  /** Simulated time of the last delivery handed to the sinks (ISO). */
+  sim_time?: string;
+  /** The paced rate after backpressure (US7); equals the target when the destination keeps up. */
+  aimd_rate?: number;
+  in_flight?: number;
+  /** The worker process's resident memory, for the benchmark's flat-memory check (SC-010). */
+  worker_rss_bytes?: number;
+  last_error?: string | null;
   retry_queue?: number;
   delivered_total?: number;
   failed_total?: number;
@@ -112,13 +132,32 @@ export interface StreamDriveDeps {
   /** Running totals for the session, once per metrics window. */
   onSessionProgress?: (
     sessionId: string,
-    progress: { delivered: number; failed: number },
+    progress: {
+      delivered: number;
+      failed: number;
+      simTimeMs?: number;
+      /** The simulated day whose checkpoint is the latest written, and how many of its
+       * deliveries have been made since — what a crash resume skips. */
+      lastCheckpointDay?: number;
+      deliveredSinceCheckpoint?: number;
+    },
   ) => Promise<void>;
+  /** This session's own persisted position, if it already wrote a day checkpoint (a restart
+   * after a crash resumes the same session from there). */
+  getSessionResume?: (sessionId: string) => Promise<{ dayIndex: number; skip: number } | null>;
+  /** Builds the source of live deliveries. Defaults to a dedicated worker thread. */
+  openLiveSource?: (init: LiveSourceInit) => LiveSource | Promise<LiveSource>;
+  /** The destination's breaker tripped: the stream moves to `error` and holds there until stopped. */
+  onStreamError?: (streamId: string, message: string) => Promise<void>;
   /** Called when the job exits, whether the stream was stopped or the job crashed. */
   onSessionEnded?: (sessionId: string, error?: string) => Promise<void>;
   onLabel?: (streamId: string, label: LabelRecord) => Promise<void>;
   /** Loop tick rate, milliseconds — defaults to 200ms (5 ticks/sec). */
   tickMs?: number;
+  /** BullMQ lock and stalled-job check timing; a killed worker's session is handed to another
+   * worker once its lock lapses. Tests shorten these. */
+  lockDurationMs?: number;
+  stalledIntervalMs?: number;
 }
 
 const METRICS_WINDOW_MS = 1000;
@@ -151,17 +190,47 @@ export function startStreamDriveWorker(deps: StreamDriveDeps): Worker<StreamDriv
           `Run ${data.runId} was created by engine version ${data.engineVersion}, but this worker runs version ${ENGINE_VERSION}. Regenerate the run with the current engine.`,
         );
       }
-      const seed = BigInt(data.seed);
-      const merchants = getMerchants(data.runId, data.engineVersion, data.spec, seed);
-      const worlds: LiveWorldState[] = [];
-      for (let partitionNo = 0; partitionNo < data.partitionCount; partitionNo++) {
-        const checkpoint = await deps.loadCheckpoint(data.runId, partitionNo);
-        worlds.push(resumeLiveWorld(data.spec, seed, checkpoint, merchants));
+      const sinkNames = data.destinations.map((d) => d.sink);
+
+      // Where the world continues from: this session's own latest day (a restart), else the
+      // previous session's final day, else the end of history (R7).
+      const own = (await deps.getSessionResume?.(data.sessionId)) ?? null;
+      const resume = own ? { sessionId: data.sessionId, ...own } : (data.resume ?? null);
+      let checkpoints: WorldCheckpoint[] = [];
+      if (resume) {
+        if (!deps.dataDir) throw new Error("resuming a session needs a data directory");
+        checkpoints = await readLiveDayCheckpoint(
+          deps.dataDir,
+          data.runId,
+          resume.sessionId,
+          resume.dayIndex,
+          data.partitionCount,
+        );
+      } else {
+        for (let partitionNo = 0; partitionNo < data.partitionCount; partitionNo++) {
+          checkpoints.push(await deps.loadCheckpoint(data.runId, partitionNo));
+        }
       }
+      const sourceInit: LiveSourceInit = {
+        spec: data.spec,
+        seed: data.seed,
+        runId: data.runId,
+        engineVersion: data.engineVersion,
+        checkpoints,
+        sinks: sinkNames,
+        skipFirstDay: resume?.skip ?? 0,
+        ...(deps.dataDir && !deps.openLiveSource
+          ? { checkpointTarget: { dataDir: deps.dataDir, sessionId: data.sessionId } }
+          : {}),
+      };
+      const source = deps.openLiveSource
+        ? await deps.openLiveSource(sourceInit)
+        : new ThreadedLiveSource(sourceInit);
       const sinks: Sink[] = [];
       try {
         for (const destination of data.destinations) sinks.push(await createSink(destination));
       } catch (err) {
+        await source.close();
         await Promise.allSettled(sinks.map((s) => s.close()));
         throw err;
       }
@@ -198,7 +267,10 @@ export function startStreamDriveWorker(deps: StreamDriveDeps): Worker<StreamDriv
       };
 
       const pumps: DeliveryPump[] = [];
+      // Kafka destinations with a label topic also get the labels as messages (FR-030a).
+      const labelPumps: (DeliveryPump | undefined)[] = [];
       let breakerError: string | undefined;
+      const pacers: AimdPacer[] = [];
       sinks.forEach((sink, index) => {
         sink.setRunContext?.({
           runId: data.runId,
@@ -206,9 +278,12 @@ export function startStreamDriveWorker(deps: StreamDriveDeps): Worker<StreamDriv
           engineVersion: data.engineVersion,
         });
         const destination = data.destinations[index]!;
+        const pacer = new AimdPacer({ targetTps: 1000 });
+        pacers.push(pacer);
         pumps.push(
           new DeliveryPump({
             sink,
+            pacing: pacer,
             target: {
               ...(destination.topic ? { topic: destination.topic } : {}),
               ...(destination.routingKey ? { routing_key: destination.routingKey } : {}),
@@ -219,64 +294,132 @@ export function startStreamDriveWorker(deps: StreamDriveDeps): Worker<StreamDriv
             },
           }),
         );
+        labelPumps.push(
+          data.labelChannelEnabled && destination.labelTopic && sink.type === "kafka"
+            ? new DeliveryPump({
+                sink,
+                target: { topic: destination.labelTopic },
+                maxAttempts: 3,
+                onDropped: () => {},
+              })
+            : undefined,
+        );
       });
 
       let sessionError: string | undefined;
-      let partitionCursor = 0;
+      let errorReported = false;
+      let lastTickAt = Date.now();
       let windowStartMs = Date.now();
       let lastEvent: TruthEvent | undefined;
+      let simTimeMs: number | undefined;
+      let lastCheckpointDay = resume?.dayIndex;
+      // Deliveries of the checkpointed day already made: the position a crash resume skips to.
+      let deliveredSinceCheckpoint = resume?.skip ?? 0;
       const lastTotals = { delivered: 0, failed: 0 };
+      const encoder = new TextEncoder();
+
+      /** The answer-key rows for a delivery: the event's fraud label (once, from the first sink)
+       * and every imperfection applied to this copy. */
+      const labelsOf = (delivery: Delivered, firstSink: boolean): LabelRecord[] => {
+        const rows = [...delivery.corruptions];
+        const duplicate = delivery.corruptions.some((c) => c.corruption_type === "duplicate");
+        if (firstSink && delivery.fraudLabel.is_fraud && !duplicate)
+          rows.unshift(delivery.fraudLabel);
+        return rows;
+      };
+
+      const handleChunk = async (chunk: LiveChunk): Promise<void> => {
+        // Without a data directory there is nowhere to keep day checkpoints, so a later session
+        // starts from the end of history instead.
+        if (chunk.checkpointWrittenDay !== undefined && deps.dataDir) {
+          lastCheckpointDay = chunk.checkpointWrittenDay;
+          deliveredSinceCheckpoint = chunk.fromIndex;
+          void pruneLiveDayCheckpointsBefore(
+            deps.dataDir,
+            data.runId,
+            data.sessionId,
+            chunk.checkpointWrittenDay,
+          ).catch(() => {});
+        } else if (chunk.dayCheckpoint && deps.dataDir) {
+          await writeLiveDayCheckpoint(
+            deps.dataDir,
+            data.runId,
+            data.sessionId,
+            chunk.dayCheckpoint,
+          );
+          lastCheckpointDay = chunk.dayCheckpoint.dayIndex;
+          deliveredSinceCheckpoint = chunk.fromIndex;
+        }
+        for (let index = 0; index < data.destinations.length; index++) {
+          const destination = data.destinations[index]!;
+          const pump = pumps[index]!;
+          for (const delivery of chunk.bySink[destination.sink] ?? []) {
+            const payload = { ...delivery.payload, sent_at: new Date().toISOString() };
+            // Awaiting submit is the backpressure: it waits for a window slot.
+            await pump.submit({
+              body: encodeWirePayload(payload),
+              envelope: { delivery_id: delivery.delivery_id, event_id: delivery.event_id },
+              target: {
+                ...(destination.topic ? { topic: destination.topic } : {}),
+                ...(destination.routingKey ? { routing_key: destination.routingKey } : {}),
+                key: partitionKeyOf(payload),
+              },
+            });
+            lastEvent = delivery.payload;
+            if (data.labelChannelEnabled) {
+              for (const label of labelsOf(delivery, index === 0)) {
+                await deps.onLabel?.(data.streamId, label);
+                const labelPump = labelPumps[index];
+                if (labelPump) {
+                  await labelPump.submit({
+                    body: encoder.encode(JSON.stringify(label)),
+                    envelope: { delivery_id: delivery.delivery_id, event_id: delivery.event_id },
+                    target: { topic: destination.labelTopic!, key: label.event_id },
+                  });
+                }
+              }
+            }
+          }
+        }
+        deliveredSinceCheckpoint += chunk.length;
+        simTimeMs = chunk.simTimeMs;
+      };
 
       try {
         for (;;) {
           const control = await deps.getStreamControl(data.streamId);
           const superseded =
             control.currentSessionId !== undefined && control.currentSessionId !== data.sessionId;
-          if (control.state === "stopped" || control.state === "error" || superseded) break;
-          if (breakerError) throw new Error(breakerError);
+          if (control.state === "stopped" || superseded) break;
+          if (control.state === "error" && !errorReported) break;
+          if (breakerError) {
+            // Stop publishing but keep the session until the user stops it, so the stream
+            // reads `error` with its reason instead of silently vanishing (US7).
+            if (!errorReported) {
+              errorReported = true;
+              sessionError = breakerError;
+              await deps.onStreamError?.(data.streamId, breakerError);
+            }
+            await new Promise((resolve) => setTimeout(resolve, tickMs));
+            continue;
+          }
 
           bucket.setRate(control.targetTps);
-          bucket.refill(tickMs);
+          for (const pacer of pacers) pacer.setTarget(control.targetTps);
+          // Refill by the time that really passed: a tick also spends time publishing, so
+          // assuming it lasted `tickMs` would run the stream below its target.
+          const tickAt = Date.now();
+          bucket.refill(tickAt - lastTickAt);
+          lastTickAt = tickAt;
 
           if (control.state === "streaming") {
-            const maxThisTick = Math.max(1, Math.ceil((control.targetTps * tickMs) / 1000) + 1);
-            const tokens = bucket.consume(maxThisTick);
-            for (let i = 0; i < tokens; i++) {
-              const partitionNo = partitionCursor % worlds.length;
-              partitionCursor++;
-              const world = worlds[partitionNo]!;
-              const event = drawNextLiveEvent(data.spec, world, partitionNo, Date.now());
-              const payload = {
-                ...event,
-                delivery_id: event.event_id,
-                delivered_at: event.ts,
-                sent_at: new Date().toISOString(),
-              };
-              const body = encodeWirePayload(payload);
-              const envelope = { delivery_id: event.event_id, event_id: event.event_id };
-              // Awaiting submit is the backpressure: it waits for a window slot.
-              await Promise.all(
-                pumps.map((pump, index) =>
-                  pump.submit({
-                    body,
-                    envelope,
-                    target: {
-                      ...(data.destinations[index]!.topic
-                        ? { topic: data.destinations[index]!.topic }
-                        : {}),
-                      ...(data.destinations[index]!.routingKey
-                        ? { routing_key: data.destinations[index]!.routingKey }
-                        : {}),
-                      key: partitionKeyOf(payload),
-                    },
-                  }),
-                ),
-              );
-              lastEvent = event;
-
-              if (data.labelChannelEnabled && deps.onLabel) {
-                await deps.onLabel(data.streamId, liveEventLabel(event));
-              }
+            // At most half a second's worth per tick, so catching up never becomes a burst.
+            const maxThisTick = Math.max(1, Math.ceil(control.targetTps / 2));
+            let remaining = bucket.consume(maxThisTick);
+            while (remaining > 0) {
+              const chunk = await source.take(remaining);
+              await handleChunk(chunk);
+              remaining -= Math.max(1, chunk.length);
             }
           }
 
@@ -296,11 +439,22 @@ export function startStreamDriveWorker(deps: StreamDriveDeps): Worker<StreamDriv
               retry_queue: snapshots.reduce((n, m) => n + m.retry_queue, 0),
               delivered_total: delivered,
               failed_total: failed,
+              aimd_rate: Math.min(...pacers.map((p) => p.rate())),
+              in_flight: snapshots.reduce((n, m) => n + m.in_flight, 0),
+              worker_rss_bytes: process.memoryUsage().rss,
+              last_error: breakerError ?? null,
+              ...(simTimeMs !== undefined ? { sim_time: new Date(simTimeMs).toISOString() } : {}),
               ...(lastEvent ? { ticker: lastEvent } : {}),
             });
             lastTotals.delivered = delivered;
             lastTotals.failed = failed;
-            await deps.onSessionProgress?.(data.sessionId, lastTotals);
+            await deps.onSessionProgress?.(data.sessionId, {
+              ...lastTotals,
+              ...(simTimeMs !== undefined ? { simTimeMs } : {}),
+              ...(lastCheckpointDay !== undefined
+                ? { lastCheckpointDay, deliveredSinceCheckpoint }
+                : {}),
+            });
             windowStartMs = now;
           }
 
@@ -309,20 +463,36 @@ export function startStreamDriveWorker(deps: StreamDriveDeps): Worker<StreamDriv
         // A stop is not a failure: give what is in flight a moment to settle before the sinks
         // close, but never hold a stop hostage to a destination that is down.
         await Promise.race([
-          Promise.all(pumps.map((pump) => pump.drain())),
+          Promise.all([...pumps, ...labelPumps].map((pump) => pump?.drain())),
           new Promise((resolve) => setTimeout(resolve, 5000)),
         ]).catch(() => {});
       } catch (error) {
         sessionError = error instanceof Error ? error.message : String(error);
         throw error;
       } finally {
-        for (const pump of pumps) pump.stop();
+        for (const pump of [...pumps, ...labelPumps]) pump?.stop();
+        await source.close().catch(() => {});
+        if (deps.dataDir && lastCheckpointDay !== undefined) {
+          await trimLiveDayCheckpoints(
+            deps.dataDir,
+            data.runId,
+            data.sessionId,
+            lastCheckpointDay,
+          ).catch(() => {});
+        }
         const finals = pumps.map((pump) => pump.metrics());
         lastTotals.delivered = finals.reduce((n, m) => n + m.delivered_total, 0);
         lastTotals.failed = finals.reduce((n, m) => n + m.failed_total, 0);
         await Promise.allSettled([...droppedWriters.values()].map((w) => w.close()));
         await Promise.allSettled(sinks.map((sink) => sink.close()));
-        await deps.onSessionProgress?.(data.sessionId, lastTotals);
+        // The final position: a new session continues from here without repeating anything.
+        await deps.onSessionProgress?.(data.sessionId, {
+          ...lastTotals,
+          ...(simTimeMs !== undefined ? { simTimeMs } : {}),
+          ...(lastCheckpointDay !== undefined
+            ? { lastCheckpointDay, deliveredSinceCheckpoint }
+            : {}),
+        });
         await deps.onSessionEnded?.(data.sessionId, sessionError);
       }
 
@@ -335,7 +505,8 @@ export function startStreamDriveWorker(deps: StreamDriveDeps): Worker<StreamDriv
       // failing a perfectly healthy stream (R7).
       concurrency: Number(process.env.TXLOOM_MAX_STREAMS) || 4,
       maxStalledCount: 10,
-      stalledInterval: 15_000,
+      stalledInterval: deps.stalledIntervalMs ?? 15_000,
+      ...(deps.lockDurationMs ? { lockDuration: deps.lockDurationMs } : {}),
     },
   );
 }

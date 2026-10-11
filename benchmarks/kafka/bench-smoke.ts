@@ -14,13 +14,13 @@ interface SmokeBaseline {
  * published 1,000 TPS number, fast enough to run every PR, that fails the
  * build if achieved throughput regresses below `baseline-smoke.json`'s
  * `min_achieved_tps` threshold. Requires a reachable Kafka broker
- * (KAFKA_BROKERS) — wire a `demo-brokers` Kafka container into CI to run
+ * (KAFKA_BROKERS, as the worker sees it) and the API (TXLOOM_API_URL) — wire a `demo-brokers` Kafka container into CI to run
  * this as part of `pnpm bench:smoke`.
  */
 async function main() {
   const baselinePath = path.join(import.meta.dirname, "baseline-smoke.json");
   const baseline = JSON.parse(await readFile(baselinePath, "utf-8")) as SmokeBaseline;
-  const brokers = (process.env.KAFKA_BROKERS ?? "localhost:9092").split(",");
+  const brokers = (process.env.KAFKA_BROKERS ?? "kafka:29092").split(",");
 
   console.log(
     `Running Kafka smoke benchmark: target ${baseline.target_tps} TPS for ${baseline.duration_s}s (regression threshold: ${baseline.min_achieved_tps} TPS)...`,
@@ -30,6 +30,8 @@ async function main() {
     durationMs: baseline.duration_s * 1000,
     brokers,
     topic: "txloom-bench-smoke",
+    consumers: 2000,
+    days: 14,
   });
 
   console.log(JSON.stringify(result, null, 2));

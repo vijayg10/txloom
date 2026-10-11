@@ -6,6 +6,19 @@ All notable changes to TxLoom are recorded here.
 
 ### Engine output changes (breaking; one `ENGINE_VERSION` bump per entry)
 
+- **`ENGINE_VERSION` 6 — daily activity curve sampler.** Event times within a day are drawn from
+  the built-in hour-of-day curve with an O(1) alias-table sampler (`activity-curve.ts`) instead of a
+  cumulative scan, so the same seed yields different timestamps. The curve's shape is unchanged.
+  Account-takeover anchors were already staggered and victims already dormant; tests now pin both.
+  The golden master was re-baselined.
+- **`ENGINE_VERSION` 5 — live generation is the same world, continued.** The live phase now runs
+  the same per-day simulator as history from the end-of-history checkpoint, instead of drawing
+  independent payments. Live traffic therefore includes income credits and labelled fraud
+  campaigns, follows the weekday/weekend rhythm and seasonality, applies the spec's imperfections
+  per sink (late and duplicated deliveries, out-of-order and clock skew), and is stamped with
+  simulated time. Partitions are merged by `delivered_at`. Streams started on a run made by an
+  earlier engine version are refused: regenerate the run. History output is unchanged; the golden
+  master only re-pins the version.
 - **`ENGINE_VERSION` 4 — per-event imperfection transformer.** Imperfections are applied to each
   sink's delivered copy one event at a time instead of over a whole day's array. Late events are
   now physically delivered later (in `delivered_at` order) and keep their original `ts`; clock skew

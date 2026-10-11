@@ -199,8 +199,11 @@ describe("run deliveries contract", () => {
     }
 
     await app.inject({ method: "POST", url: `/api/v1/runs/${runId}/deliveries/live-a/skip` });
+    // Skipping the last blocking replay of a history_then_live run starts the live stream by
+    // itself, so a manual start now finds it already running, and is no longer blocked by replay.
     const afterSkip = await start();
     expect(afterSkip.json().error?.code).not.toBe("replay_pending");
-    expect(afterSkip.statusCode).toBe(200);
+    const stream = await app.inject({ method: "GET", url: `/api/v1/runs/${runId}/stream` });
+    expect(stream.json().state).toBe("streaming");
   });
 });

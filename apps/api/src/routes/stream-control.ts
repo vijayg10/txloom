@@ -13,9 +13,14 @@ import {
   type SessionDestination,
 } from "../db/repositories/stream-sessions.js";
 import { RunDeliveryRepository } from "../db/repositories/run-deliveries.js";
+import { validateDestinations, type DestinationInput } from "../services/destinations.js";
 import { ConnectionRepository } from "../db/repositories/connections.js";
 import { RunDestinationRepository } from "../db/repositories/run-destinations.js";
-import { getQueues } from "../services/queues.js";
+import {
+  createStreamSession,
+  DEFAULT_MAX_STREAMS,
+  launchSessionDestinations,
+} from "../services/stream-sessions.js";
 
 interface StreamStartBody {
   target_tps?: number;
@@ -43,8 +48,6 @@ interface StreamRateBody {
  * carries only connection IDs and targets — the worker resolves and decrypts
  * the connection itself, so no secret ever enters Redis.
  */
-const DEFAULT_MAX_STREAMS = 4;
-
 export default async function streamControlRoutes(app: FastifyInstance) {
   const db = getDb();
   const runs = new RunRepository(db);
@@ -53,27 +56,30 @@ export default async function streamControlRoutes(app: FastifyInstance) {
   const sessions = new StreamSessionRepository(db);
   const dataDir = process.env.DATA_DIR ?? "./data";
 
-  /** The run's launch destinations, as a stream's initial destinations. */
-  async function launchDestinations(runId: string): Promise<SessionDestination[]> {
-    return (await runDestinations.listByRun(runId))
-      .filter((d) => d.connection_id !== null)
-      .map((d) => ({
-        sink: d.sink_name,
-        connection_id: d.connection_id!,
-        ...(d.topic ? { topic: d.topic } : {}),
-        ...(d.routing_key ? { routing_key: d.routing_key } : {}),
-        ...(d.label_topic ? { label_topic: d.label_topic } : {}),
-      }));
-  }
-
   async function deletedLaunchDestination(runId: string) {
     return (await runDestinations.listByRun(runId)).find((d) => d.connection_id === null);
   }
 
+  /** The `Stream` of contracts/api.md: the row, plus every `StreamMetrics` field (zeroed until the
+   * worker has reported) flattened beside it. */
   function serialize(stream: StreamRow) {
+    const reported = (
+      typeof stream.metrics === "string" ? JSON.parse(stream.metrics) : (stream.metrics ?? {})
+    ) as Record<string, unknown>;
     return {
+      achieved_tps: 0,
+      aimd_rate: stream.target_tps,
+      sink_lag: 0,
+      in_flight: 0,
+      retry_queue: 0,
+      backpressure: false,
+      delivered_total: 0,
+      failed_total: 0,
+      sim_time: null,
+      ...reported,
       ...stream,
-      metrics: typeof stream.metrics === "string" ? JSON.parse(stream.metrics) : stream.metrics,
+      last_error: stream.last_error ?? (reported.last_error as string | null | undefined) ?? null,
+      metrics: reported,
       destinations: streamDestinations(stream),
     };
   }
@@ -145,7 +151,7 @@ export default async function streamControlRoutes(app: FastifyInstance) {
         },
       };
     }
-    let stream = await streams.getByRunId(runId);
+    const stream = await streams.getByRunId(runId);
     if (stream?.state === "paused") {
       reply.status(409);
       return {
@@ -172,7 +178,7 @@ export default async function streamControlRoutes(app: FastifyInstance) {
     // uses; every one must still point at a saved connection.
     const destinations: SessionDestination[] = stream
       ? streamDestinations(stream)
-      : await launchDestinations(runId);
+      : await launchSessionDestinations(db, runId);
     const connections = new ConnectionRepository(db, dataDir);
     for (const destination of destinations) {
       if (!(await connections.getById(destination.connection_id))) {
@@ -211,59 +217,14 @@ export default async function streamControlRoutes(app: FastifyInstance) {
 
     const labelChannelEnabled =
       body.label_channel_enabled ?? stream?.label_channel_enabled ?? false;
-    if (!stream) {
-      stream = await streams.create({
-        run_id: runId,
-        target_tps: targetTps,
-        label_channel_enabled: labelChannelEnabled,
-        destinations,
-      });
-    } else {
-      await streams.setTargetTps(stream.id, targetTps);
-    }
-
-    // Every start is a new session that continues the run's world from the end of history;
-    // live-day checkpoints (later) let a restart continue from where the last session stopped.
-    const session = await sessions.create({
-      stream_id: stream.id,
-      engine_version: run.engine_version,
+    const started = await createStreamSession(db, {
+      run,
+      targetTps,
+      labelChannelEnabled,
       destinations,
-      resume_from: { kind: "history_end" },
+      stream,
     });
-    await streams.setCurrentSession(stream.id, session.id);
-    await streams.setLastError(stream.id, null);
-    await streams.setState(stream.id, "streaming");
-
-    const queues = getQueues();
-    await queues.streamDrive.add(
-      `stream-${runId}-${session.seq}`,
-      {
-        runId,
-        streamId: stream.id,
-        sessionId: session.id,
-        sessionSeq: session.seq,
-        spec,
-        seed: run.seed,
-        partitionCount: run.partition_count,
-        engineVersion: run.engine_version,
-        destinations: destinations.map((d) => ({
-          sink: d.sink,
-          connectionId: d.connection_id,
-          ...(d.topic ? { topic: d.topic } : {}),
-          ...(d.routing_key ? { routingKey: d.routing_key } : {}),
-          ...(d.label_topic ? { labelTopic: d.label_topic } : {}),
-        })),
-        labelChannelEnabled,
-      },
-      {
-        jobId: `stream-${runId}-${session.seq}`,
-        removeOnComplete: { age: 86_400 },
-        removeOnFail: { age: 604_800 },
-      },
-    );
-
-    const started = await streams.getById(stream.id);
-    return serialize(started!);
+    return serialize(started);
   });
 
   async function transition(
@@ -328,6 +289,50 @@ export default async function streamControlRoutes(app: FastifyInstance) {
     }
 
     await streams.setTargetTps(stream.id, body.target_tps);
+    return serialize((await streams.getById(stream.id))!);
+  });
+
+  /** Changes where future sessions deliver (FR-048). Only the stream's own destinations change:
+   * the run's launch record is never rewritten, so it keeps saying where the run was sent. */
+  app.put("/runs/:id/stream/destinations", async (request, reply) => {
+    const { id: runId } = request.params as { id: string };
+    const body = (request.body ?? {}) as { destinations?: DestinationInput[] };
+    const run = await runs.getById(runId);
+    const stream = await streams.getByRunId(runId);
+    if (!run || !stream) {
+      reply.status(404);
+      return { error: { code: "not_found", message: `No stream for run "${runId}"` } };
+    }
+    if (stream.state === "streaming" || stream.state === "paused" || stream.state === "error") {
+      reply.status(409);
+      return {
+        error: {
+          code: "stream_active",
+          message: `Stream is ${stream.state}. Stop it before changing where it delivers.`,
+        },
+      };
+    }
+    const inputs = body.destinations ?? [];
+    const allConnections = await new ConnectionRepository(db, dataDir).list();
+    const invalid = validateDestinations(
+      run.spec_snapshot as SimulationSpec,
+      inputs,
+      allConnections,
+    );
+    if (invalid) {
+      reply.status(400);
+      return { error: { code: invalid.code, message: invalid.message, details: invalid.details } };
+    }
+    await streams.setDestinations(
+      stream.id,
+      inputs.map((d) => ({
+        sink: d.sink,
+        connection_id: d.connection_id,
+        ...(d.topic ? { topic: d.topic } : {}),
+        ...(d.routing_key ? { routing_key: d.routing_key } : {}),
+        ...(d.label_topic ? { label_topic: d.label_topic } : {}),
+      })),
+    );
     return serialize((await streams.getById(stream.id))!);
   });
 

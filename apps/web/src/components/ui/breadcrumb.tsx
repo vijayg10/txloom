@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface BreadcrumbItem {
   label: string;
@@ -15,9 +16,9 @@ export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
           let content: ReactNode = item.label;
           if (item.href && !isLast) {
             content = (
-              <a href={item.href} className="hover:text-text">
+              <Link to={item.href} className="hover:text-text">
                 {item.label}
-              </a>
+              </Link>
             );
           } else if (isLast) {
             content = <span className="text-text font-medium">{item.label}</span>;

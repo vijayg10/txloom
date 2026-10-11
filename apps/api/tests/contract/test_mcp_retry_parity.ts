@@ -165,4 +165,76 @@ describe("MCP tools that need a database ↔ REST", () => {
       expect(manifest).toEqual(viaRest.json());
     });
   });
+  describe("connections and destinations ↔ REST", () => {
+    async function callTool(name: string, args: Record<string, unknown>) {
+      const result = await client.callTool({ name, arguments: args });
+      return JSON.parse((result.content as { text: string }[])[0]!.text);
+    }
+
+    it("list_connections equals GET /connections", async () => {
+      const created = await app.inject({
+        method: "POST",
+        url: "/api/v1/connections",
+        payload: {
+          type: "webhook",
+          name: "parity-hook",
+          config: { url: "https://hooks.example.com/p" },
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      const rest = await app.inject({ method: "GET", url: "/api/v1/connections" });
+      expect(await callTool("list_connections", {})).toEqual(rest.json());
+    });
+
+    it("launch_run with destinations is equivalent to the REST call", async () => {
+      const webhook = await app.inject({
+        method: "POST",
+        url: "/api/v1/connections",
+        payload: {
+          type: "webhook",
+          name: "parity-launch",
+          config: { url: "https://hooks.example.com/l" },
+        },
+      });
+      const connectionId = webhook.json().id as string;
+      const scenario = await app.inject({
+        method: "POST",
+        url: "/api/v1/scenarios",
+        payload: { name: "Destinations parity", currency: "INR" },
+      });
+      const destScenarioId = scenario.json().id as string;
+      const spec = tinySpec();
+      spec.output.sinks.push({ type: "webhook", name: "live" } as never);
+      await app.inject({
+        method: "POST",
+        url: `/api/v1/scenarios/${destScenarioId}/versions`,
+        payload: { spec },
+      });
+      const destinations = [{ sink: "live", connection_id: connectionId }];
+
+      const rest = await app.inject({
+        method: "POST",
+        url: `/api/v1/scenarios/${destScenarioId}/runs`,
+        payload: { destinations },
+      });
+      expect(rest.statusCode).toBe(201);
+      const viaTool = await callTool("launch_run", { scenario_id: destScenarioId, destinations });
+      expect(Object.keys(viaTool).sort()).toEqual(Object.keys(rest.json()).sort());
+      const rows = await getDb()("run_destinations").where({ run_id: viaTool.id });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ sink_name: "live", connection_id: connectionId });
+
+      // The same validation errors come back through the tool.
+      const missing = await callTool("launch_run", { scenario_id: destScenarioId });
+      expect(missing.error.code).toBe("sink_without_destination");
+    });
+
+    it("start_stream rejects a sink input", async () => {
+      const body = await callTool("start_stream", {
+        run_id: "00000000-0000-0000-0000-000000000000",
+        sink: { type: "kafka", brokers: ["localhost:9092"], topic: "x" },
+      });
+      expect(body.error.code).toBe("inline_sink_removed");
+    });
+  });
 });

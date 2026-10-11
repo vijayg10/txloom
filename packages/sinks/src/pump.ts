@@ -27,7 +27,7 @@ export interface PumpMetrics {
   aimd_rate: number | null;
   in_flight: number;
   retry_queue: number;
-  /** Smoothed acknowledgement latency in milliseconds. */
+  /** Messages the destination owes us: in flight + waiting to retry + waiting for a slot. */
   sink_lag: number;
   backpressure: boolean;
   delivered_total: number;
@@ -43,6 +43,87 @@ export interface PacingHook {
   onCompletion?(ok: boolean): void;
   /** Current paced rate, reported as `aimd_rate`. */
   rate?(): number;
+}
+
+/**
+ * Live pacing with additive-increase / multiplicative-decrease (US7): the effective rate is
+ * `min(target, aimd)`. Backpressure (a full window, a saturated transport, a throttled publish)
+ * halves `aimd` — at most once a second, so one burst of signals counts once — down to a floor of
+ * 1/s, and every quiet second adds 5% of the target back. `acquire()` releases publishes at the
+ * effective rate from a token bucket holding one second of burst.
+ */
+export class AimdPacer implements PacingHook {
+  private target: number;
+  private aimd: number;
+  private lastTick: number;
+  private lastHalvedAt = Number.NEGATIVE_INFINITY;
+  private tokens: number;
+  private lastRefill: number;
+  private chain: Promise<void> = Promise.resolve();
+  private readonly now: () => number;
+
+  constructor(options: { targetTps: number; now?: () => number }) {
+    this.now = options.now ?? Date.now;
+    this.target = Math.max(1, options.targetTps);
+    this.aimd = this.target;
+    this.lastTick = this.lastRefill = this.now();
+    this.tokens = this.target;
+  }
+
+  /** The stream's rate was changed. */
+  setTarget(targetTps: number): void {
+    this.recover();
+    // A pacer that was not throttled follows the new target in both directions; a throttled one
+    // never exceeds it and climbs back at the usual 5% a second.
+    const unthrottled = this.aimd >= this.target;
+    this.target = Math.max(1, targetTps);
+    this.aimd = unthrottled ? this.target : Math.min(this.aimd, this.target);
+  }
+
+  private recover(): void {
+    const at = this.now();
+    const elapsedSeconds = Math.max(0, at - this.lastTick) / 1000;
+    this.lastTick = at;
+    this.aimd = Math.min(this.target, this.aimd + 0.05 * this.target * elapsedSeconds);
+  }
+
+  rate(): number {
+    this.recover();
+    return Math.min(this.target, this.aimd);
+  }
+
+  onBackpressure(): void {
+    this.recover();
+    const at = this.now();
+    if (at - this.lastHalvedAt < 1000) return;
+    this.lastHalvedAt = at;
+    this.aimd = Math.max(1, this.aimd / 2);
+  }
+
+  acquire(): Promise<void> {
+    const next = this.chain.then(() => this.take());
+    this.chain = next.catch(() => {});
+    return next;
+  }
+
+  private async take(): Promise<void> {
+    for (;;) {
+      const rate = this.rate();
+      const at = this.now();
+      this.tokens = Math.min(
+        Math.max(1, rate),
+        this.tokens + ((at - this.lastRefill) / 1000) * rate,
+      );
+      this.lastRefill = at;
+      if (this.tokens >= 1) {
+        this.tokens -= 1;
+        return;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.ceil(((1 - this.tokens) / rate) * 1000)),
+      );
+    }
+  }
 }
 
 export interface PumpOptions {
@@ -168,7 +249,6 @@ export class DeliveryPump {
 
   private delivered = 0;
   private failed = 0;
-  private lagMs = 0;
   private backpressure = false;
   private lastSample = { at: 0, delivered: 0 };
   private completions: { at: number; ok: boolean }[] = [];
@@ -232,7 +312,6 @@ export class DeliveryPump {
   }
 
   private launch(attempt: Attempt): void {
-    const startedAt = this.now();
     this.sink
       .publish(
         attempt.item.target ?? this.options.target ?? {},
@@ -245,17 +324,15 @@ export class DeliveryPump {
         retryable: true,
         error: error instanceof Error ? error.message : String(error),
       }))
-      .then((result) => this.complete(attempt, result, startedAt));
+      .then((result) => this.complete(attempt, result));
   }
 
   private complete(
     attempt: Attempt,
     result: { ok: boolean; retryable?: boolean; error?: string },
-    startedAt: number,
   ): void {
     this.inFlight--;
     const at = this.now();
-    this.lagMs = this.lagMs === 0 ? at - startedAt : this.lagMs * 0.9 + (at - startedAt) * 0.1;
     attempt.attempts++;
 
     if (result.ok) {
@@ -419,7 +496,7 @@ export class DeliveryPump {
       aimd_rate: this.options.pacing?.rate?.() ?? null,
       in_flight: this.inFlight,
       retry_queue: this.retries.size + this.ready.length,
-      sink_lag: Math.round(this.lagMs),
+      sink_lag: this.inFlight + this.retries.size + this.ready.length + this.slotWaiters.length,
       backpressure: this.backpressure,
       delivered_total: this.delivered,
       failed_total: this.failed,

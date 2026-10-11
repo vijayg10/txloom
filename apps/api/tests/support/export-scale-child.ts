@@ -2,19 +2,21 @@
 //   node --import tsx export-scale-child.ts seed  <dataDir> <runId> <rows>
 //   node --import tsx export-scale-child.ts build <dataDir> <runId> <exportId>
 import path from "node:path";
-import {
-  LABEL_RECORD_SCHEMA,
-  ParquetStreamWriter,
-  TRUTH_EVENT_SCHEMA,
-} from "@txloom/sinks";
+import { LABEL_RECORD_SCHEMA, ParquetStreamWriter, TRUTH_EVENT_SCHEMA } from "@txloom/sinks";
 import { runExportBuild } from "../../../worker/src/jobs/export-build.js";
 
 const [mode, dataDir, runId, last] = process.argv.slice(2) as [string, string, string, string];
 
 async function seed(rows: number): Promise<void> {
   const runDir = path.join(dataDir, "runs", runId);
-  const truth = await ParquetStreamWriter.open(path.join(runDir, "truth", "part-0.parquet"), TRUTH_EVENT_SCHEMA);
-  const labels = await ParquetStreamWriter.open(path.join(runDir, "labels", "part-0.parquet"), LABEL_RECORD_SCHEMA);
+  const truth = await ParquetStreamWriter.open(
+    path.join(runDir, "truth", "part-0.parquet"),
+    TRUTH_EVENT_SCHEMA,
+  );
+  const labels = await ParquetStreamWriter.open(
+    path.join(runDir, "labels", "part-0.parquet"),
+    LABEL_RECORD_SCHEMA,
+  );
   for (let i = 0; i < rows; i++) {
     const eventId = `e${i}`;
     await truth.append({

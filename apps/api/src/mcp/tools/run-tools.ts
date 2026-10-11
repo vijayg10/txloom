@@ -63,8 +63,10 @@ export function registerRunTools(server: McpServer, app: FastifyInstance): void 
   server.registerTool(
     startStreamTool.name,
     { description: startStreamTool.description, inputSchema: startStreamTool.inputSchema },
-    async ({ run_id, target_tps, label_channel_enabled }) => {
+    async ({ run_id, target_tps, label_channel_enabled, sink }) => {
       const payload: Record<string, unknown> = {};
+      // Forwarded only so the REST route rejects it with inline_sink_removed (1:1 parity).
+      if (sink !== undefined) payload.sink = sink;
       if (target_tps !== undefined) payload.target_tps = target_tps;
       if (label_channel_enabled !== undefined)
         payload.label_channel_enabled = label_channel_enabled;

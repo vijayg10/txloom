@@ -68,7 +68,10 @@ function reshapeRabbit(old: Record<string, unknown>): RabbitReshape {
   return { config, secretsJson };
 }
 
-function reshapeWebhook(old: Record<string, unknown>): { config: Record<string, unknown>; secretsJson: string | null } {
+function reshapeWebhook(old: Record<string, unknown>): {
+  config: Record<string, unknown>;
+  secretsJson: string | null;
+} {
   const config = {
     url: old.url,
     timeout_ms: 5000,
@@ -99,7 +102,9 @@ export async function up(knex: Knex): Promise<void> {
         const config = row.credentials_enc
           ? reshapeKafkaWithCredentials(oldConfig)
           : reshapeKafka(oldConfig);
-        await knex("connections").where({ id: row.id }).update({ config: JSON.stringify(config) });
+        await knex("connections")
+          .where({ id: row.id })
+          .update({ config: JSON.stringify(config) });
       } else if (row.type === "rabbitmq") {
         const { config, secretsJson } = reshapeRabbit(oldConfig);
         await knex("connections")
@@ -132,11 +137,15 @@ export async function up(knex: Knex): Promise<void> {
     }
   }
 
-  await knex.raw("ALTER TABLE `connections` MODIFY `type` ENUM('kafka','rabbitmq','webhook') NOT NULL");
+  await knex.raw(
+    "ALTER TABLE `connections` MODIFY `type` ENUM('kafka','rabbitmq','webhook') NOT NULL",
+  );
 }
 
 export async function down(knex: Knex): Promise<void> {
-  await knex.raw("ALTER TABLE `connections` MODIFY `type` ENUM('file','kafka','rabbitmq','webhook') NOT NULL");
+  await knex.raw(
+    "ALTER TABLE `connections` MODIFY `type` ENUM('file','kafka','rabbitmq','webhook') NOT NULL",
+  );
   await knex.schema.alterTable("connections", (table) => {
     table.dropColumn("managed_by");
     table.dropColumn("last_test_result");

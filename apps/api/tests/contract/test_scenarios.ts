@@ -127,6 +127,17 @@ describe("scenarios & spec-versions contract", () => {
       );
     });
 
+    it("cloning a valid template returns the saved first version", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/scenarios",
+        payload: { name: "From UPI", template_slug: "upi-instant-payments" },
+      });
+      expect(response.statusCode).toBe(201);
+      const body = response.json();
+      expect(body.current_version).toEqual({ id: body.current_version_id, number: 1 });
+    });
+
     it("launching an invalid current version is rejected", async () => {
       const { scenarioId, versionId } = await scenarioWithInvalidVersion();
       await new ScenarioRepository(getDb()).setCurrentVersion(scenarioId, versionId);

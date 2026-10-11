@@ -1,37 +1,16 @@
-import type { Rng } from "../rng.js";
 import { randInt } from "../distributions.js";
 import { seasonalityMultiplier } from "../seasonality.js";
 import { drawLegitOutcome } from "../outcomes.js";
 import { isIncomeDay, drawIncomeAmount } from "../population/income-patterns.js";
 import { drawDailyTransactionCount } from "../population/spend-rhythms.js";
 import { drawMerchantAmount } from "../population/merchants.js";
+import { drawTimeOfDay } from "./activity-curve.js";
 import { drainDay, planDay } from "../fraud/planner.js";
 import type { LabelRecord, TruthEvent } from "../types.js";
 import { accumulateDay } from "../realism/aggregators.js";
 import { recordPurchase, type PartitionWorld, type PurchaseRing } from "./partition-world.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
-
-/** Built-in hour-of-day activity curve: a morning and an evening peak with a quiet night
- * (R6). No spec knob yet. */
-const HOUR_WEIGHTS = [
-  1, 1, 1, 1, 1, 2, 3, 5, 7, 8, 8, 7, 7, 7, 6, 6, 7, 8, 9, 9, 8, 6, 4, 2,
-] as const;
-const HOUR_TOTAL = HOUR_WEIGHTS.reduce((sum, w) => sum + w, 0);
-
-function drawTimeInDay(dayStartMs: number, rng: Rng): number {
-  let target = rng.nextFloat() * HOUR_TOTAL;
-  let hour = HOUR_WEIGHTS.length - 1;
-  for (let h = 0; h < HOUR_WEIGHTS.length; h++) {
-    target -= HOUR_WEIGHTS[h]!;
-    if (target < 0) {
-      hour = h;
-      break;
-    }
-  }
-  return dayStartMs + hour * HOUR_MS + Math.floor(rng.nextFloat() * HOUR_MS);
-}
 
 export interface DayOutput {
   /** Sorted by `ts`. */
@@ -113,7 +92,7 @@ export function simulateDay(world: PartitionWorld, dayIndex: number): DayOutput 
 
     if (isIncomeDay(archetype.income_pattern, date, rng)) {
       const amount = drawIncomeAmount(archetype.income_pattern, rng);
-      const tsMs = drawTimeInDay(dayStartMs, rng);
+      const tsMs = drawTimeOfDay(dayStartMs, rng);
       const status = drawLegitOutcome(spec.outcomes, rng);
       if (dormantUntil === null || tsMs >= dormantUntil) {
         const eventId = world.makeId(tsMs);
@@ -150,7 +129,7 @@ export function simulateDay(world: PartitionWorld, dayIndex: number): DayOutput 
         : undefined;
       if (!merchant || !category) continue;
       const amount = drawMerchantAmount(category, rng);
-      const tsMs = drawTimeInDay(dayStartMs, rng);
+      const tsMs = drawTimeOfDay(dayStartMs, rng);
       const status = drawLegitOutcome(spec.outcomes, rng);
       if (dormantUntil !== null && tsMs < dormantUntil) continue;
 

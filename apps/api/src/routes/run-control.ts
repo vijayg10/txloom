@@ -7,6 +7,7 @@ import { getQueues } from "../services/queues.js";
 import { PARTITION_JOB_OPTIONS } from "../services/run-launch-service.js";
 import { RunDeliveryRepository, serializeDelivery } from "../db/repositories/run-deliveries.js";
 import { deliverPayloadFor, enqueueDelivery } from "../services/delivery-service.js";
+import { maybeAutoStartLive } from "../services/stream-sessions.js";
 
 /**
  * Run control: pause/resume/cancel. Generation granularity is per-partition
@@ -215,6 +216,8 @@ export default async function runControlRoutes(app: FastifyInstance) {
     const found = await failedDelivery(id, sink, reply);
     if ("error" in found) return found;
     await deliveries.setState(id, sink, "skipped");
+    // Skipping the last blocking replay releases a `history_then_live` run into live.
+    await maybeAutoStartLive(db, id);
     return serializeDelivery((await deliveries.get(id, sink))!);
   });
 

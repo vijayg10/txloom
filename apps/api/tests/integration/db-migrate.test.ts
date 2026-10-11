@@ -8,7 +8,9 @@ import knexFactory, { type Knex } from "knex";
 const migrationsDir = fileURLToPath(new URL("../../src/db/migrations", import.meta.url));
 
 function asJson(value: unknown): Record<string, unknown> {
-  return typeof value === "string" ? (JSON.parse(value) as Record<string, unknown>) : (value as Record<string, unknown>);
+  return typeof value === "string"
+    ? (JSON.parse(value) as Record<string, unknown>)
+    : (value as Record<string, unknown>);
 }
 
 // Testcontainers MySQL — every foundational table must migrate up and down cleanly.
@@ -291,7 +293,9 @@ describe("migration 011: connections rename and config reshape", () => {
     expect(await db.schema.hasTable("sink_connections")).toBe(false);
     expect(await db.schema.hasTable("connections")).toBe(true);
 
-    expect(await db("connections").where({ id: "01CONNFILE0000000000000AA" }).first()).toBeUndefined();
+    expect(
+      await db("connections").where({ id: "01CONNFILE0000000000000AA" }).first(),
+    ).toBeUndefined();
 
     const plainKafka = await db("connections").where({ id: "01CONNKAFKANOCREDS0000AA" }).first();
     const plainConfig = asJson(plainKafka.config);

@@ -4,6 +4,7 @@ import { Queue, type ConnectionOptions } from "bullmq";
 import type { SimulationSpec } from "@txloom/spec";
 import { generateMerchantPool, generatePartition, type WorldCheckpoint } from "@txloom/engine";
 import type { Sink } from "@txloom/sinks";
+import { InlineLiveSource } from "../../src/live/live-source.js";
 import { startStreamDriveWorker, type StreamDriveJobData } from "../../src/jobs/stream-drive.js";
 import { tinySpec } from "../../../api/tests/support/tiny-spec.js";
 
@@ -50,7 +51,7 @@ describe("stream start latency (R7, SC-011)", () => {
         generatePartition(spec, seed, partitionNo, PARTITIONS, merchants).worldCheckpoint,
     );
     expect(simulateDaySpy).toHaveBeenCalled(); // building the fixtures did simulate history…
-    simulateDaySpy.mockClear(); // …starting the stream must not.
+    simulateDaySpy.mockClear(); // …starting the stream must not replay it: only the first live day.
 
     let firstEventAt: number | null = null;
     let stop = false;
@@ -70,6 +71,8 @@ describe("stream start latency (R7, SC-011)", () => {
       connection,
       createSink: () => sink,
       loadCheckpoint: async (_runId, partitionNo) => checkpoints[partitionNo]!,
+      // In-process, so the day simulator can be counted (a worker thread has its own module copy).
+      openLiveSource: (init) => InlineLiveSource.open(init, merchants),
       getStreamControl: async () => ({ state: stop ? "stopped" : "streaming", targetTps: 100 }),
       onMetrics: async () => {},
       tickMs: 50,
@@ -98,6 +101,8 @@ describe("stream start latency (R7, SC-011)", () => {
 
     expect(firstEventAt).not.toBeNull();
     expect(firstEventAt! - startedAt).toBeLessThan(30_000);
-    expect(simulateDaySpy).not.toHaveBeenCalled();
+    // One live day per partition (day 30, the first after history) — not 30 days of replay.
+    expect(simulateDaySpy.mock.calls.length).toBeLessThanOrEqual(PARTITIONS);
+    for (const call of simulateDaySpy.mock.calls) expect(call[1]).toBe(30);
   }, 90_000);
 });

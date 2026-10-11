@@ -111,12 +111,18 @@ export class TxLoomUi {
 
   // ---- Run control -------------------------------------------------------
 
+  /** Launches through the scenario page's Launch drawer. Specs that start their own stream
+   * pass `mode: "history_only"` (the default here), because a live run starts streaming by
+   * itself once its history is done. */
   async launchRunFromScenario(
     scenarioId: string,
     destinations: UiDestination[] = [],
     replayHistory = false,
+    mode: "history_only" | "history_then_live" = "history_only",
   ): Promise<string> {
-    await this.page.goto(`/runs?scenario=${scenarioId}`);
+    await this.page.goto(`/scenarios/${scenarioId}`);
+    await this.page.getByTestId("launch-open").click();
+    await this.page.getByTestId("launch-drawer").waitFor();
     for (const destination of destinations) {
       await this.page
         .getByTestId(`launch-destination-${destination.sink}`)
@@ -125,18 +131,26 @@ export class TxLoomUi {
         await this.page.getByTestId(`launch-topic-${destination.sink}`).fill(destination.target);
       }
     }
-    if (replayHistory) await this.page.getByTestId("launch-replay-history").click();
-    await this.page.getByTestId("launch-run-button").click();
-    await expect(this.page.getByTestId("run-status")).toBeVisible();
-    const href = await this.page.getByTestId("view-run-link").getAttribute("href");
-    if (!href) throw new Error("launch result had no 'View run' link");
-    const match = /\/runs\/([^/]+)$/.exec(href);
-    if (!match) throw new Error(`unexpected run link href: ${href}`);
+    // Picking a broker destination preselects live; set the mode explicitly after the picks.
+    await this.page
+      .getByTestId(
+        mode === "history_only" ? "launch-mode-history-only" : "launch-mode-history-then-live",
+      )
+      .check();
+    if (replayHistory) {
+      await this.page.getByTestId("launch-advanced").click();
+      await this.page.getByTestId("launch-replay-history").click();
+    }
+    await this.page.getByTestId("launch-submit").click();
+    // The drawer closes and the app navigates to the new run.
+    await expect(this.page).toHaveURL(/\/runs\/[^/?]+\/progress$/);
+    const match = /\/runs\/([^/?]+)\/progress$/.exec(this.page.url());
+    if (!match) throw new Error(`unexpected URL after launching: ${this.page.url()}`);
     return match[1]!;
   }
 
   async openRun(runId: string): Promise<void> {
-    await this.page.goto(`/runs/${runId}`);
+    await this.page.goto(`/runs/${runId}/progress`);
   }
 
   async waitForRunStatus(status: string, timeoutMs = 120_000): Promise<void> {
@@ -152,11 +166,11 @@ export class TxLoomUi {
 
   /** Starts the stream into the destinations the run was launched with. */
   async startStream(runId: string, targetTps?: number): Promise<void> {
-    await this.page.goto(`/stream/${runId}`);
+    await this.page.goto(`/runs/${runId}/live`);
     if (targetTps !== undefined) {
       await this.page.getByTestId("stream-target-tps").fill(String(targetTps));
     }
-    await this.page.getByTestId("stream-start-button").click();
+    await this.page.getByTestId("stream-start").click();
     await this.page.getByTestId("stream-console").waitFor();
   }
 
@@ -167,17 +181,17 @@ export class TxLoomUi {
   // ---- World inspector / ground truth --------------------------------------
 
   async openInspector(runId: string): Promise<void> {
-    await this.page.goto(`/inspector/${runId}`);
+    await this.page.goto(`/runs/${runId}/inspect`);
     await this.page.getByTestId("inspector-volume-chart").waitFor();
   }
 
   async openReport(runId: string): Promise<void> {
-    await this.page.goto(`/inspector/${runId}`);
+    await this.page.goto(`/runs/${runId}/inspect`);
     await this.page.getByTestId("inspector-realism-report").waitFor();
   }
 
   async openGroundTruth(runId: string): Promise<void> {
-    await this.page.goto(`/ground-truth/${runId}`);
+    await this.page.goto(`/runs/${runId}/truth`);
     await this.page.getByTestId("ground-truth-explorer").waitFor();
   }
 
@@ -209,7 +223,7 @@ export class TxLoomUi {
     format: "csv" | "parquet" | "json",
     opts: { includeLabels?: boolean } = {},
   ): Promise<{ downloadHref: string; fileName: string }> {
-    await this.openRun(runId);
+    await this.page.goto(`/runs/${runId}/export`);
     await this.page.getByTestId("export-format").selectOption(format);
     if (opts.includeLabels) {
       await this.page.getByTestId("export-include-labels").check();

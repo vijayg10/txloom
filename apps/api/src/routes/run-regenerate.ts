@@ -47,6 +47,8 @@ export default async function runRegenerateRoutes(app: FastifyInstance) {
       params: source.params,
       mode: source.mode,
       replay_history: source.replay_history,
+      target_tps: source.target_tps,
+      label_channel: source.label_channel,
       partition_count: source.partition_count,
       source_run_id: source.id,
       destinations: sourceDestinations.map((d) => ({

@@ -67,10 +67,13 @@ export class ImperfectionTransformer {
     state?: TransformerState,
   ) {
     if (state) {
-      this.rng = restoreRng({ state: state.rngState });
-      this.heap = MinHeap.fromArray(state.delayHeap, draftBefore);
-      this.hold = state.holdSlot;
-      this.seq = state.seq;
+      // Copied: emitting a delivery appends to its labels in place, and the same checkpoint can
+      // be restored again later.
+      const owned = structuredClone(state);
+      this.rng = restoreRng({ state: owned.rngState });
+      this.heap = MinHeap.fromArray(owned.delayHeap, draftBefore);
+      this.hold = owned.holdSlot;
+      this.seq = owned.seq;
     } else {
       this.rng = rng;
       this.heap = new MinHeap<DeliveredDraft>(draftBefore);

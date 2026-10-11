@@ -73,9 +73,7 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
 
   const host_or_url = type === "kafka" ? bootstrapServers : type === "rabbitmq" ? host : url;
   const showLocalhostWarning = LOCALHOST_RE.test(host_or_url);
-  const credentialHintProp = initial
-    ? { hint: "Leave blank to keep the stored credentials" }
-    : {};
+  const credentialHintProp = initial ? { hint: "Leave blank to keep the stored credentials" } : {};
 
   function buildInput(): ConnectionInput {
     if (type === "kafka") {
@@ -88,10 +86,7 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
             .map((s) => s.trim())
             .filter(Boolean),
           security_protocol: securityProtocol as
-            | "PLAINTEXT"
-            | "SSL"
-            | "SASL_PLAINTEXT"
-            | "SASL_SSL",
+            "PLAINTEXT" | "SSL" | "SASL_PLAINTEXT" | "SASL_SSL",
           default_topic: defaultTopic,
           ...(securityProtocol.startsWith("SASL")
             ? { sasl_mechanism: saslMechanism as "PLAIN" | "SCRAM-SHA-256" | "SCRAM-SHA-512" }
@@ -169,7 +164,11 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
   const topicMissing = testResult?.topic && testResult.topic.exists === false;
 
   return (
-    <form data-testid="connection-form" onSubmit={(e) => void save(e)} className="flex flex-col gap-4">
+    <form
+      data-testid="connection-form"
+      onSubmit={(e) => void save(e)}
+      className="flex flex-col gap-4"
+    >
       <div className="flex gap-2">
         {(["kafka", "rabbitmq", "webhook"] as const).map((t) => (
           <button
@@ -180,7 +179,9 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
             onClick={() => setType(t)}
             className={
               "rounded-xl border px-3 py-2 text-sm font-medium capitalize " +
-              (type === t ? "border-primary bg-primary/10 text-primary" : "border-border text-text-secondary")
+              (type === t
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-text-secondary")
             }
             disabled={Boolean(initial)}
           >
@@ -190,7 +191,12 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
       </div>
 
       <FormField label="Name">
-        <Input data-testid="conn-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input
+          data-testid="conn-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
       </FormField>
 
       {type === "kafka" && (
@@ -264,7 +270,12 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Host">
-              <Input data-testid="conn-host" value={host} onChange={(e) => setHost(e.target.value)} required />
+              <Input
+                data-testid="conn-host"
+                value={host}
+                onChange={(e) => setHost(e.target.value)}
+                required
+              />
             </FormField>
             <FormField label="Port">
               <Input
@@ -276,7 +287,11 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
             </FormField>
           </div>
           <FormField label="Vhost">
-            <Input data-testid="conn-vhost" value={vhost} onChange={(e) => setVhost(e.target.value)} />
+            <Input
+              data-testid="conn-vhost"
+              value={vhost}
+              onChange={(e) => setVhost(e.target.value)}
+            />
           </FormField>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -288,7 +303,12 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
             TLS
           </label>
           <FormField label="Exchange">
-            <Input data-testid="conn-exchange" value={exchange} onChange={(e) => setExchange(e.target.value)} required />
+            <Input
+              data-testid="conn-exchange"
+              value={exchange}
+              onChange={(e) => setExchange(e.target.value)}
+              required
+            />
           </FormField>
           <FormField label="Exchange type">
             <Select
@@ -314,7 +334,12 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
       {type === "webhook" && (
         <>
           <FormField label="URL">
-            <Input data-testid="conn-url" value={url} onChange={(e) => setUrl(e.target.value)} required />
+            <Input
+              data-testid="conn-url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              required
+            />
           </FormField>
           <FormField label="Timeout (ms)">
             <Input
@@ -324,7 +349,10 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
               onChange={(e) => setTimeoutMs(Number(e.target.value))}
             />
           </FormField>
-          <FormField label="Headers (JSON, optional)" hint="Sent with every delivery, e.g. an auth token">
+          <FormField
+            label="Headers (JSON, optional)"
+            hint="Sent with every delivery, e.g. an auth token"
+          >
             <Textarea
               data-testid="conn-headers"
               value={headersJson}
@@ -339,7 +367,11 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
       {(type === "kafka" || type === "rabbitmq") && (
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Username" {...credentialHintProp}>
-            <Input data-testid="conn-username" value={username} onChange={(e) => setUsername(e.target.value)} />
+            <Input
+              data-testid="conn-username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
           </FormField>
           <FormField label="Password" {...credentialHintProp}>
             <Input
@@ -353,7 +385,7 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
       )}
 
       {showLocalhostWarning && (
-        <p data-testid="conn-localhost-warning" className="text-amber-600 text-xs">
+        <p data-testid="conn-localhost-warning" className="text-xs text-amber-600">
           This address is resolved by the TxLoom worker. Inside Docker, localhost is the worker
           itself; the bundled demo broker is kafka:29092.
         </p>
@@ -371,14 +403,16 @@ export function ConnectionForm({ initial, onSaved, onCancel }: ConnectionFormPro
         </Button>
         {testResult && (
           <span data-testid="conn-test-result" className="flex items-center gap-2 text-sm">
-            <StatusBadge tone={booleanTone(testResult.ok)}>{testResult.ok ? "ok" : "failed"}</StatusBadge>
+            <StatusBadge tone={booleanTone(testResult.ok)}>
+              {testResult.ok ? "ok" : "failed"}
+            </StatusBadge>
             {testResult.detail}
           </span>
         )}
       </div>
 
       {topicMissing && (
-        <p data-testid="conn-topic-missing-warning" className="text-amber-600 text-xs">
+        <p data-testid="conn-topic-missing-warning" className="text-xs text-amber-600">
           Topic "{testResult?.topic?.name}" does not exist, and auto-creation is disabled on this
           cluster. Saving is still allowed.
         </p>

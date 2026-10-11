@@ -68,7 +68,11 @@ export default async function scenarioRoutes(app: FastifyInstance) {
       await repo.setCurrentVersion(scenario.id, version.id);
 
       reply.status(201);
-      return (await repo.getById(scenario.id))!;
+      // The clone is saved as version 1; say so, so the UI can confirm it (FR-053).
+      return {
+        ...(await repo.getById(scenario.id))!,
+        current_version: { id: version.id, number: version.version_no },
+      };
     }
 
     if (!body.currency) {

@@ -84,7 +84,13 @@ export class StreamSessionRepository {
 
   async recordProgress(
     id: string,
-    progress: { delivered: number; failed: number; simTimeMs?: number },
+    progress: {
+      delivered: number;
+      failed: number;
+      simTimeMs?: number;
+      lastCheckpointDay?: number;
+      deliveredSinceCheckpoint?: number;
+    },
   ): Promise<void> {
     await this.db("stream_sessions")
       .where({ id })
@@ -92,6 +98,12 @@ export class StreamSessionRepository {
         delivered: progress.delivered,
         failed: progress.failed,
         ...(progress.simTimeMs !== undefined ? { sim_time_ms: progress.simTimeMs } : {}),
+        ...(progress.lastCheckpointDay !== undefined
+          ? { last_checkpoint_day: progress.lastCheckpointDay }
+          : {}),
+        ...(progress.deliveredSinceCheckpoint !== undefined
+          ? { delivered_since_checkpoint: progress.deliveredSinceCheckpoint }
+          : {}),
       });
   }
 

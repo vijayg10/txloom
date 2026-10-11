@@ -126,10 +126,12 @@ export class ConnectionRepository {
   }
 
   async recordTestResult(id: string, probe: ProbeResult): Promise<void> {
-    await this.db("connections").where({ id }).update({
-      last_test_at: this.db.fn.now(),
-      last_test_ok: probe.ok,
-      last_test_result: JSON.stringify(probe),
-    });
+    await this.db("connections")
+      .where({ id })
+      .update({
+        last_test_at: this.db.fn.now(),
+        last_test_ok: probe.ok,
+        last_test_result: JSON.stringify(probe),
+      });
   }
 }

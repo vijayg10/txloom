@@ -192,7 +192,7 @@ describe("DeliveryPump", () => {
       retry_queue: 0,
     });
     expect(metrics.backpressure).toBe(true);
-    expect(metrics.sink_lag).toBeGreaterThan(0);
+    expect(metrics.sink_lag).toBe(0); // drained: nothing owed
     expect(pump.metrics().backpressure).toBe(false);
   });
 });

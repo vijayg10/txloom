@@ -37,9 +37,17 @@ export class LaunchDefaultsRepository {
       .merge();
   }
 
-  getByScenario(scenarioId: string): Promise<LaunchDefaultsRow | undefined> {
-    return this.db<LaunchDefaultsRow>("scenario_launch_defaults")
+  async getByScenario(scenarioId: string): Promise<LaunchDefaultsRow | undefined> {
+    const row = await this.db<LaunchDefaultsRow>("scenario_launch_defaults")
       .where({ scenario_id: scenarioId })
       .first();
+    // MySQL returns TINYINT(1) as 0/1.
+    return row
+      ? {
+          ...row,
+          replay_history: Boolean(row.replay_history),
+          label_channel: Boolean(row.label_channel),
+        }
+      : undefined;
   }
 }

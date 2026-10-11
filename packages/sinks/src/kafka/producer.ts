@@ -17,9 +17,39 @@ import {
 
 export type { KafkaConnectionConfig as KafkaSinkConfig };
 
+/** librdkafka reports the cause of a failed connection (a rejected certificate, bad SASL
+ * credentials) only through its log callback; `connect()` itself later rejects with a generic
+ * "broker transport failure" after a long timeout. This captures those lines so the probe can
+ * name the failing stage straight away. */
+const FATAL_CONNECT_RE =
+  /SSL handshake failed|SASL authentication error|certificate verify failed/i;
+
+class ConnectionErrorLog implements KafkaJS.Logger {
+  readonly lines: string[] = [];
+  onFatal: ((message: string) => void) | null = null;
+
+  private record(message: string): void {
+    this.lines.push(message);
+    if (FATAL_CONNECT_RE.test(message)) this.onFatal?.(message);
+  }
+  error(message: string): void {
+    this.record(message);
+  }
+  warn(message: string): void {
+    this.record(message);
+  }
+  info(): void {}
+  debug(): void {}
+  namespace(): KafkaJS.Logger {
+    return this;
+  }
+  setLogLevel(): void {}
+}
+
 function librdkafkaConfig(
   config: KafkaConnectionConfig,
   secrets: KafkaConnectionSecrets | null,
+  logger?: KafkaJS.Logger,
 ): KafkaJS.CommonConstructorConfig {
   // librdkafka top-level properties, NOT the `kafkaJS` block — SSL/SASL settings must sit
   // outside `kafkaJS` per the Confluent migration guide (research R10), which is also what
@@ -33,7 +63,11 @@ function librdkafkaConfig(
     ...(config.ca_pem ? { "ssl.ca.pem": config.ca_pem } : {}),
     // The `kafkaJS` block still requires `brokers` by its own type even though the
     // top-level `bootstrap.servers` above is what the client actually connects with.
-    kafkaJS: { brokers: config.bootstrap_servers, clientId: "txloom" },
+    kafkaJS: {
+      brokers: config.bootstrap_servers,
+      clientId: "txloom",
+      ...(logger ? { logger } : {}),
+    },
   };
 }
 
@@ -50,13 +84,14 @@ export class KafkaSink implements Sink {
   private connected = false;
   private connecting: Promise<void> | null = null;
   private headers: Record<string, string> = {};
+  private readonly errorLog = new ConnectionErrorLog();
 
   constructor(
     readonly name: string,
     private readonly config: KafkaConnectionConfig,
     private readonly secrets: KafkaConnectionSecrets | null = null,
   ) {
-    const kafka = new KafkaJS.Kafka(librdkafkaConfig(config, secrets));
+    const kafka = new KafkaJS.Kafka(librdkafkaConfig(config, secrets, this.errorLog));
     this.producer = kafka.producer({ "linger.ms": 5, "batch.num.messages": 10_000 });
   }
 
@@ -112,21 +147,32 @@ export class KafkaSink implements Sink {
     const latency = () => Date.now() - startedAt;
 
     try {
-      await this.ensureConnected();
+      const fatal = new Promise<never>((_resolve, reject) => {
+        this.errorLog.onFatal = (message) => reject(new Error(message));
+      });
+      const connect = this.ensureConnected();
+      connect.catch(() => {}); // it can settle after the race is lost
+      await Promise.race([connect, fatal]);
     } catch (error) {
       const message = (error as Error).message;
       const stage = classifyConnectError(message, this.config);
       return { ok: false, stage, detail: message, latency_ms: latency() };
+    } finally {
+      this.errorLog.onFatal = null;
     }
 
     try {
       const kafkaAdmin = new KafkaJS.Kafka(librdkafkaConfig(this.config, this.secrets)).admin();
       await kafkaAdmin.connect();
       try {
-        const { topics } = await kafkaAdmin.fetchTopicMetadata({
+        // The typings say `{ topics }`, but the 0.5 client resolves with the array itself.
+        const metadata = (await kafkaAdmin.fetchTopicMetadata({
           topics: [topicName],
           timeout: 10_000,
-        });
+        })) as
+          | { topics: { name: string; partitions: unknown[] }[] }
+          | { name: string; partitions: unknown[] }[];
+        const topics = Array.isArray(metadata) ? metadata : metadata.topics;
         const topic = topics.find((t) => t.name === topicName);
         if (!topic || topic.partitions.length === 0) {
           return {
@@ -163,7 +209,15 @@ export class KafkaSink implements Sink {
   }
 
   async close(): Promise<void> {
-    if (this.connected) await this.producer.disconnect();
+    if (this.connected) {
+      await this.producer.disconnect();
+    } else if (this.connecting) {
+      // A connect that never completed (bad credentials, untrusted certificate) still holds the
+      // client's threads, so tear it down too. Its disconnect only settles once the connect
+      // attempt times out (~30 s), so don't make the caller wait for that.
+      const teardown = this.producer.disconnect().catch(() => {});
+      await Promise.race([teardown, new Promise((resolve) => setTimeout(resolve, 2000))]);
+    }
     this.connected = false;
   }
 }
@@ -175,8 +229,10 @@ function classifyConnectError(
   config: KafkaConnectionConfig,
 ): "connect" | "tls" | "auth" {
   const lower = message.toLowerCase();
-  if (/auth|sasl|credential|password/.test(lower)) return "auth";
-  if (/ssl|tls|certificate|cert/.test(lower)) return "tls";
+  // librdkafka names the failing step ("SSL handshake failed", "SASL authentication error"), but
+  // the broker URL in the same line also says `sasl_ssl`, so match the step, not the scheme.
+  if (/ssl handshake failed|certificate verify failed|certificate|tls/.test(lower)) return "tls";
+  if (/authentication|credential|password|sasl authentication/.test(lower)) return "auth";
   if (config.security_protocol === "SASL_SSL" || config.security_protocol === "SASL_PLAINTEXT") {
     if (/timed? ?out|timeout/.test(lower)) return "auth";
   }

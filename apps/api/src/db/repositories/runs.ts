@@ -28,6 +28,15 @@ export interface RunRow {
   completed_at: Date | null;
 }
 
+/** MySQL returns TINYINT(1) columns as 0/1; the API and clients expect real booleans. */
+function normalizeRun(row: RunRow): RunRow {
+  return {
+    ...row,
+    replay_history: Boolean(row.replay_history),
+    label_channel: Boolean(row.label_channel),
+  };
+}
+
 export interface CreateRunInput {
   scenario_id: string;
   spec_version_id: string;
@@ -75,18 +84,19 @@ export class RunRepository {
     return row;
   }
 
-  getById(id: string): Promise<RunRow | undefined> {
-    return this.runs().where({ id }).first();
+  async getById(id: string): Promise<RunRow | undefined> {
+    const row = await this.runs().where({ id }).first();
+    return row ? normalizeRun(row) : undefined;
   }
 
-  list(limit = 50, cursor?: string): Promise<RunRow[]> {
+  async list(limit = 50, cursor?: string): Promise<RunRow[]> {
     const query = this.runs().orderBy("created_at", "desc").limit(limit);
     if (cursor) query.where("id", "<", cursor);
-    return query;
+    return (await query).map(normalizeRun);
   }
 
-  listByStatus(status: RunStatus): Promise<RunRow[]> {
-    return this.runs().where({ status });
+  async listByStatus(status: RunStatus): Promise<RunRow[]> {
+    return (await this.runs().where({ status })).map(normalizeRun);
   }
 
   async setStatus(

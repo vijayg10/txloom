@@ -53,6 +53,18 @@ export const validateSpecTool: AgentToolDefinition<typeof validateSpecInputShape
   restEndpoint: { method: "POST", path: "/spec/validate" },
 };
 
+export const estimateRunInputShape = {
+  spec: z.record(z.string(), z.unknown()),
+  replay_history: z.boolean().optional(),
+};
+export const estimateRunTool: AgentToolDefinition<typeof estimateRunInputShape> = {
+  name: "estimate_run",
+  description:
+    "Estimate how many events a spec will generate and how long generation takes, before launching: {history_events, replay_messages, partitions, generation_seconds, assumptions[]}. With replay_history, replay_messages counts what each broker destination would receive. Side-effect-free; an invalid spec returns 400 spec_invalid with located violations.",
+  inputSchema: estimateRunInputShape,
+  restEndpoint: { method: "POST", path: "/spec/estimate" },
+};
+
 export const createScenarioInputShape = {
   name: z.string().min(1),
   description: z.string().optional(),
@@ -189,6 +201,12 @@ export const startStreamInputShape = {
   run_id: z.string().min(1),
   target_tps: z.number().positive().optional(),
   label_channel_enabled: z.boolean().optional(),
+  sink: z
+    .unknown()
+    .optional()
+    .describe(
+      "Removed: inline sinks are no longer accepted (returns 400 inline_sink_removed). A stream goes to the destinations the run was launched with.",
+    ),
 };
 export const startStreamTool: AgentToolDefinition<typeof startStreamInputShape> = {
   name: "start_stream",
@@ -213,6 +231,7 @@ export const ALL_AGENT_TOOLS: readonly AgentToolDefinition[] = [
   listTemplatesTool,
   listConnectionsTool,
   validateSpecTool as AgentToolDefinition,
+  estimateRunTool as AgentToolDefinition,
   createScenarioTool as AgentToolDefinition,
   saveSpecVersionTool as AgentToolDefinition,
   launchRunTool as AgentToolDefinition,

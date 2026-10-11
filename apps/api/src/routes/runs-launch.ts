@@ -5,7 +5,7 @@ import { ScenarioRepository } from "../db/repositories/scenarios.js";
 import { SpecVersionRepository } from "../db/repositories/spec-versions.js";
 import { DestinationDefaultsRepository } from "../db/repositories/destination-defaults.js";
 import { LaunchDefaultsRepository } from "../db/repositories/launch-defaults.js";
-import { ConnectionRepository } from "../db/repositories/connections.js";
+import { ConnectionRepository, type ConnectionRow } from "../db/repositories/connections.js";
 import { checkStoredSpec } from "../services/spec-guard.js";
 import { InvalidSeedError, parseSeed } from "../services/seed.js";
 import { launchGeneration } from "../services/run-launch-service.js";
@@ -20,6 +20,11 @@ interface LaunchRunBody {
   sink_connection_ids?: string[];
   mode?: "batch" | "batch_then_stream" | "history_only" | "history_then_live";
   label_export?: "separate_export" | "merged_with_warning";
+  /** Live rate; defaults to `spec.clock.then_stream_tps`, else 50. */
+  target_tps?: number;
+  /** Also publish labels on the label channel while streaming. */
+  label_channel?: boolean;
+  /** Deprecated name of `label_channel`. */
   stream_label_channel?: boolean;
   destinations?: DestinationInput[];
   /** Send the whole history to the broker destinations once generation finishes (FR-021). */
@@ -28,10 +33,44 @@ interface LaunchRunBody {
 
 // Old clients still send `batch` / `batch_then_stream`; map them onto the new
 // enum and flag the response as deprecated (data-model.md §1.2).
+const DEFAULT_TARGET_TPS = 50;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+interface LaunchWarning {
+  code: "retention_shorter_than_history";
+  message: string;
+  details: { sink: string; retention_ms: number; history_ms: number };
+}
+
 const LEGACY_MODE_MAP: Record<string, "history_only" | "history_then_live"> = {
   batch: "history_only",
   batch_then_stream: "history_then_live",
 };
+
+/** Non-blocking: replaying into a topic whose broker drops messages sooner than the history
+ * spans would lose the oldest of them (FR-021). Only known retentions (from the destination's
+ * last connection test) can be compared. */
+function retentionWarnings(
+  spec: SimulationSpec,
+  destinations: DestinationInput[],
+  connections: ConnectionRow[],
+): LaunchWarning[] {
+  const historyMs = spec.clock.days * DAY_MS;
+  const byId = new Map(connections.map((c) => [c.id, c]));
+  const warnings: LaunchWarning[] = [];
+  for (const destination of destinations) {
+    const connection = byId.get(destination.connection_id);
+    if (connection?.type !== "kafka") continue;
+    const retentionMs = connection.last_test_result?.topic?.retention_ms;
+    if (typeof retentionMs !== "number" || retentionMs >= historyMs) continue;
+    warnings.push({
+      code: "retention_shorter_than_history",
+      message: `Topic retention on "${connection.name}" is ${Math.round(retentionMs / DAY_MS)} day(s), shorter than the ${spec.clock.days}-day history: the oldest replayed messages may expire before a consumer reads them.`,
+      details: { sink: destination.sink, retention_ms: retentionMs, history_ms: historyMs },
+    });
+  }
+  return warnings;
+}
 
 /** POST /scenarios/:id/runs — snapshots the scenario's current spec verbatim
  * (the immutable run record, FR-033) and enqueues one generate-partition job
@@ -77,12 +116,35 @@ export default async function runsLaunchRoutes(app: FastifyInstance) {
       reply.status(400);
       return { error: { code: error.code, message: error.message, details: { path: error.path } } };
     }
-    const requestedMode = body.mode ?? "history_only";
+    const destinationInputs = body.destinations ?? [];
+    // Streaming is the point of a broker destination, so it's the default whenever the run
+    // delivers to one; a file-only run has nothing to stream to.
+    const hasBrokerDestination = destinationInputs.length > 0;
+    const requestedMode =
+      body.mode ?? (hasBrokerDestination ? "history_then_live" : "history_only");
     const legacyMode = LEGACY_MODE_MAP[requestedMode];
     const mode = legacyMode ?? (requestedMode as "history_only" | "history_then_live");
-    if (legacyMode || body.sink_connection_ids !== undefined) reply.header("Deprecation", "true");
+    if (
+      legacyMode ||
+      body.sink_connection_ids !== undefined ||
+      body.stream_label_channel !== undefined
+    )
+      reply.header("Deprecation", "true");
 
-    const destinationInputs = body.destinations ?? [];
+    const targetTps = body.target_tps ?? spec.clock.then_stream_tps ?? DEFAULT_TARGET_TPS;
+    if (!Number.isFinite(targetTps) || targetTps <= 0) {
+      reply.status(400);
+      return {
+        error: {
+          code: "invalid_target_tps",
+          message: "target_tps must be a positive number",
+        },
+      };
+    }
+    const labelChannel =
+      body.label_channel ?? body.stream_label_channel ?? spec.output.stream_label_channel ?? false;
+    const replayHistory = body.replay_history === true;
+
     const allConnections = await connections.list();
     const validationError = validateDestinations(spec, destinationInputs, allConnections);
     if (validationError) {
@@ -104,11 +166,19 @@ export default async function runsLaunchRoutes(app: FastifyInstance) {
       seed,
       params: {
         label_export: body.label_export ?? "separate_export",
-        stream_label_channel: body.stream_label_channel ?? false,
       },
       mode,
       destinations: resolvedDestinations,
-      replay_history: body.replay_history === true,
+      replay_history: replayHistory,
+      target_tps: targetTps,
+      label_channel: labelChannel,
+    });
+
+    await launchDefaults.upsert(id, {
+      mode,
+      target_tps: targetTps,
+      replay_history: replayHistory,
+      label_channel: labelChannel,
     });
 
     if (destinationInputs.length > 0) {
@@ -125,7 +195,10 @@ export default async function runsLaunchRoutes(app: FastifyInstance) {
     }
 
     reply.status(201);
-    return run;
+    return {
+      ...run,
+      warnings: replayHistory ? retentionWarnings(spec, destinationInputs, allConnections) : [],
+    };
   });
 
   app.get("/scenarios/:id/launch-defaults", async (request, reply) => {

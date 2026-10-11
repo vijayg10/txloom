@@ -2,10 +2,18 @@ import type { FastifyInstance } from "fastify";
 import type { SinkTarget } from "@txloom/sinks";
 import { getDb } from "../db/knex.js";
 import { ConnectionRepository, type ConnectionRow } from "../db/repositories/connections.js";
-import { connectionWarnings, validateConnectionBody, type ConnectionBody } from "../services/connection-validation.js";
+import {
+  connectionWarnings,
+  validateConnectionBody,
+  type ConnectionBody,
+} from "../services/connection-validation.js";
+import { suggestions } from "../services/local-kafka.js";
 import { probeConnection, WorkerUnavailableError } from "../services/connection-probe.js";
 
-function targetFor(type: "kafka" | "rabbitmq" | "webhook", config: Record<string, unknown>): SinkTarget {
+function targetFor(
+  type: "kafka" | "rabbitmq" | "webhook",
+  config: Record<string, unknown>,
+): SinkTarget {
   if (type === "kafka") return { topic: config.default_topic as string };
   if (type === "rabbitmq") return { routing_key: config.default_routing_key as string };
   return {};
@@ -33,6 +41,7 @@ function serialize(row: ConnectionRow) {
       ok: row.last_test_ok,
       summary: row.last_test_result?.detail ?? null,
       stage: row.last_test_result?.stage ?? null,
+      topic: row.last_test_result?.topic ?? null,
     },
     warnings,
     created_at: row.created_at,
@@ -73,7 +82,9 @@ export default async function connectionsRoutes(app: FastifyInstance) {
     const existing = await repo.getByName(body.name!);
     if (existing) {
       reply.status(409);
-      return { error: { code: "name_taken", message: `A connection named "${body.name}" already exists` } };
+      return {
+        error: { code: "name_taken", message: `A connection named "${body.name}" already exists` },
+      };
     }
     const row = await repo.create({
       type: body.type!,
@@ -85,10 +96,9 @@ export default async function connectionsRoutes(app: FastifyInstance) {
     return serialize(row);
   });
 
-  app.get("/connections/suggestions", async () => {
-    // Local-Kafka suggestion (FR-013) ships with US8's T172 — nothing detected yet.
-    return { suggestions: [] };
-  });
+  app.get("/connections/suggestions", async () => ({
+    suggestions: await suggestions(db, dataDir),
+  }));
 
   app.get("/connections/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -110,7 +120,10 @@ export default async function connectionsRoutes(app: FastifyInstance) {
     if (existing.managed_by === "env") {
       reply.status(403);
       return {
-        error: { code: "managed_connection", message: "This connection is managed by TXLOOM_CONNECTIONS_JSON and can't be edited here" },
+        error: {
+          code: "managed_connection",
+          message: "This connection is managed by TXLOOM_CONNECTIONS_JSON and can't be edited here",
+        },
       };
     }
     const body = request.body as ConnectionBody;
@@ -123,7 +136,12 @@ export default async function connectionsRoutes(app: FastifyInstance) {
       const nameClash = await repo.getByName(body.name);
       if (nameClash) {
         reply.status(409);
-        return { error: { code: "name_taken", message: `A connection named "${body.name}" already exists` } };
+        return {
+          error: {
+            code: "name_taken",
+            message: `A connection named "${body.name}" already exists`,
+          },
+        };
       }
     }
     await repo.update(id, {
@@ -144,7 +162,11 @@ export default async function connectionsRoutes(app: FastifyInstance) {
     if (existing.managed_by === "env") {
       reply.status(403);
       return {
-        error: { code: "managed_connection", message: "This connection is managed by TXLOOM_CONNECTIONS_JSON and can't be deleted here" },
+        error: {
+          code: "managed_connection",
+          message:
+            "This connection is managed by TXLOOM_CONNECTIONS_JSON and can't be deleted here",
+        },
       };
     }
     await repo.delete(id);

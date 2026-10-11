@@ -74,6 +74,21 @@ describe("run lifecycle", () => {
     await stopWorker();
   }, 120_000);
 
+  it("records the measured generation throughput from a completed partition", async () => {
+    await getDb()("settings").where({ key: "generation_throughput" }).delete();
+    startWorker();
+    const runId = await launchSpec(stack.app, tinySpec({ consumers: 20, days: 3 }), "throughput");
+    await waitFor(async () => (await runRow(runId)).status === "completed", 60_000);
+
+    const setting = await getDb()("settings").where({ key: "generation_throughput" }).first();
+    const events = Number((await partitionRow(runId)).events_generated);
+    expect(events).toBeGreaterThan(0);
+    // Events per second for the one thread that ran it: positive, and finite.
+    expect(Number(setting.value)).toBeGreaterThan(0);
+    expect(Number.isFinite(Number(setting.value))).toBe(true);
+    await stopWorker();
+  }, 120_000);
+
   it("a partition that throws once and then succeeds completes with attempts = 2", async () => {
     let calls = 0;
     const { default: realRun } = await import("../../src/pool/partition-worker.js");

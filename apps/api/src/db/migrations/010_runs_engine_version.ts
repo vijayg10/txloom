@@ -16,7 +16,12 @@ export async function up(knex: Knex): Promise<void> {
     table.boolean("replay_history").notNullable().defaultTo(false);
     table.integer("target_tps").unsigned().nullable();
     table.boolean("label_channel").notNullable().defaultTo(false);
-    table.string("source_run_id", 26).nullable().references("id").inTable("runs").onDelete("SET NULL");
+    table
+      .string("source_run_id", 26)
+      .nullable()
+      .references("id")
+      .inTable("runs")
+      .onDelete("SET NULL");
   });
 
   await knex("runs").update({
@@ -25,10 +30,14 @@ export async function up(knex: Knex): Promise<void> {
     ),
   });
 
-  await knex.raw(`ALTER TABLE \`runs\` MODIFY \`mode\` ENUM(${MODE_TRANSITIONAL.map((v) => `'${v}'`).join(",")}) NOT NULL`);
+  await knex.raw(
+    `ALTER TABLE \`runs\` MODIFY \`mode\` ENUM(${MODE_TRANSITIONAL.map((v) => `'${v}'`).join(",")}) NOT NULL`,
+  );
   await knex("runs").where({ mode: "batch" }).update({ mode: "history_only" });
   await knex("runs").where({ mode: "batch_then_stream" }).update({ mode: "history_then_live" });
-  await knex.raw(`ALTER TABLE \`runs\` MODIFY \`mode\` ENUM(${MODE_NEW.map((v) => `'${v}'`).join(",")}) NOT NULL`);
+  await knex.raw(
+    `ALTER TABLE \`runs\` MODIFY \`mode\` ENUM(${MODE_NEW.map((v) => `'${v}'`).join(",")}) NOT NULL`,
+  );
 
   await knex.schema.alterTable("run_partitions", (table) => {
     table.tinyint("attempts").unsigned().notNullable().defaultTo(0);
@@ -42,10 +51,14 @@ export async function down(knex: Knex): Promise<void> {
     table.dropColumn("last_error");
   });
 
-  await knex.raw(`ALTER TABLE \`runs\` MODIFY \`mode\` ENUM(${MODE_TRANSITIONAL.map((v) => `'${v}'`).join(",")}) NOT NULL`);
+  await knex.raw(
+    `ALTER TABLE \`runs\` MODIFY \`mode\` ENUM(${MODE_TRANSITIONAL.map((v) => `'${v}'`).join(",")}) NOT NULL`,
+  );
   await knex("runs").where({ mode: "history_only" }).update({ mode: "batch" });
   await knex("runs").where({ mode: "history_then_live" }).update({ mode: "batch_then_stream" });
-  await knex.raw(`ALTER TABLE \`runs\` MODIFY \`mode\` ENUM(${MODE_OLD.map((v) => `'${v}'`).join(",")}) NOT NULL`);
+  await knex.raw(
+    `ALTER TABLE \`runs\` MODIFY \`mode\` ENUM(${MODE_OLD.map((v) => `'${v}'`).join(",")}) NOT NULL`,
+  );
 
   await knex.schema.alterTable("runs", (table) => {
     table.dropForeign(["source_run_id"]);

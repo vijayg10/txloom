@@ -1,3 +1,5 @@
+> **Status (2026-10):** addressed by [`specs/003-generation-delivery-overhaul/`](../specs/003-generation-delivery-overhaul/plan.md): connections and destinations, versioned engine output, continued live worlds, honest stream health and the single run page. The findings below are kept as written at the reviewed commit.
+
 # TxLoom architecture review: generation-to-publication flow, gaps, and proposed changes
 
 - **Date:** 2026-10-10
@@ -91,6 +93,7 @@ developer laptop and are only meaningful relative to each other.
 ## 2. Gaps: engine, workers, and delivery
 
 Severity:
+
 - **High**: breaks a headline feature, or fails at the documented reference
   scale (200k consumers, 5k merchants, 90 days, 1,000 TPS).
 - **Medium**: wrong or fragile behaviour with a workaround or limited blast
@@ -128,10 +131,11 @@ Severity:
   - emits no fraud, so every live label is `is_fraud=false`
     ([live-world.ts:97-108](../packages/engine/src/streaming/live-world.ts#L97-L108));
   - uses wall-clock timestamps. If the history window ends in the future, live
-    events are timestamped *inside* that window; if it ends in the past, there
+    events are timestamped _inside_ that window; if it ends in the past, there
     is a gap.
 
   Only the population and the random-number state carry over from history.
+
 - **Impact:** the "history-to-live continuity" differentiator is only partly
   delivered, and streams can't be used to test fraud detection.
 - **Fix:** P3.1 and P3.4.
@@ -175,15 +179,16 @@ Severity:
 - **Measured:** reference fixture spec, 30 days, fraud rate 1.2%, 200 merchants,
   one partition.
 
-  | Consumers | Events  | Without refund abuse | With refund abuse |
-  |----------:|--------:|---------------------:|------------------:|
-  | 1,000     | 89,345  | 0.56 s               | 1.40 s            |
-  | 2,000     | 179,414 | 1.19 s               | 6.50 s            |
-  | 4,000     | 357,828 | 2.48 s               | 28.2 s            |
+  | Consumers |  Events | Without refund abuse | With refund abuse |
+  | --------: | ------: | -------------------: | ----------------: |
+  |     1,000 |  89,345 |               0.56 s |            1.40 s |
+  |     2,000 | 179,414 |               1.19 s |            6.50 s |
+  |     4,000 | 357,828 |               2.48 s |            28.2 s |
 
   Time grows about 4.5× each time the population doubles. Extrapolating to one
   reference-sized partition (20k consumers × 90 days, about 5M events) gives
   hours per partition. That figure is an estimate, not a measurement.
+
 - **Fix:** build a map of each consumer's purchases once, before the loop (P1.1).
   This changes generated output, so do it after P0.
 
@@ -363,7 +368,7 @@ unless another file is cited.
 ### U2. The UI's structure doesn't match how users think about the task
 
 - "Run" and "stream" look like two unrelated products.
-- The question users start with, *where should the events go?*, is asked last,
+- The question users start with, _where should the events go?_, is asked last,
   in a different section.
 - Inspector, Ground truth and Stream each start with their own run picker, so
   users keep re-selecting the same run.
@@ -384,12 +389,12 @@ unless another file is cited.
 A Kafka endpoint can be defined in several places that don't know about each
 other. The one that stores credentials is the one that never publishes.
 
-| Place | What you can set | Used for publishing? |
-|---|---|---|
-| Spec `output.sinks[]` ([types.ts:132-137](../packages/spec/src/types.ts#L132-L137)) | `{type: "kafka", name}` only. The name is what imperfections target. | No; it has no address |
-| Settings → Sink connections ([sink-management.tsx:157-183](../apps/web/src/surfaces/settings/sink-management.tsx#L157-L183)), CLI `sinks-add` | A raw JSON box with no field hints, plus username/password | **No**; only "Test connection" reads it |
-| Stream launcher UI, MCP stream tool, `POST /stream/start` | Brokers and topic typed inline, no credentials | **Yes**, the only path that publishes |
-| `docker-compose.yml` demo broker | `kafka:29092` inside Docker, `localhost:9092` from the host | Never registered as a connection |
+| Place                                                                                                                                         | What you can set                                                     | Used for publishing?                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------- |
+| Spec `output.sinks[]` ([types.ts:132-137](../packages/spec/src/types.ts#L132-L137))                                                           | `{type: "kafka", name}` only. The name is what imperfections target. | No; it has no address                   |
+| Settings → Sink connections ([sink-management.tsx:157-183](../apps/web/src/surfaces/settings/sink-management.tsx#L157-L183)), CLI `sinks-add` | A raw JSON box with no field hints, plus username/password           | **No**; only "Test connection" reads it |
+| Stream launcher UI, MCP stream tool, `POST /stream/start`                                                                                     | Brokers and topic typed inline, no credentials                       | **Yes**, the only path that publishes   |
+| `docker-compose.yml` demo broker                                                                                                              | `kafka:29092` inside Docker, `localhost:9092` from the host          | Never registered as a connection        |
 
 Other problems:
 
@@ -640,14 +645,14 @@ New Kafka connection
 
 ### Suggested order
 
-| Step | Contents | Why this order |
-|---|---|---|
-| 1 | P0, plus P1.3–P1.6 | Doesn't change output; fixes the high-severity scale and correctness issues |
-| 2 | P2 and CONN-1, CONN-2, CONN-5 | Makes Kafka publishing configurable and authenticated; unblocks the UI |
-| 3 | UI-1, UI-2, UI-3, CONN-3, CONN-4 | Builds on the bindings API |
-| 4 | P1.1, P1.2 | Output-changing; safe once engine versioning exists |
-| 5 | P3 | Largest change: rewrites generation into one pipeline |
-| 6 | P4 | Can run in parallel with steps 3–5 |
+| Step | Contents                         | Why this order                                                              |
+| ---- | -------------------------------- | --------------------------------------------------------------------------- |
+| 1    | P0, plus P1.3–P1.6               | Doesn't change output; fixes the high-severity scale and correctness issues |
+| 2    | P2 and CONN-1, CONN-2, CONN-5    | Makes Kafka publishing configurable and authenticated; unblocks the UI      |
+| 3    | UI-1, UI-2, UI-3, CONN-3, CONN-4 | Builds on the bindings API                                                  |
+| 4    | P1.1, P1.2                       | Output-changing; safe once engine versioning exists                         |
+| 5    | P3                               | Largest change: rewrites generation into one pipeline                       |
+| 6    | P4                               | Can run in parallel with steps 3–5                                          |
 
 ### Tradeoffs
 

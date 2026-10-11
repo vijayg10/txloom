@@ -36,6 +36,8 @@ export class RabbitMqSink implements Sink {
   readonly type = "rabbitmq" as const;
   readonly maxInFlight = 256;
   private full = false;
+  /** The broker raised a resource alarm (memory, disk) and blocks this connection's publishes. */
+  private blocked = false;
   private connection: ChannelModel | null = null;
   private channel: ConfirmChannel | null = null;
   private connecting: Promise<ConfirmChannel> | null = null;
@@ -58,6 +60,16 @@ export class RabbitMqSink implements Sink {
     connection.on("close", () => {
       this.channel = null;
       this.connection = null;
+      this.blocked = false;
+    });
+    // RabbitMQ stops reading from a publishing connection while a memory or disk alarm is up and
+    // says so with connection.blocked; nothing is confirmed until it unblocks.
+    connection.on("blocked", () => {
+      this.blocked = true;
+    });
+    connection.on("unblocked", () => {
+      this.blocked = false;
+      for (const resume of this.unblockWaiters.splice(0)) resume();
     });
     const channel = await connection.createConfirmChannel();
     // A channel-level error (publishing to a deleted exchange, say) closes the channel; pending
@@ -84,19 +96,27 @@ export class RabbitMqSink implements Sink {
     return this.connecting;
   }
 
+  private unblockWaiters: (() => void)[] = [];
+
   get saturated(): boolean {
-    return this.full;
+    return this.full || this.blocked;
   }
 
-  waitForCapacity(): Promise<void> {
+  async waitForCapacity(): Promise<void> {
+    if (this.blocked) {
+      await new Promise<void>((resolve) => {
+        this.unblockWaiters.push(resolve);
+        // A closed connection never unblocks; do not strand the pump.
+        this.connection?.once("close", () => resolve());
+      });
+    }
     const channel = this.channel;
-    if (!this.full || !channel) return Promise.resolve();
-    return new Promise((resolve) => {
+    if (!this.full || !channel) return;
+    await new Promise<void>((resolve) => {
       channel.once("drain", () => {
         this.full = false;
         resolve();
       });
-      // A closed channel never drains; do not strand the pump.
       channel.once("close", () => resolve());
     });
   }

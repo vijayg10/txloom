@@ -169,8 +169,8 @@ export function checkpointWorld(world: PartitionWorld): WorldCheckpoint {
     rngState: [...rngState],
     nextDayIndex: world.nextDayIndex,
     consumers: world.consumers.map((c) => ({ ...c })),
-    pendingFraud: world.pendingFraud.toArray(),
-    recentPurchases: [...world.recentPurchases.entries()],
+    pendingFraud: structuredClone(world.pendingFraud.toArray()),
+    recentPurchases: structuredClone([...world.recentPurchases.entries()]),
     actorSeq: world.actorSeq,
     scheduleSeq: world.scheduleSeq,
     planner: structuredClone(world.planner),
@@ -202,8 +202,10 @@ export function restoreWorld(
     merchants,
     archetypeCounts: countArchetypes(spec, consumers),
     nextDayIndex: checkpoint.nextDayIndex,
-    pendingFraud: MinHeap.fromArray(checkpoint.pendingFraud, compareScheduled),
-    recentPurchases: new Map(checkpoint.recentPurchases),
+    // Copies, not the checkpoint's own objects: simulating mutates these, and a checkpoint can be
+    // restored more than once (a live day checkpoint resumes a session and a retry).
+    pendingFraud: MinHeap.fromArray(structuredClone(checkpoint.pendingFraud), compareScheduled),
+    recentPurchases: new Map(structuredClone(checkpoint.recentPurchases)),
     actorSeq: checkpoint.actorSeq,
     scheduleSeq: checkpoint.scheduleSeq,
     planner: structuredClone(checkpoint.planner),

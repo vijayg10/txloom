@@ -135,6 +135,8 @@ export interface Connection {
     ok: boolean | null;
     summary: string | null;
     stage: ProbeStage | null;
+    /** What the last test found out about the default topic, including its retention. */
+    topic?: ProbeResult["topic"] | null;
   };
   warnings: { code: "localhost_address" | "topic_missing"; message: string }[];
   created_at: string;
@@ -226,6 +228,9 @@ export interface Run {
   started_at: string | null;
   completed_at: string | null;
   source_run_id?: string | null;
+  /** Present on the launch response only: non-blocking notices such as
+   * `retention_shorter_than_history`. */
+  warnings?: { code: string; message: string; details?: Record<string, unknown> }[];
 }
 
 // --- Streaming (contracts/api.md "Streaming") ---
@@ -294,7 +299,20 @@ export interface ExportManifest {
  * returns the real HTTP-backed implementation, or the mock adapter over fixtures when
  * `VITE_TXLOOM_MOCK=1` (apps/web/src/api/mock/index.ts).
  */
+export interface ScenarioSummary {
+  id: string;
+  name: string;
+}
+
+/** A scenario cloned from a template: the saved first version and the spec it holds. */
+export interface ClonedScenario extends ScenarioSummary {
+  current_version: { id: string; number: number };
+  spec: { output: { sinks: { type: string; name: string }[] } } & Record<string, unknown>;
+}
+
 export interface TxLoomApiClient {
+  listScenarios(): Promise<{ scenarios: ScenarioSummary[] }>;
+  cloneTemplate(slug: string, name: string): Promise<ClonedScenario>;
   listConnections(): Promise<{ connections: Connection[] }>;
   createConnection(input: ConnectionInput): Promise<Connection>;
   getConnection(id: string): Promise<Connection>;
@@ -328,6 +346,25 @@ export interface TxLoomApiClient {
 
 function createRealApiClient(): TxLoomApiClient {
   return {
+    listScenarios: () => apiClient.get("/scenarios"),
+    cloneTemplate: async (slug, name) => {
+      const scenario = await apiClient.post<
+        ScenarioSummary & { current_version?: { id: string; number: number } }
+      >("/scenarios", { name, template_slug: slug });
+      const { versions } = await apiClient.get<{
+        versions: { id: string; version_no: number; spec: ClonedScenario["spec"] }[];
+      }>(`/scenarios/${scenario.id}/versions`);
+      const current =
+        versions.find((v) => v.id === scenario.current_version?.id) ??
+        versions[versions.length - 1];
+      if (!current) throw new Error("the cloned scenario has no saved version");
+      return {
+        id: scenario.id,
+        name: scenario.name,
+        current_version: scenario.current_version ?? { id: current.id, number: current.version_no },
+        spec: current.spec,
+      };
+    },
     listConnections: () => apiClient.get("/connections"),
     createConnection: (input) => apiClient.post("/connections", input),
     getConnection: (id) => apiClient.get(`/connections/${id}`),

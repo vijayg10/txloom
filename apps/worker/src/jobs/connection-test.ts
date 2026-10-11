@@ -40,7 +40,9 @@ export function startConnectionTestWorker(deps: ConnectionTestDeps): Worker<Conn
     async (job: Job<ConnectionTestJobData>): Promise<ProbeResult> => {
       const { type, name, config, sealedSecrets, target, dataDir } = job.data;
       const secrets = sealedSecrets
-        ? (JSON.parse(decryptSecret(Buffer.from(sealedSecrets, "hex"), getOrCreateInstanceKey(dataDir))) as unknown)
+        ? (JSON.parse(
+            decryptSecret(Buffer.from(sealedSecrets, "hex"), getOrCreateInstanceKey(dataDir)),
+          ) as unknown)
         : null;
 
       const factory = FACTORIES[type];

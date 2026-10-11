@@ -1,63 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button.js";
 import { Input } from "../../components/ui/input.js";
 import { FormField } from "../../components/ui/form-field.js";
-import { Link, Route, Routes, useParams } from "react-router-dom";
 import { apiClient, ApiError } from "../../api/client.js";
-import { PageHeader } from "../../components/layout/page-header.js";
 import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.js";
-import { EmptyState } from "../../components/ui/empty-state.js";
-import type { RunStatus } from "../run-control/run-status.js";
 import { StreamConsole } from "./stream-console.js";
-
-interface RunRow {
-  id: string;
-  status: RunStatus;
-}
-
-function StreamRunPicker() {
-  const [runs, setRuns] = useState<RunRow[]>([]);
-
-  useEffect(() => {
-    apiClient
-      .get<{ runs: RunRow[] }>("/runs")
-      .then((res) => setRuns(res.runs.filter((run) => run.status === "completed")))
-      .catch(() => setRuns([]));
-  }, []);
-
-  return (
-    <div>
-      <PageHeader
-        title="Stream console"
-        meta="Pick a completed run to start or watch its live stream."
-      />
-      {runs.length === 0 ? (
-        <EmptyState
-          title="No completed runs"
-          description="Complete a run to start streaming its events."
-        />
-      ) : (
-        <Card>
-          <CardBody>
-            <ul className="divide-border flex flex-col divide-y" data-testid="stream-run-picker">
-              {runs.map((run) => (
-                <li key={run.id} className="py-2.5">
-                  <Link
-                    data-testid="stream-run-picker-item"
-                    to={`/stream/${run.id}`}
-                    className="text-primary font-medium hover:underline"
-                  >
-                    {run.id}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
-      )}
-    </div>
-  );
-}
 
 /** Starts the live phase into the destinations the run was launched with — no sink is
  * entered here (the inline form was removed with `/sinks`). */
@@ -110,7 +57,7 @@ function StreamStart({ runId, onStarted }: { runId: string; onStarted: () => voi
             </p>
           )}
           <div>
-            <Button type="submit" data-testid="stream-start-button" loading={starting}>
+            <Button type="submit" data-testid="stream-start" loading={starting}>
               Start stream
             </Button>
           </div>
@@ -120,49 +67,45 @@ function StreamStart({ runId, onStarted }: { runId: string; onStarted: () => voi
   );
 }
 
-function StreamRunDetail() {
-  const { runId } = useParams<{ runId: string }>();
+/** The Live tab of a run: starts the stream into the destinations the run was launched with, or
+ * shows the console once it exists. */
+export function LiveTab({ runId }: { runId: string }) {
   const [hasStream, setHasStream] = useState<boolean | null>(null);
 
+  // A `history_then_live` run gets its stream from the worker once history is done, possibly while
+  // this tab is already open, so keep looking until there is one.
   useEffect(() => {
-    if (!runId) return;
-    apiClient
-      .get(`/runs/${runId}/stream`)
-      .then(() => setHasStream(true))
-      .catch((err) => setHasStream(err instanceof ApiError && err.status === 404 ? false : true));
+    let active = true;
+    const look = () =>
+      apiClient
+        .get(`/runs/${runId}/stream`)
+        .then(() => active && setHasStream(true))
+        .catch((err) => {
+          if (active) setHasStream(err instanceof ApiError && err.status === 404 ? false : true);
+        });
+    void look();
+    const timer = setInterval(() => {
+      if (!hasStreamRef.current) void look();
+    }, 2000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
   }, [runId]);
+  const hasStreamRef = useRef(hasStream);
+  hasStreamRef.current = hasStream;
 
-  if (!runId || hasStream === null) {
+  if (hasStream === null) return <p className="text-text-secondary text-sm">Loading…</p>;
+  if (!hasStream) {
     return (
-      <div>
-        <PageHeader title="Stream console" />
-        <p className="text-text-secondary text-sm">Loading…</p>
+      <div data-testid="stream-launcher">
+        <StreamStart runId={runId} onStarted={() => setHasStream(true)} />
       </div>
     );
   }
-
   return (
-    <div>
-      <PageHeader title="Stream console" meta={`Run ${runId}`} />
-      {!hasStream && (
-        <div data-testid="stream-launcher">
-          <StreamStart runId={runId} onStarted={() => setHasStream(true)} />
-        </div>
-      )}
-      {hasStream && (
-        <div data-testid="stream-console">
-          <StreamConsole runId={runId} />
-        </div>
-      )}
+    <div data-testid="stream-console">
+      <StreamConsole runId={runId} />
     </div>
-  );
-}
-
-export function StreamConsolePage() {
-  return (
-    <Routes>
-      <Route index element={<StreamRunPicker />} />
-      <Route path=":runId" element={<StreamRunDetail />} />
-    </Routes>
   );
 }

@@ -17,7 +17,12 @@ export interface GeneratePartitionJobData {
 
 export interface GeneratePartitionDeps {
   connection: ConnectionOptions;
-  onPartitionDone: (data: GeneratePartitionJobData, result: PartitionWorkerResult) => Promise<void>;
+  /** `durationMs` is the wall time one pool thread spent generating the partition. */
+  onPartitionDone: (
+    data: GeneratePartitionJobData,
+    result: PartitionWorkerResult,
+    durationMs: number,
+  ) => Promise<void>;
   onPartitionRunning: (data: GeneratePartitionJobData, attempt: number) => Promise<void>;
   /** Called after every failed attempt, with `final` set when no retry will follow. */
   onPartitionAttemptFailed?: (
@@ -72,6 +77,7 @@ export function startGeneratePartitionWorker(
 
       await deps.onPartitionRunning(data, attempt);
       try {
+        const startedAt = Date.now();
         const result = await runPartition({
           spec: data.spec,
           seed: data.seed,
@@ -85,7 +91,7 @@ export function startGeneratePartitionWorker(
           partitionNo: data.partitionNo,
           eventsGenerated: result.eventsGenerated,
         });
-        await deps.onPartitionDone(data, result);
+        await deps.onPartitionDone(data, result, Date.now() - startedAt);
         return result;
       } catch (error) {
         await fail(error as Error, attempt >= maxAttempts);

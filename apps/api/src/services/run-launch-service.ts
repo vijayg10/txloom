@@ -23,6 +23,9 @@ export interface LaunchGenerationInput {
   destinations?: RunDestinationInput[];
   /** Replay the history to the broker destinations after generation (FR-021). */
   replay_history?: boolean;
+  /** Rate and label channel the live phase starts with. */
+  target_tps?: number | null;
+  label_channel?: boolean;
   /** Regenerate reuses the source run's partition count so output stays byte-identical
    * even if `TXLOOM_PARTITION_CHUNK_SIZE` changed since. */
   partition_count?: number;
@@ -64,6 +67,8 @@ export async function launchGeneration(
       engine_version: ENGINE_VERSION,
       partition_count: partitionCount,
       replay_history: input.replay_history ?? false,
+      target_tps: input.target_tps ?? null,
+      label_channel: input.label_channel ?? false,
       ...(input.source_run_id ? { source_run_id: input.source_run_id } : {}),
     });
     await new RunDestinationRepository(trx).insertAll(created.id, input.destinations ?? []);

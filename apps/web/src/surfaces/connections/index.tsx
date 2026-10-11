@@ -55,7 +55,11 @@ export function ConnectionsPage() {
       </div>
 
       {suggestions.map((suggestion) => (
-        <Card key={suggestion.kind} data-testid="local-kafka-suggestion" className="border-primary/30">
+        <Card
+          key={suggestion.kind}
+          data-testid="local-kafka-suggestion"
+          className="border-primary/30"
+        >
           <CardBody className="flex items-center justify-between gap-4">
             <div>
               <p className="text-text font-medium">Local Kafka detected</p>
@@ -84,7 +88,11 @@ export function ConnectionsPage() {
                   tone={booleanTone(connection.health.ok)}
                   data-testid={`connection-health-${connection.name}`}
                 >
-                  {connection.health.ok === null ? "untested" : connection.health.ok ? "ok" : "failed"}
+                  {connection.health.ok === null
+                    ? "untested"
+                    : connection.health.ok
+                      ? "ok"
+                      : "failed"}
                 </StatusBadge>
               </CardHeader>
               <CardBody className="flex flex-col gap-2">
@@ -95,7 +103,7 @@ export function ConnectionsPage() {
                   <p className="text-text-secondary text-xs">{connection.health.summary}</p>
                 )}
                 {connection.warnings.map((w) => (
-                  <p key={w.code} className="text-amber-600 text-xs">
+                  <p key={w.code} className="text-xs text-amber-600">
                     {w.message}
                   </p>
                 ))}

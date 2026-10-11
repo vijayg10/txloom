@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { apiClient, ApiError } from "../../api/client.js";
 import { Modal } from "../../components/ui/modal.js";
@@ -85,9 +86,9 @@ export function RunRecord({ runId }: { runId: string }) {
             <code className="font-mono">{run.id}</code>
           </Field>
           <Field label="Scenario">
-            <a href={`/scenarios/${run.scenario_id}`} className="text-primary hover:underline">
+            <Link to={`/scenarios/${run.scenario_id}`} className="text-primary hover:underline">
               {run.scenario_id}
-            </a>
+            </Link>
           </Field>
           <Field label="Seed">
             <span data-testid="run-record-seed">{run.seed}</span>
@@ -105,9 +106,9 @@ export function RunRecord({ runId }: { runId: string }) {
               Realism report
             </a>{" "}
             ·{" "}
-            <a href={`/runs/${run.id}/exports`} className="text-primary hover:underline">
+            <Link to={`/runs/${run.id}/export`} className="text-primary hover:underline">
               Exports
-            </a>
+            </Link>
           </p>
         )}
         <Button variant="secondary" onClick={() => void regenerate()} loading={regenerating}>

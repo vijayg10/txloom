@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import type { SimulationSpec } from "@txloom/spec";
-import { ArrowRight, CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Rocket, XCircle } from "lucide-react";
 import { apiClient } from "../../api/client.js";
 import { PageHeader } from "../../components/layout/page-header.js";
 import { Button } from "../../components/ui/button.js";
@@ -9,6 +17,7 @@ import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/card.
 import { FormField } from "../../components/ui/form-field.js";
 import { Input } from "../../components/ui/input.js";
 import { cn } from "../../lib/cn.js";
+import { LaunchDrawer } from "./launch-drawer.js";
 import { SpecEditor } from "./spec-editor.js";
 import { StructuralPreview } from "./structural-preview.js";
 import { TemplateGallery } from "./template-gallery.js";
@@ -112,7 +121,11 @@ function ScenarioListView() {
           </CardBody>
         </Card>
 
-        <TemplateGallery onCloned={(scenarioId) => navigate(`/scenarios/${scenarioId}`)} />
+        <TemplateGallery
+          onCloned={(scenarioId, versionNumber) =>
+            navigate(`/scenarios/${scenarioId}`, { state: { clonedVersion: versionNumber } })
+          }
+        />
       </div>
     </div>
   );
@@ -120,9 +133,15 @@ function ScenarioListView() {
 
 function ScenarioDetailView() {
   const { scenarioId } = useParams<{ scenarioId: string }>();
+  const navigate = useNavigate();
+  const clonedVersion = (useLocation().state as { clonedVersion?: number } | null)?.clonedVersion;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const launchOpen = searchParams.get("launch") === "1";
   const [scenario, setScenario] = useState<ScenarioRow | null>(null);
   const [initialSpec, setInitialSpec] = useState<object | null>(null);
   const [currentSpec, setCurrentSpec] = useState<SimulationSpec | null>(null);
+  // What a launch actually runs: the saved version, not unsaved edits in the editor.
+  const [savedSpec, setSavedSpec] = useState<SimulationSpec | null>(null);
   const [valid, setValid] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -146,6 +165,7 @@ function ScenarioDetailView() {
               res.versions.find((v) => v.id === currentVersionId) ??
               res.versions[res.versions.length - 1];
             setInitialSpec((current?.spec as object | undefined) ?? {});
+            setSavedSpec((current?.spec as SimulationSpec | undefined) ?? null);
           })
           .catch(() => setInitialSpec({}));
       });
@@ -158,6 +178,7 @@ function ScenarioDetailView() {
     setError(null);
     try {
       await apiClient.post(`/scenarios/${scenarioId}/versions`, { spec: currentSpec });
+      setSavedSpec(currentSpec);
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to save spec version");
@@ -173,16 +194,26 @@ function ScenarioDetailView() {
       <PageHeader
         title={scenario?.name ?? "Scenario"}
         actions={
-          <Link
-            data-testid="launch-run-link"
-            to={`/runs?scenario=${scenarioId}`}
-            className="bg-primary hover:bg-primary-hover inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium text-white shadow-sm transition-all duration-200"
+          <Button
+            data-testid="launch-open"
+            onClick={() => setSearchParams({ launch: "1" })}
+            disabled={!scenario?.current_version_id && !saved}
           >
-            Launch a run
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
+            <Rocket className="h-4 w-4" aria-hidden="true" />
+            Launch
+          </Button>
         }
       />
+
+      {clonedVersion !== undefined && (
+        <p
+          data-testid="version-saved-badge"
+          className="bg-success/10 text-success mb-4 inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm"
+        >
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />v{clonedVersion} saved — ready to
+          launch
+        </p>
+      )}
 
       <div className="flex flex-col gap-6">
         <Card>
@@ -245,6 +276,16 @@ function ScenarioDetailView() {
 
         <VersionHistory scenarioId={scenarioId} />
       </div>
+
+      <LaunchDrawer
+        open={launchOpen}
+        onOpenChange={(open) => {
+          if (!open) setSearchParams({});
+        }}
+        scenarioId={scenarioId}
+        spec={savedSpec}
+        onLaunched={(run) => navigate(`/runs/${run.id}/progress`)}
+      />
     </div>
   );
 }
