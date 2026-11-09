@@ -98,4 +98,4 @@ Progress and stream metrics are pushed to the studio over WebSocket.
 
 ## Security Model
 
-TxLoom has no authentication and is meant for a trusted network. Connection secrets are encrypted at rest and never returned by the API. See the [Security](../guide/security.md) page.
+TxLoom has no authentication and is meant for a trusted network. Connection secrets are encrypted at rest and never returned by the API.

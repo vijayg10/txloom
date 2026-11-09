@@ -146,5 +146,3 @@ See [CONTRIBUTING.md](https://github.com/vijayg10/txloom/blob/main/CONTRIBUTING.
 ::: warning No authentication
 TxLoom has no login. Anyone who can reach port 3000 can read every scenario and run, launch runs, manage connections and use the MCP endpoint. Deploy it only on a trusted network. For outside access, put it behind a VPN or a reverse proxy that does its own authentication.
 :::
-
-Details are in the [Security](./security.md) page.

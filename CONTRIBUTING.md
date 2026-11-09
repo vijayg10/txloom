@@ -2,8 +2,7 @@
 
 TxLoom is Apache-2.0 and built to be extended — see
 [Extending TxLoom](https://vijayg10.github.io/txloom/technical/extending.html) for the sink/typology/imperfection
-plugin surfaces (FR-027) and [Security](https://vijayg10.github.io/txloom/guide/security.html) for the
-trust-boundary/secrets model.
+plugin surfaces (FR-027).
 
 ## Before you start
 
@@ -78,5 +77,5 @@ one before review continues.
 
 ## Reporting issues
 
-Use the repository's issue tracker. For security issues, see
-[Security](https://vijayg10.github.io/txloom/guide/security.html) before filing publicly.
+Use the repository's issue tracker. For security issues, contact the
+maintainers privately before filing publicly.

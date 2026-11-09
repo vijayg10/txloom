@@ -66,7 +66,6 @@ export default defineUserConfig({
             '/guide/installation',
             '/guide/configuration',
             '/guide/scenario-spec',
-            '/guide/security',
           ],
         },
       ],
