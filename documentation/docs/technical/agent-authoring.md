@@ -92,12 +92,12 @@ The saved version appears in the scenario's version history in the studio, where
 
 ## Rules an Agent Must Follow
 
-These come from the authoring docs the agent reads.
+An agent learns most of these from the tool descriptions. They are also listed under "Running a scenario" in the [Agent Reference](./agent-reference.md).
 
 - **Destinations.** Every non-file sink needs a destination: a connection of the same type, by ID, from `list_connections`. Addresses and credentials are never passed inline.
 - **Seeds are strings.** Pass `seed` as a decimal string so 64-bit values survive JSON. Leave it out to use the spec's seed. A run is never given a random seed.
 - **Mode.** `history_only`, or `history_then_live`, which is the default when any destination is a broker. The live stream then starts by itself after history.
-- **Replay.** With `replay_history: true`, the run's `phase` goes through `generating`, `replaying` and `live`.
+- **Phase.** Every run record has a `phase`: `generating`, `replaying` (only with `replay_history: true`), `live`, then `done`.
 - **Exports are asynchronous.** `create_export` returns `queued`; poll `get_export` until `completed` or `failed`.
 - **Labels are excluded by default.** `include_labels: true` requires `acknowledged_warning: true`.
 
@@ -109,4 +109,4 @@ These come from the authoring docs the agent reads.
 
 ## Authoring Docs
 
-The documentation agents read is generated from the same package that defines the tools, so it stays in step with the validator. It is served at `GET /api/v1/spec/docs` and published on this site as the [Agent Reference](./agent-reference.md).
+The authoring docs are generated from the same package that defines the tools, so they stay in step with the validator. `GET /api/v1/spec/docs` (and `get_authoring_docs`) returns them as JSON: the spec schema, field notes, the invariant catalog and worked examples. The [Agent Reference](./agent-reference.md) on this site is a Markdown rendering of the same content plus a "Running a scenario" section, which the endpoint does not include.

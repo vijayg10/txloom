@@ -15,7 +15,7 @@ The engine is a deterministic simulator. Given a spec and a seed it produces tru
 
 Any change that alters generated output bumps `ENGINE_VERSION` (currently `6`) and is recorded in the [changelog](https://github.com/vijayg10/txloom/blob/main/CHANGELOG.md). A golden-master test pins the output of a reference spec and seed to the current version.
 
-Each run records the engine version that made it. Regenerating, retrying or streaming a run made by a different version returns `409 engine_version_mismatch` rather than quietly producing different data. Regeneration can proceed if you accept the change explicitly.
+Each run records the engine version that made it. Regenerating, retrying or streaming a run made by a different version returns `409 engine_version_mismatch` rather than quietly producing different data. Regeneration can proceed if you accept the change explicitly by sending `accept_engine_change: true`.
 
 ---
 
@@ -37,10 +37,11 @@ For each day the engine:
 
 1. **Plans fraud** that starts today.
 2. **Generates legitimate activity** for each consumer: spending drawn from the archetype's spend rhythm, scaled by the weekend multiplier and any seasonality window; income credits according to the archetype's income pattern.
-3. **Places events in time** using a built-in hour-of-day activity curve, so traffic has a daily shape instead of being spread evenly.
-4. **Assigns outcomes.** Legitimate events are declined at the baseline decline rate.
-5. **Merges in the fraud events** that fall on this day.
-6. **Emits** truth events and labels, and passes each event through every sink's imperfection transformer.
+   Each event is placed in time using a built-in hour-of-day activity curve, so traffic has a daily shape instead of being spread evenly. Its outcome is drawn at the same time: legitimate events are declined at the baseline decline rate. An account-takeover victim that is still dormant generates nothing before its attack time.
+3. **Merges in the fraud events** that fall on this day and sorts the day by time.
+4. **Emits** truth events and labels.
+
+The partition worker (or, in the live phase, the live world) then passes each event through every sink's imperfection transformer.
 
 ### Population
 
@@ -58,9 +59,9 @@ Campaigns are queued by simulated time. A campaign that starts late on the last 
 
 | Typology | How a campaign is built |
 |---|---|
-| Card testing | A burst of `burst_size_min` to `burst_size_max` small payments inside `burst_window_minutes`. Probes are mostly declined; the final step is the most likely to be approved. |
-| Account takeover | The victim is kept dormant for `dormancy_days`, then `drain_step_count` P2P transfers follow roughly 15 minutes apart. Most are approved. Attack start times are staggered across the window. |
-| Refund abuse | The actor requests refunds against the consumer's most recent purchases (the last 16 are remembered). An attempt with nothing to refund is dropped. |
+| Card testing | A burst of `burst_size_min` to `burst_size_max` payments between `amount_min` and `amount_max`, spread at random inside `burst_window_minutes` and placed at a random point in the day. Each probe has a 15% chance of approval; the final step has 60%. |
+| Account takeover | The attack day is drawn uniformly from the planning day plus `dormancy_days` to the end of history, at a random time in the first half of that day; in the live phase it is exactly `dormancy_days` ahead. The victim makes no legitimate transactions until then. `drain_step_count` P2P transfers of 500 to 5,000 then follow 15 minutes apart, with up to 5 minutes of jitter, each with an 85% chance of approval. |
+| Refund abuse | Each campaign makes up to `max_refunds_per_actor` attempts, each with probability `refund_rate`. An attempt refunds a random purchase among the consumer's last 16, 30 minutes to 4.5 hours after it. An attempt is dropped if there is nothing to refund or if the refund would fall after the end of that day. |
 
 Every fraud event carries a label with `is_fraud`, `typology`, `actor_id` and `campaign_step`.
 
@@ -72,8 +73,8 @@ Imperfections are applied by a transformer that runs once per sink, one event at
 
 | Type | Mechanism |
 |---|---|
-| Late arrival | The delivery waits until simulated time passes `ts + delay`. Payload `ts` is unchanged; `delivered_at` holds the arrival time. |
-| Clock skew | The source's offset is added to payload `ts`. Order is unchanged. |
+| Late arrival | With probability `rate`, the delivery waits until simulated time passes `ts + delay`, where the delay is drawn from a normal distribution and floored at zero. Payload `ts` is unchanged; `delivered_at` holds the arrival time. |
+| Clock skew | Applies only to a sink listed in `sources`. With probability `rate`, that source's `offset_seconds` is added to payload `ts`. Order is unchanged. |
 | Out of order | The flagged delivery is held for one slot so the next one overtakes it. The label is written only when an overtake really happens. |
 | Duplicate | One extra copy follows the original immediately, with a new `delivery_id`. |
 
@@ -115,7 +116,7 @@ The report is stored as `report.json` in the run's folder and served at `GET /ap
 
 ## Reference Scale
 
-The documented reference scale is 200,000 consumers and 5,000 merchants over 90 days. Larger populations still generate; the validator raises a warning because they are outside the benchmarked range.
+The documented reference scale is 200,000 consumers and 5,000 merchants over 90 days, streamed at up to 1,000 events per second. Larger populations still generate; the validator raises a warning when the consumer or merchant count, or `clock.then_stream_tps`, is above the benchmarked range.
 
 ## Extending the Engine
 

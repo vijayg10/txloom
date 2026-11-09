@@ -1,4 +1,4 @@
-# TxLoom agent authoring guide
+# Agent Reference
 
 Generated from packages/agent-tools/src/docs — do not hand-edit; run `pnpm build:agent-docs`.
 
@@ -13,16 +13,19 @@ Generated from packages/agent-tools/src/docs — do not hand-edit; run `pnpm bui
 - `/clock/then_stream_tps` — Optional — if set, the run continues past history as a live stream at this target TPS. Omit for a batch-only run.
 - `/population/consumers/count` — Reference scale is 200,000; smaller (100s–1000s) is fine and faster for demos/tests.
 - `/population/consumers/archetypes` — Weighted list; weights across all archetypes must sum to 1 (±1e-6).
-- `/population/consumers/archetypes/*/income_pattern` — kind: "fixed_credit_day" (salaried, needs day_of_month 1-28) or "irregular_weekly" (gig work, no day_of_month).
+- `/population/consumers/archetypes/*/income_pattern` — kind: "fixed_credit_day" (salaried, needs day_of_month 1-28 — the validator does not require it, but without it the archetype is never paid) or "irregular_weekly" (gig work, no day_of_month).
 - `/population/merchants/categories` — Keyed by category name; weights across all categories must sum to 1 (±1e-6).
 - `/seasonality/*/window` — [startDate, endDate] — must intersect [clock.start, clock.start + clock.days) or the invariant battery rejects it.
 - `/fraud/target_rate` — 0 to 0.5. The achieved rate converges to this within a few percentage points — see get_realism_report after a run.
 - `/fraud/typologies` — shares across the array must sum to 1 (±1e-6). Each typology's params shape depends on its type — see the worked examples.
 - `/fraud/typologies/*[type=account_takeover]/params/dormancy_days` — Must be less than clock.days, or no persona can ever satisfy the dormancy precondition.
+- `/outcomes/baseline_decline_rate` — 0 to 1. Share of legitimate transactions declined for ordinary reasons, independent of fraud — typically 0.01–0.05.
 - `/imperfections/*` — Each configured imperfection needs rate in [0, 0.2]. duplicate_delivery/late_arrival/out_of_order/clock_skew accept an optional `sinks` allowlist — omit it to apply to every sink.
 - `/imperfections/clock_skew/sources` — Each source.source must name a declared output.sinks[].name.
 - `/output/sinks` — At least one sink. type: file | kafka | rabbitmq | webhook. `name` is the join key imperfections target.
-- `/output/labels` — "separate_export" (default, recommended) keeps the answer key out of the main export; "merged_with_warning" requires acknowledged_warning:true on export.
+- `/output/sinks/*/format` — Optional — csv | parquet | json. Descriptive only: the file format is chosen per export (`create_export {format}`), and brokers and webhooks always carry JSON.
+- `/output/labels` — Required — "separate_export" (recommended) or "merged_with_warning". Labels are kept out of exports either way: a `create_export` with include_labels:true is refused unless it also sends acknowledged_warning:true.
+- `/output/stream_label_channel` — Optional, default false. The default for a launch's `label_channel`: when true, the live stream also publishes each event's label to the destination's `label_topic` (Kafka only).
 
 # Semantic invariant catalog
 

@@ -1,6 +1,6 @@
 # Extending TxLoom
 
-TxLoom has three extension surfaces: sinks, fraud typologies and imperfection types. Sinks are a real plugin interface. Typologies and imperfections are extended by adding a branch to one central function, which is a known gap and not hidden. Locale name packs are data only.
+TxLoom has three extension surfaces: sinks, fraud typologies and imperfection types. Sinks are a real plugin interface. Typologies and imperfections are extended by adding a branch to one central function, which is a known gap and not hidden. Locale name packs are data plus a one-line allowlist entry.
 
 ## Sinks
 
@@ -48,8 +48,18 @@ Retries, backoff, the in-flight window, backpressure and the `dropped` answer-ke
    - Mark a failure `retryable: false` only when retrying cannot fix it, such as an HTTP 400.
    - `close()` should release any held connection.
 3. Export the factory from `packages/sinks/src/index.ts`.
-4. Register it in the factory maps in `apps/api/src/services/connection-validation.ts`, `apps/worker/src/jobs/stream-drive.ts` (`FACTORIES`) and `apps/worker/src/jobs/connection-test.ts`. Widen the `type` enum of the `connections` table with a **new** migration, not an edit to an existing one.
-5. Add integration tests under `packages/sinks/tests/integration/`. Use the Testcontainers pattern, or a local-server pattern like `webhook-retry.test.ts` if the target needs no real broker.
+4. Register the factory in the three `FACTORIES` maps: `apps/api/src/services/connection-validation.ts`, `apps/worker/src/jobs/stream-drive.ts` and `apps/worker/src/jobs/connection-test.ts`.
+5. Widen the connection-type enums with a **new** migration, not an edit to an existing one: `connections.type` and `run_destinations.connection_type`.
+6. Widen the connection-type unions the API, worker and spec package hard-code, and give the new type its own branches where they switch on it:
+   - `apps/api/src/db/repositories/connections.ts` and `run-destinations.ts` (`ConnectionType`)
+   - `apps/api/src/services/connection-probe.ts` and `connection-validation.ts`
+   - `apps/api/src/routes/connections.ts` (the default `SinkTarget` for a connection)
+   - `apps/worker/src/jobs/stream-drive.ts` (how a destination's target maps onto the sink)
+   - `packages/spec/src/connection-warnings.ts`
+7. Wire the clients so every surface can reach the new type:
+   - Web: `apps/web/src/api/client.ts` (`ConnectionType` and the typed config), `surfaces/connections/connection-form.tsx` (type picker and fields) and `components/data/destination-picker.tsx`
+   - CLI: `apps/cli/src/commands/connections.ts`
+8. Add integration tests under `packages/sinks/tests/integration/`. Use the Testcontainers pattern, or a local-server pattern like `webhook-retry.test.ts` if the target needs no real broker.
 
 ### Migrating a v1 Sink to v2
 
@@ -65,17 +75,22 @@ Retries, backoff, the in-flight window, backpressure and the `dropped` answer-ke
 
 ## Fraud Typologies
 
-`planDay` in `packages/engine/src/fraud/planner.ts` allocates the fraud budget across `spec.fraud.typologies` each simulated day, with feedback control toward the target rate. It dispatches per typology through an `if` chain. Each typology's generation logic lives in its own file (`card-testing.ts`, `account-takeover.ts`) and returns `FraudEventDraft[]` (`fraud/types.ts`). The planner turns those into scheduled `TruthEvent` and `LabelRecord` pairs.
+Three typologies ship: `card_testing`, `account_takeover` and `refund_abuse`. Fraud is planned and emitted in two steps, both in `packages/engine/src/fraud/planner.ts`:
+
+- **`planDay`** runs once per simulated day. There is no global budget. The target rate is met by feedback: each typology is owed `rate / (1 − rate) × share × legitimate volume so far`, and the day plans campaigns for whatever is still short. It dispatches per typology through an `if` chain and pushes each campaign's steps onto `world.pendingFraud` as `ScheduledFraudEvent`s keyed by simulated time.
+- **`drainDay`** pops the scheduled events that fall inside the day and turns each into a `TruthEvent` and its `LabelRecord`. Events that cannot happen (for example a refund with no purchase to refund) are dropped and un-planned, so the next `planDay` makes up the shortfall.
+
+`card_testing` and `account_takeover` keep their step generation in their own files (`card-testing.ts`, `account-takeover.ts`), each returning `FraudEventDraft[]` (`fraud/types.ts`). `refund_abuse` is written inline in `planDay`, and its refunds are matched against the consumer's recent purchases in `drainDay`.
 
 ### Adding a Typology
 
 1. Add the variant to `FraudTypologyConfig` in `packages/spec/src/types.ts`, with its JSON Schema and invariants (for example a bounds check on its params, like `dormancy-satisfiable.ts` for `account_takeover`).
-2. Write `packages/engine/src/fraud/<name>.ts` exporting a function that takes the typology's params and the RNG and returns `FraudEventDraft[]`. See `generateCardTestingBurst`, `generateAccountTakeoverScript` or `maybeGenerateRefund`. The `FraudEventDraft[]` return type is the contract; function names vary.
-3. Add a branch to `planDay`'s dispatch that calls it and schedules the `TruthEvent` and `LabelRecord` pairs. Use the `card_testing` or `account_takeover` branch as a template.
+2. Write `packages/engine/src/fraud/<name>.ts` exporting a function that takes the typology's params and the RNG and returns `FraudEventDraft[]`. See `generateCardTestingBurst` or `generateAccountTakeoverScript`. The `FraudEventDraft[]` return type is the contract; function names vary.
+3. Add a branch to `planDay`'s dispatch that calls it and schedules each draft onto `world.pendingFraud`, adding to `world.planner.fraudPlanned` for the feedback loop. Use the `card_testing` or `account_takeover` branch as a template. If the new typology's events depend on world state at emission time, resolve them in `drainDay` as `refund_abuse` does.
 4. Add golden-master and property-test coverage. `packages/engine/tests/property/fraud-rate.test.ts` shows the achieved-versus-target convergence pattern every typology must satisfy.
 
 ::: warning Known gap
-Typologies are not behind a formal interface or registry. `planDay` is one function with one branch per typology. A real plugin registry, mirroring `Sink` and `SinkFactory`, would be a larger refactor.
+Typologies are not behind a formal interface or registry. `planDay` is one function with one branch per typology, and `drainDay` special-cases refunds. A real plugin registry, mirroring `Sink` and `SinkFactory`, would be a larger refactor.
 :::
 
 ## Imperfection Types
@@ -84,7 +99,7 @@ Typologies are not behind a formal interface or registry. `planDay` is one funct
 
 ### Adding an Imperfection Type
 
-1. Add the key to `ImperfectionsConfig` in `packages/spec/src/types.ts` (extend `ImperfectionRateConfig` if it needs extra params, as `LateArrivalConfig` does), plus a bounds invariant following `imperfection-bounds.ts` (rate in [0, 0.2]).
+1. Add the key to `ImperfectionsConfig` in `packages/spec/src/types.ts` (extend `ImperfectionRateConfig` if it needs extra params, as `LateArrivalConfig` and `ClockSkewConfig` do), plus a bounds invariant following `imperfection-bounds.ts` (rate in [0, 0.2]).
 2. Add a `CorruptionType` variant in `packages/engine/src/types.ts`.
 3. Write `packages/engine/src/imperfections/<name>.ts` exporting a pure decision function taking `(config, rng)` and any per-event context, and returning what to corrupt.
 4. Add a branch to `ImperfectionTransformer.push` (or `emit`, if the effect is on delivery order). It must add a `LabelRecord` with the new `corruption_type` to the delivery's `corruptions`, so the answer key lists every corruption.
@@ -97,4 +112,8 @@ Like typologies, this is a branch in one class and not a formal plugin interface
 
 ## Name-Dictionary Packs
 
-A locale pack is a data contribution, not code. `packages/engine/src/naming/pack-loader.ts` defines the pack schema, and `packages/engine/data/name-packs/en-IN/` is the reference pack (given and family names, merchant naming grammars, recorded sources). Add `packages/engine/data/name-packs/<locale>/` in the same shape, then set `<locale>` as the spec's top-level `locale`.
+A locale pack is mostly data. Two packs ship, `en-IN` and `en-US`, under `packages/engine/data/name-packs/`. `packages/engine/src/naming/pack-loader.ts` defines the pack shape: `given-names.json` and `family-names.json` (weighted entries) and `merchant-grammars.json` (naming patterns and word lists), each with a `source` field recording where the data came from.
+
+1. Add `packages/engine/data/name-packs/<locale>/` with the same three files.
+2. Add `<locale>` to `SHIPPED_LOCALE_PACKS` in `packages/spec/src/invariants/reference-integrity.ts`. The validator rejects any spec whose `locale` is not in that list.
+3. Set `<locale>` as the spec's top-level `locale`.

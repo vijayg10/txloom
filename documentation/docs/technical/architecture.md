@@ -16,13 +16,13 @@ A React single-page application built with Vite and served by the API process.
 - Scenario authoring: JSON editor with schema autocomplete and inline validation, structural preview, version history
 - Launching runs and binding sinks to connections
 - Run progress and stream health over WebSocket
-- Charts, ground-truth browsing and exports
+- Charts, run comparison, ground-truth browsing and exports
 
 The studio holds no business logic of its own. Everything it does goes through the REST API.
 
 ### API
 
-A Fastify server. It exposes the REST API under `/api/v1`, a WebSocket endpoint, the MCP endpoint at `/mcp`, and the built studio.
+A Fastify server. It exposes the REST API under `/api/v1`, a WebSocket endpoint at `/api/v1/ws`, the MCP endpoint at `/mcp`, and the built studio.
 
 **Responsibilities:**
 - Scenarios, spec versions and templates
@@ -30,7 +30,8 @@ A Fastify server. It exposes the REST API under `/api/v1`, a WebSocket endpoint,
 - Launching, controlling, retrying and regenerating runs
 - Connections and their encrypted secrets
 - Stream control and stream sessions
-- Inspector data, ground-truth queries and exports
+- Inspector data, run comparison, ground-truth queries and exports
+- Settings, capabilities and the spec authoring docs
 
 The API never generates events. Launching a run snapshots the spec, fixes the partition count, and enqueues jobs for the worker.
 
@@ -51,7 +52,7 @@ A BullMQ worker process that runs six kinds of job:
 | `export-build` | Builds export files |
 | `connection-test` | Tests a connection from where publishing happens |
 
-Generation is CPU-bound, so it runs in a pool of worker threads, never on an event loop that serves requests.
+Generation is CPU-bound, so it runs in a pool of worker threads, never on an event loop that serves requests. The live stream's world also runs in its own worker thread.
 
 ### Spec, Engine and Sinks Packages
 
@@ -66,7 +67,7 @@ The core is four libraries shared across the apps:
 
 ### MySQL
 
-Stores scenarios, spec versions, runs and their partitions, connections, launch destinations, streams and stream sessions, deliveries, templates and settings. Migrations run when the API starts.
+Stores scenarios, spec versions, runs and their partitions, connections, launch destinations and per-scenario launch defaults, streams and stream sessions, deliveries, templates and settings. Migrations run when the API or the worker starts, under a lock so the two never race.
 
 ### Redis
 
