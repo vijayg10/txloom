@@ -15,26 +15,34 @@ itself. A deterministic, seeded generation engine delivers data through
 four sinks (files, Kafka, RabbitMQ, webhooks) with history-to-live
 streaming, a labeled imperfection layer (duplicates, late/out-of-order
 delivery, clock skew), a realism report, agent-first authoring via an MCP
-server, and a six-surface React studio.
+server, a CLI, and a React studio where everything can be done from the UI.
 
 ## Quickstart
 
 ```bash
-git clone https://github.com/<org>/txloom && cd txloom
+git clone https://github.com/vijayg10/txloom && cd txloom
 docker compose up
 ```
 
-Open **http://localhost:3000**. See [`specs/001-synthetic-transaction-studio/quickstart.md`](specs/001-synthetic-transaction-studio/quickstart.md)
-for the full walkthrough (first dataset in three steps, optional demo
-brokers for streaming, and the contributor development setup).
+Open **http://localhost:3000**. See the [Installation Guide](https://vijayg10.github.io/txloom/guide/installation.html)
+for the full walkthrough (your first run with or without a broker, the
+optional demo Kafka broker, connecting an AI agent, the CLI, and the
+contributor development setup).
+
+> **No authentication.** TxLoom has no login. Anyone who can reach port 3000 can read every
+> scenario and run, launch runs, manage connections and use the MCP endpoint. Run it only on a
+> trusted network, or behind a VPN or a reverse proxy that does its own authentication.
 
 ## Connections and destinations
 
 Brokers and webhooks are saved once as **connections** (Connections page, `/api/v1/connections`,
-or the `list_connections` MCP tool): a Kafka cluster (PLAINTEXT, SSL, SASL with PLAIN or SCRAM,
-optional CA certificate), a RabbitMQ broker, or a webhook. **Test** runs from the worker, where
-publishing happens, and reports the failing stage (connect, TLS, auth, topic). Secrets are
-write-only: they are never returned by the API, logged, or put in a job payload.
+or the CLI; agents can list them with the `list_connections` MCP tool): a Kafka cluster
+(PLAINTEXT, SSL, SASL with PLAIN or SCRAM, optional CA certificate), a RabbitMQ broker (optional
+TLS), or a webhook. **Test** runs from the worker, where publishing happens, and reports the
+failing stage (connect, TLS, auth, topic). Secrets are write-only: they are never returned by the
+API, logged, or put in a job payload. They are encrypted at rest under an instance key generated
+at `data/keys/instance.key` (or supplied with `TXLOOM_INSTANCE_KEY`); back it up, since saved
+secrets cannot be recovered without it.
 
 Each non-file sink in a spec is sent to a connection of the same type, chosen as its
 **destination** in the Launch drawer on the scenario page (remembered for the next launch).
@@ -42,24 +50,33 @@ Each non-file sink in a spec is sent to a connection of the same type, chosen as
 (`replay_history`), is done.
 
 **First run.** On a fresh install with the bundled demo broker
-(`docker compose --profile demo-brokers up`) the home page offers one button that clones the UPI
-reference scenario and streams it to the `local-kafka` connection, which is registered
-automatically.
+(`docker compose --profile demo-brokers up`) the home page offers **Start the UPI reference run**:
+one click clones the UPI reference scenario, generates 90 days of history and starts a live
+stream to the `local-kafka` connection (default topic `txloom.events`), which is registered
+automatically. Without a broker, pick a file-only template (**Card-present retail** or
+**Marketplace payouts**) and launch it as **History only**.
 
-Optional environment variables:
+Optional environment variables (full list in
+[Configuration](https://vijayg10.github.io/txloom/guide/configuration.html)):
 
-- `TXLOOM_MAX_WORKER_THREADS`: generation threads per worker (default: CPUs − 1, bounded by memory).
-- `TXLOOM_MAX_STREAMS`: live streams run at once (default 4).
+- `TXLOOM_MAX_WORKER_THREADS`: partitions one worker generates at once (default: CPUs − 1,
+  bounded by memory). Read by the api and the worker.
+- `TXLOOM_MAX_STREAMS`: live streams run at once (default 4). Read by the api and the worker.
 - `TXLOOM_CONNECTIONS_JSON`: a JSON array of `{type, name, config, secrets?}` connections created
-  at boot and shown read-only (`managed_by: env`).
+  at boot and shown read-only (`managed_by: env`). Read by the api.
+
+The shipped `docker-compose.yml` does not pass `TXLOOM_*` variables through; set them under
+`environment:` for each service that reads them, for example in a `docker-compose.override.yml`.
 
 ## Performance
 
 Reference generation and the Kafka benchmark both run through the API, exactly as a user would
 (`pnpm bench:reference`, `pnpm bench:kafka`). The Kafka benchmark launches the reference spec,
 holds a real stream session at 1,000 TPS for 30 minutes and passes when at least 99% of
-1-second windows are within ±5% of the target with flat worker memory. `pnpm bench:smoke` is the
-reduced CI variant and fails the build on regression below `benchmarks/kafka/baseline-smoke.json`.
+1-second windows are within ±5% of the target with flat worker memory. CI runs two reduced
+variants that fail the build on a regression against a committed baseline: `pnpm bench:smoke`
+(Kafka, `benchmarks/kafka/baseline-smoke.json`) and `pnpm bench:batch-smoke` (batch generation,
+`benchmarks/batch/baseline-smoke.json`).
 
 Published numbers belong here once recorded on the reference hardware (8 vCPU, 16 GB RAM, Linux
 with Docker); a 60-second check on a laptop averaged ~985 TPS at the 1,000 TPS target after
