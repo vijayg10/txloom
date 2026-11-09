@@ -109,8 +109,8 @@ clock.then_stream_tps above the benchmarked maximum (1,000 TPS sustained to Kafk
 - **Estimate first.** `estimate_run {spec, replay_history?}` returns `history_events`, `replay_messages`, `partitions` and `generation_seconds` without generating anything. An invalid spec returns `400 spec_invalid` with located violations.
 - **Destinations.** Every non-file sink needs a destination: call `list_connections`, pick a connection of the same type (a Kafka sink needs a Kafka connection), and pass `destinations: [{sink, connection_id, topic?}]` to `launch_run`. Addresses and credentials are never passed inline; secrets are never returned.
 - **Seeds are strings.** `seed` accepts a decimal string up to 18446744073709551615 so 64-bit seeds survive JSON. Omit it to use the spec's seed; a run is never given a random one.
-- **Mode.** `history_only`, or `history_then_live` (the default when any destination is a broker): once history is complete the worker starts the live stream by itself, at `target_tps`.
-- **Replay.** `replay_history: true` first sends the whole history to each broker destination; watch the run's `phase` (`generating`, `replaying`, `live`, `done`). The live stream starts only when every replay is done or skipped.
+- **Mode.** `history_only`, or `history_then_live` (the default when any sink is bound to a Kafka, RabbitMQ or webhook connection): once history is complete the worker starts the live stream by itself, at `target_tps`.
+- **Replay.** `replay_history: true` first sends the whole history to each connected destination (Kafka, RabbitMQ or webhook); watch the run's `phase` (`generating`, `replaying`, `live`, `done`). The live stream starts only when every replay is done or skipped.
 - **Failures.** `retry_run` re-queues only the partitions that did not finish. A run made by an older engine version is refused with `409 engine_version_mismatch`; regenerate it instead.
 - **Live streams.** `start_stream` uses the run's destinations (an inline `sink` is rejected with `400 inline_sink_removed`). Each start is a new session that continues the same simulated world.
 

@@ -2,7 +2,7 @@
 
 ## A Simulated World
 
-TxLoom does not generate rows. It simulates causes and emits their consequences.
+TxLoom simulates causes and emits their consequences, so every transaction is the result of something that happened in its world.
 
 **What the world contains:**
 
@@ -32,16 +32,13 @@ Three typologies ship. Each is a multi-step campaign run by an actor.
 
 **Every event is labeled** with `is_fraud`, `typology`, `actor_id` and `campaign_step`.
 
-**The target rate is met by feedback.** The planner tracks how much fraud is owed against legitimate volume so far and plans the shortfall each simulated day. The realism report shows the achieved rate next to the target.
+**The fraud rate you set is the rate you get.** Fraud arrives in campaigns of several events, so TxLoom doesn't fix a fraud budget up front. Instead, at the start of each simulated day it compares the fraud generated so far with what the target rate calls for, and schedules enough new campaigns to close the gap. The realism report shows the achieved rate next to the target.
 
 ---
 
 ## The Answer Key Stays Separate
 
-No label field ever appears in an event payload. Labels live in their own files and, for live streams, on an opt-in label channel.
-
-- Exports exclude labels unless you ask for them and acknowledge a warning
-- For streams, labels go to a separate Kafka topic or RabbitMQ routing key, and are always mirrored to a file in the run's output folder
+Labels are never mixed into the events your system receives. They are kept in separate files, and an export gives you the labels as their own file unless you choose to merge them into the data.
 
 This keeps the answer key away from the system you are testing.
 
@@ -53,7 +50,7 @@ Real feeds are messy. TxLoom injects four kinds of fault into what each sink rec
 
 | Imperfection | Effect on the delivered copy |
 |---|---|
-| Duplicate delivery | Extra copies follow the original. They share its `event_id` and carry a new `delivery_id`. |
+| Duplicate delivery | An extra copy follows the original. It shares its `event_id` and carries a new `delivery_id`. |
 | Late arrival | The event is physically delivered later. Its `ts` stays the event time; `delivered_at` carries the arrival time. |
 | Out of order | The next delivery overtakes the flagged one. |
 | Clock skew | A per-source offset is added to `ts`. |
@@ -75,7 +72,7 @@ A `history_then_live` run generates its history, then continues **the same world
 - It carries the spec's imperfections per sink
 - It is stamped with simulated time, starting where history ended
 
-**Replay.** Optionally, the whole generated history is first sent to each broker destination. The live stream starts when every replay is done.
+**Replay.** Optionally, the whole generated history is first sent to each connected destination (Kafka, RabbitMQ or webhook). The live stream starts when every replay is done.
 
 **Sessions.** Stopping and starting a stream opens a new session that carries on from the same world state.
 
@@ -85,8 +82,8 @@ A `history_then_live` run generates its history, then continues **the same world
 
 | Sink | Notes |
 |---|---|
-| Files | CSV, Parquet or JSON, written during generation |
-| Kafka | PLAINTEXT, SSL, SASL with PLAIN or SCRAM, optional CA certificate. Keyed by `consumer_id` by default. |
+| Files | Each sink's delivered copy is written as Parquet during generation. Export it as CSV, Parquet or JSON. |
+| Kafka | PLAINTEXT, SSL, SASL with PLAIN or SCRAM, optional CA certificate. |
 | RabbitMQ | Direct, topic or fanout exchange, optional TLS, publisher confirms |
 | Webhook | HTTP POST of JSON, with custom headers, timeout and attempt limit |
 
@@ -94,9 +91,11 @@ A `history_then_live` run generates its history, then continues **the same world
 
 **Retries and drops.** Failed deliveries are retried with jittered backoff. One that is given up on is written to the answer key with `delivery_outcome: "dropped"`.
 
+**Drive your own load.** A Kafka or RabbitMQ stream can feed a load generator you write yourself. It consumes TxLoom's events and turns each one into the requests, messages or API calls your system expects, at the rate the stream sets.
+
 ---
 
-## Honest Stream Health
+## Live Stream Monitoring
 
 The stream console reports what is actually happening at the destination.
 
@@ -123,16 +122,9 @@ The target rate can be changed while the stream runs.
 
 ## Validation Before Anything Runs
 
-A spec is checked against a JSON Schema and a set of semantic invariants. Each violation has a JSON Pointer path, a machine-readable code and a remedy.
+Every spec is checked before it can run. Each error points to the exact field that is wrong and says how to fix it, for example weights that don't add up to 1 or a seasonality window outside the simulated dates.
 
-**Examples of what is caught:**
-
-- A seasonality window that falls outside the simulation clock
-- Archetype weights, category weights or typology shares that do not sum to 1
-- An account-takeover dormancy longer than the simulation
-- An imperfection that targets a sink the spec does not declare
-
-The editor, the API, the CLI and the MCP server all use the same validator, so an AI agent can repair a draft from the same errors a person sees.
+People and AI agents see the same errors, whether they use the studio, the API, the CLI or the MCP server.
 
 ---
 

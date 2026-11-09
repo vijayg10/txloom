@@ -22,7 +22,7 @@ File sinks are written by the generation pipeline itself, as each partition is g
 
 - Producer built on librdkafka
 - Security: `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`, with SASL `PLAIN`, `SCRAM-SHA-256` or `SCRAM-SHA-512`, and an optional CA certificate
-- Message key: the event's `consumer_id` by default (configurable with `partition_key_field`), so one consumer's events keep their order within a partition
+- Message key: the event's `consumer_id`, so one consumer's events keep their order within a partition
 - Headers: `txloom-run-id`, `txloom-session-seq`, `txloom-engine-version`
 - A publish is complete when the delivery report arrives
 - Up to 1,000 messages in flight
@@ -103,35 +103,31 @@ Events are emitted in ascending `delivered_at`, with two deliberate exceptions: 
 
 ## Label Channel
 
-Labels can be streamed alongside a live run. The channel is opt-in at launch.
+A live stream's labels are always written to `stream-labels.jsonl` in the run's folder, one JSON line per label. With the label channel turned on at launch, a Kafka destination that has a label topic also receives each label as a message on that topic, keyed by `event_id`. RabbitMQ and webhook destinations have no label channel; read the file instead.
 
-- **Kafka**: a separate label topic
-- **RabbitMQ**: a separate label routing key
-- **Always**: mirrored to `stream-labels.jsonl` in the run's folder
-
-One message per label:
+One record per label:
 
 ```json
 {
   "event_id": "01KDVDNA85XZA38G75X20S2CGA",
-  "delivery_id": "01KDVDNA86B2M4Q7T9W1Y3Z5C7",
-  "sink": "upi-stream",
   "is_fraud": true,
   "typology": "account_takeover",
   "actor_id": "actor_p0_34",
   "campaign_step": 2,
   "corruption_type": null,
-  "delivery_outcome": null,
-  "corruption_detail": null
+  "corruption_detail": null,
+  "sink": null,
+  "delivery_outcome": null
 }
 ```
 
 | Field | Values |
 |---|---|
 | `corruption_type` | `null`, `duplicate`, `late`, `out_of_order`, `clock_skew` |
+| `sink` | `null` on a fraud label; the sink whose copy was affected on a corruption or drop label |
 | `delivery_outcome` | `null`, or `dropped` when the pump gave up on the delivery |
 
-Join labels to events on `event_id`, and to one physical delivery on `delivery_id`.
+Join labels to events on `event_id`.
 
 ---
 

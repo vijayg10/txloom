@@ -170,7 +170,7 @@ Every imperfection takes a `rate` from 0 to 0.2 and an optional `sinks` list of 
 
 | Key | Extra fields | Effect |
 |---|---|---|
-| `duplicate_delivery` | | Extra copies of an event are delivered |
+| `duplicate_delivery` | | An extra copy of the event is delivered |
 | `late_arrival` | `delay_seconds_mean`, `delay_seconds_stddev` | The event is delivered later than it happened |
 | `out_of_order` | | The next delivery overtakes this one |
 | `clock_skew` | `sources[]` of `{ source, offset_seconds }` | The named sink's event times are shifted by the offset. `source` must be a declared sink name. |

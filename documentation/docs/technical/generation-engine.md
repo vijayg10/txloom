@@ -75,7 +75,7 @@ Imperfections are applied by a transformer that runs once per sink, one event at
 | Late arrival | The delivery waits until simulated time passes `ts + delay`. Payload `ts` is unchanged; `delivered_at` holds the arrival time. |
 | Clock skew | The source's offset is added to payload `ts`. Order is unchanged. |
 | Out of order | The flagged delivery is held for one slot so the next one overtakes it. The label is written only when an overtake really happens. |
-| Duplicate | Extra copies follow the original immediately, each with a new `delivery_id`. |
+| Duplicate | One extra copy follows the original immediately, with a new `delivery_id`. |
 
 Each sink's transformer has its own random stream. Adding or removing a sink does not change another sink's output.
 

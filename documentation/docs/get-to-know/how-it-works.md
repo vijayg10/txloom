@@ -31,13 +31,9 @@ Each **Save version** adds to the version history. Any version can be compared w
 
 ## Step 2: Add Connections
 
-Files need no setup. For Kafka, RabbitMQ or a webhook, open **Connections** and add one:
+Files need no setup. To send data to Kafka, RabbitMQ or a webhook, open **Connections** and save the address and login details once. You can then reuse that connection in any run.
 
-- **Kafka**: bootstrap servers, security protocol (PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL), SASL mechanism, optional CA certificate, default topic
-- **RabbitMQ**: host, port, vhost, TLS, exchange, exchange type, default routing key
-- **Webhook**: URL, timeout, attempt limit, optional headers
-
-**Test** runs from the worker, which is where publishing happens, and reports the stage that failed: connect, TLS, auth or topic. You can test before saving. Passwords and headers are write-only and are never shown again.
+Use **Test** to check that a connection works before you save it. If something is wrong, it tells you what failed, such as reaching the server, logging in or finding the topic. Passwords and other secrets are stored securely and never shown again.
 
 
 ## Step 3: Launch a Run
@@ -50,8 +46,8 @@ Click **Launch** on the scenario page. The launch drawer lists every sink in the
 | Mode | **History only**, or **History, then live** |
 | Rate (events/s) | Target rate for the live stream |
 | Seed (Advanced) | Leave blank to use the spec's seed |
-| Label channel (Advanced) | Also publish labels for streamed events |
-| Replay history (Advanced) | Send the whole generated history to each broker before the live stream starts |
+| Label channel (Advanced) | Also publish labels for streamed events to a Kafka destination's label topic |
+| Replay history (Advanced) | Send the whole generated history to each destination before the live stream starts |
 
 The drawer shows an estimate of history events, partitions and generation time before you commit. Destinations are remembered per scenario, so the next launch is one click.
 

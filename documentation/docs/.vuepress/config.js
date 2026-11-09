@@ -99,6 +99,7 @@ export default defineUserConfig({
     colorModeSwitch: false,
     editLink: false,
     lastUpdated: false,
+    contributors: false,
   }),
 
   bundler: viteBundler(),

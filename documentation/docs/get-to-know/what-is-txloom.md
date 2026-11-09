@@ -12,7 +12,7 @@ Data is delivered as files (CSV, Parquet, JSON) or as live streams to Kafka, Rab
 
 ## The Problem It Solves
 
-Everyone building or testing financial software needs transaction data, and very few people can get it.
+Building or testing financial software needs realistic transaction data.
 
 - **Real payment data is locked away** behind privacy regulation and commercial sensitivity.
 - **Fraud teams need labeled examples**, and real fraud is a fraction of a percent of real volume.
@@ -52,7 +52,7 @@ TxLoom addresses these with four properties:
 
 ---
 
-## No Embedded Language Model
+## AI Support
 
 TxLoom does not ship or call a language model. Transactions are produced by a deterministic, seeded engine.
 
@@ -62,6 +62,6 @@ Plain-English authoring comes through the AI agent you already use. TxLoom expos
 
 ## Open Source
 
-TxLoom is Apache 2.0 licensed and runs entirely on your own infrastructure with one `docker compose up`.
+TxLoom is Apache 2.0 licensed and runs entirely on your own infrastructure.
 
 [View on GitHub →](https://github.com/vijayg10/txloom)

@@ -77,7 +77,7 @@ A connection is a saved Kafka cluster, RabbitMQ broker or webhook endpoint. Mana
 | `sasl_mechanism` | with SASL | `PLAIN`, `SCRAM-SHA-256` or `SCRAM-SHA-512` |
 | `ca_pem` | no | CA certificate. Allowed with `SSL` and `SASL_SSL` only. |
 | `default_topic` | yes | Topic used when a launch does not override it |
-| `partition_key_field` | no | Event field used as the message key. Defaults to `consumer_id`. |
+| `partition_key_field` | no | Accepted but not yet applied. Messages are always keyed by `consumer_id`. |
 | Secrets | with SASL | `username`, `password` |
 
 ### RabbitMQ

@@ -46,7 +46,7 @@ A BullMQ worker process that runs six kinds of job:
 |---|---|
 | `generate-partition` | Generates one partition of a run's history in a worker thread |
 | `report-build` | Merges per-partition statistics into the realism report |
-| `deliver` | Replays a sink's delivered history to its broker destination |
+| `deliver` | Replays a sink's delivered history to its connected destination |
 | `stream-drive` | Runs the live stream for a run, paced to the target rate |
 | `export-build` | Builds export files |
 | `connection-test` | Tests a connection from where publishing happens |
@@ -83,7 +83,7 @@ Event data does not go into MySQL. Truth, labels, each sink's delivered copy, ex
 1. **Launch.** The API validates the destinations, snapshots the spec, records the seed, engine version and partition count, and enqueues one `generate-partition` job per partition.
 2. **Generate.** Each partition simulates its slice of the consumer population one day at a time, writing truth, labels and each sink's delivered copy as it goes. Memory stays flat regardless of the number of days.
 3. **Report.** When all partitions finish, the realism report is merged from their statistics.
-4. **Replay** (optional). For each broker destination, a `deliver` job publishes the sink's delivered history.
+4. **Replay** (optional). For each connected destination (Kafka, RabbitMQ or webhook), a `deliver` job publishes the sink's delivered history.
 5. **Live** (optional). A `stream-drive` job restores the end-of-history world and continues simulating, publishing at the target rate.
 
 Progress and stream metrics are pushed to the studio over WebSocket.
