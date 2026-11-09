@@ -80,6 +80,7 @@ function librdkafkaConfig(
 export class KafkaSink implements Sink {
   readonly type = "kafka" as const;
   readonly maxInFlight = 1000;
+  readonly partitionKeyField: string;
   private readonly producer: KafkaJS.Producer;
   private connected = false;
   private connecting: Promise<void> | null = null;
@@ -91,6 +92,7 @@ export class KafkaSink implements Sink {
     private readonly config: KafkaConnectionConfig,
     private readonly secrets: KafkaConnectionSecrets | null = null,
   ) {
+    this.partitionKeyField = config.partition_key_field || "consumer_id";
     const kafka = new KafkaJS.Kafka(librdkafkaConfig(config, secrets, this.errorLog));
     this.producer = kafka.producer({ "linger.ms": 5, "batch.num.messages": 10_000 });
   }

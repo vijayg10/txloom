@@ -158,7 +158,7 @@ export async function runDelivery(deps: DeliverDeps, data: DeliverJobData): Prom
           target: {
             ...(data.destination.topic ? { topic: data.destination.topic } : {}),
             ...(data.destination.routingKey ? { routing_key: data.destination.routingKey } : {}),
-            key: partitionKeyOf(record),
+            key: partitionKeyOf(record, sink.partitionKeyField),
           },
         });
         if (!accepted) break;

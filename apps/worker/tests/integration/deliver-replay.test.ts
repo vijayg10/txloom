@@ -324,4 +324,53 @@ describe("history replay", () => {
     expect(row.state).toBe("done");
     expect(row.published).toBe(expected.length);
   });
+
+  it("keys each message by the sink's partitionKeyField, consumer_id by default", async () => {
+    const kafkaSink = kafkaSinkFactory.create(
+      "events",
+      {
+        bootstrap_servers: brokers,
+        security_protocol: "PLAINTEXT",
+        default_topic: "unused",
+        partition_key_field: "merchant_id",
+      },
+      null,
+    );
+    expect(kafkaSink.partitionKeyField).toBe("merchant_id");
+    await kafkaSink.close();
+
+    const expected = await deliveredRows("hook");
+    const keysWith = async (partitionKeyField?: string): Promise<string[]> => {
+      const keys: string[] = [];
+      await runDelivery(
+        {
+          connection: {} as never,
+          deliveries: fakeDeliveries(),
+          createSink: () => ({
+            type: "kafka",
+            name: "hook",
+            maxInFlight: 1,
+            ...(partitionKeyField ? { partitionKeyField } : {}),
+            publish: async (target) => {
+              keys.push(String(target.key));
+              return { ok: true };
+            },
+            probe: async () => ({ ok: true, stage: "done", detail: "", latency_ms: 0 }),
+            close: async () => {},
+          }),
+        },
+        {
+          runId,
+          sinkName: "hook",
+          destination: { sink: "hook", connectionId: "c4" },
+          dataDir,
+          engineVersion: ENGINE_VERSION,
+        },
+      );
+      return keys;
+    };
+
+    expect(await keysWith()).toEqual(expected.map((e) => String(e.consumer_id)));
+    expect(await keysWith("event_id")).toEqual(expected.map((e) => String(e.event_id)));
+  });
 });

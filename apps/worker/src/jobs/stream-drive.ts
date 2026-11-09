@@ -362,7 +362,7 @@ export function startStreamDriveWorker(deps: StreamDriveDeps): Worker<StreamDriv
               target: {
                 ...(destination.topic ? { topic: destination.topic } : {}),
                 ...(destination.routingKey ? { routing_key: destination.routingKey } : {}),
-                key: partitionKeyOf(payload),
+                key: partitionKeyOf(payload, sinks[index]!.partitionKeyField),
               },
             });
             lastEvent = delivery.payload;

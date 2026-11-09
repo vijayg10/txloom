@@ -67,6 +67,9 @@ export interface Sink {
   /** Attempts per delivery before the pump drops it (webhooks take the connection's setting;
    * the default is 5). */
   readonly maxAttempts?: number;
+  /** The wire field whose value becomes `SinkTarget.key` (Kafka takes the connection's
+   * `partition_key_field`; the default is `consumer_id`). */
+  readonly partitionKeyField?: string;
 
   /**
    * Resolves ONLY once the destination has acknowledged the message (Kafka delivery report,

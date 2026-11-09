@@ -38,7 +38,7 @@ export interface PumpMetrics {
 export interface PacingHook {
   /** Resolves when the next publish may start. */
   acquire(): Promise<void>;
-  /** The pump hit its window, the transport reported saturation, or a publish was throttled. */
+  /** The pump hit its window or the transport reported saturation. */
   onBackpressure?(): void;
   onCompletion?(ok: boolean): void;
   /** Current paced rate, reported as `aimd_rate`. */
@@ -47,9 +47,10 @@ export interface PacingHook {
 
 /**
  * Live pacing with additive-increase / multiplicative-decrease (US7): the effective rate is
- * `min(target, aimd)`. Backpressure (a full window, a saturated transport, a throttled publish)
- * halves `aimd` — at most once a second, so one burst of signals counts once — down to a floor of
- * 1/s, and every quiet second adds 5% of the target back. `acquire()` releases publishes at the
+ * `min(target, aimd)`. Backpressure (a full window or a saturated transport) halves `aimd` — at
+ * most once a second, so one burst of signals counts once — down to a floor of 1/s, and every
+ * quiet second adds 5% of the target back. A throttled publish (a webhook 429) is a retryable
+ * failure, not backpressure (contracts/sink-plugin.md). `acquire()` releases publishes at the
  * effective rate from a token bucket holding one second of burst.
  */
 export class AimdPacer implements PacingHook {
@@ -220,8 +221,8 @@ class RetryHeap {
 /**
  * The shared delivery loop for history replay and live streams (contracts/sink-plugin.md).
  *
- * - Keeps at most `sink.maxInFlight` publishes outstanding; a full window, a saturated transport
- *   or a throttled publish counts as backpressure.
+ * - Keeps at most `sink.maxInFlight` publishes outstanding; a full window or a saturated
+ *   transport counts as backpressure.
  * - Counts a delivery only when `publish` resolves `ok` — the destination's acknowledgement.
  * - Retries retryable failures from a min-heap with jittered exponential backoff, interleaved
  *   with new deliveries, up to `maxAttempts`.

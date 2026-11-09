@@ -6,7 +6,7 @@ A spec declares its outputs as named sinks. There are four types: `file`, `kafka
 
 | Term | Where it lives | What it is |
 |---|---|---|
-| Sink | The spec | A named output with a type and a format |
+| Sink | The spec | A named output with a type and an optional format (`csv`, `parquet` or `json`) |
 | Connection | Saved in TxLoom | A broker or webhook endpoint with its credentials |
 | Destination | A run | The binding of one sink to one connection, with an optional topic or routing key |
 
@@ -16,13 +16,13 @@ A spec never contains addresses or credentials. At launch, each non-file sink is
 
 ### Files
 
-File sinks are written by the generation pipeline itself, as each partition is generated. The Export tab then builds CSV, Parquet or JSON downloads from the truth or from a file sink's delivered copy.
+File sinks need no connection. As each partition is generated, the pipeline writes every sink's delivered copy (with that sink's imperfections applied) to `delivered/<sink>/` in the run's folder as Parquet. This happens for broker and webhook sinks too, and is what history replay reads. The Export tab builds CSV, Parquet or JSON downloads from the truth or from any sink's delivered copy. When no source is chosen, it uses the first file sink, or the truth if the spec has none.
 
 ### Kafka
 
 - Producer built on librdkafka
 - Security: `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`, with SASL `PLAIN`, `SCRAM-SHA-256` or `SCRAM-SHA-512`, and an optional CA certificate
-- Message key: the event's `consumer_id`, so one consumer's events keep their order within a partition
+- Message key: the event's `consumer_id` by default, or the field named by the connection's `partition_key_field` (`event_id` if that field is empty), so one consumer's events keep their order within a partition
 - Headers: `txloom-run-id`, `txloom-session-seq`, `txloom-engine-version`
 - A publish is complete when the delivery report arrives
 - Up to 1,000 messages in flight
@@ -40,7 +40,8 @@ File sinks are written by the generation pipeline itself, as each partition is g
 - Each event is an HTTP `POST` with a JSON body and `content-type: application/json`
 - Extra headers can be stored as secrets
 - A publish is complete on an HTTP 2xx
-- `408`, `429` and `5xx` responses are retried; other `4xx` responses are not
+- `408`, `429`, `5xx` responses and network errors are retried; other `4xx` responses are not
+- Each connection sets its request timeout (`timeout_ms`, 100–60,000, default 5,000) and attempts per event (`max_attempts`, 1–10, default 5)
 - Up to 32 requests in flight, so a receiver can see requests out of generation order
 
 ---
@@ -50,15 +51,15 @@ File sinks are written by the generation pipeline itself, as each partition is g
 Broker sinks make one attempt per message. Everything else is handled by a shared delivery pump:
 
 - **In-flight window.** At most the sink's limit of unacknowledged messages is outstanding.
-- **Retries.** Retryable failures are retried with jittered exponential backoff (from 200 ms up to 30 s), up to 5 attempts by default.
-- **Drops.** A delivery that runs out of attempts is recorded in the answer key with `delivery_outcome: "dropped"`.
-- **Circuit breaker.** If more than half of the completions in the last 30 seconds failed (with at least 100 completions), the stream enters an error state and stays there until it is stopped.
+- **Retries.** Retryable failures are retried with exponential backoff that starts at 200 ms and is capped at 30 s, each wait randomly scaled by 0.5–1.5×. A delivery gets 5 attempts by default; a webhook connection sets its own.
+- **Drops.** A delivery that runs out of attempts, or fails with a non-retryable error, is recorded in the answer key with `delivery_outcome: "dropped"`.
+- **Circuit breaker.** If more than half of the completions in the last 30 seconds failed (with at least 100 completions), publishing stops. A live stream enters an error state and stays there until it is stopped; a history replay ends as failed and can be retried.
 
 Delivered counts mean acknowledged messages.
 
 ### Pacing a live stream
 
-A live stream is released at the target rate from a token bucket. On backpressure (a full in-flight window, a saturated transport, a throttled publish) the paced rate is halved, at most once a second. Every quiet second adds 5% of the target back. The stream console shows the target, the paced rate and the achieved rate.
+A live stream is released at the target rate from a token bucket. On backpressure (a full in-flight window or a saturated transport) the paced rate is halved, at most once a second, down to a floor of 1 event per second. Every quiet second adds 5% of the target back. A throttled publish, such as a webhook `429`, is retried but does not lower the paced rate. The stream console shows the target, the paced rate and the achieved rate.
 
 ### Replaying history
 
@@ -103,7 +104,9 @@ Events are emitted in ascending `delivered_at`, with two deliberate exceptions: 
 
 ## Label Channel
 
-A live stream's labels are always written to `stream-labels.jsonl` in the run's folder, one JSON line per label. With the label channel turned on at launch, a Kafka destination that has a label topic also receives each label as a message on that topic, keyed by `event_id`. RabbitMQ and webhook destinations have no label channel; read the file instead.
+The label channel is off by default. Turn it on at launch, with `output.stream_label_channel` in the spec, or when starting a stream. While it is on, a live stream's labels are written to `stream-labels.jsonl` in the run's folder, one JSON line per label. With it off, no label file is written.
+
+A Kafka destination that has a label topic also receives each label as a message on that topic, keyed by `event_id`. These messages are not paced and get 3 attempts each. Dropped-delivery labels go to the file only, not to the topic. RabbitMQ and webhook destinations have no label channel; read the file instead.
 
 One record per label:
 

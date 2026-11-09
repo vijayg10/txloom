@@ -43,6 +43,9 @@ export interface Sink {
   readonly name: string;
   /** Max concurrent unacknowledged publishes the pump may keep outstanding. */
   readonly maxInFlight: number;
+  /** Wire field whose value becomes `SinkTarget.key`; Kafka takes the connection's
+   * `partition_key_field`. Default `consumer_id`. */
+  readonly partitionKeyField?: string;
 
   /**
    * Resolves ONLY when the destination has acknowledged the message (Kafka delivery report,

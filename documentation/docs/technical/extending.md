@@ -12,6 +12,7 @@ export interface Sink {
   readonly name: string;
   readonly maxInFlight: number; // most unacknowledged publishes the pump may keep outstanding
   readonly maxAttempts?: number; // attempts before a delivery is dropped (default 5)
+  readonly partitionKeyField?: string; // wire field used as `SinkTarget.key` (default consumer_id)
 
   // Resolves ONLY once the destination has acknowledged the message, or ok:false on failure.
   // Never retries internally; honours `signal` (abort -> {ok:false, retryable:true}).
