@@ -1,4 +1,4 @@
-import { availableParallelism } from "node:os";
+import { availableParallelism, totalmem } from "node:os";
 import type { FastifyInstance } from "fastify";
 import { schema, validateSpec, type SimulationSpec } from "@txloom/spec";
 import { estimateRun } from "@txloom/engine";
@@ -21,12 +21,15 @@ async function storedThroughput(useDb: boolean): Promise<number> {
   }
 }
 
-/** The worker pool's size, as the worker computes it (`TXLOOM_MAX_WORKER_THREADS`, else one fewer
- * than the CPUs). Both containers share a host, so this approximates the worker's pool. */
+const GIB = 1024 ** 3;
+
+/** The worker pool's size, as the worker computes it (`TXLOOM_MAX_WORKER_THREADS`, else
+ * `min(cores − 1, 0.6 × RAM in GiB)` — see apps/worker/src/pool/piscina-pool.ts). Both containers
+ * share a host, so this approximates the worker's pool. */
 function generationThreads(): number {
   const configured = Number(process.env.TXLOOM_MAX_WORKER_THREADS ?? "");
   if (Number.isFinite(configured) && configured > 0) return Math.floor(configured);
-  return Math.max(1, availableParallelism() - 1);
+  return Math.max(1, Math.min(availableParallelism() - 1, Math.floor((0.6 * totalmem()) / GIB)));
 }
 
 /** POST /spec/validate: side-effect-free, never 4xx for invalid specs — the
