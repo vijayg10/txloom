@@ -1,8 +1,12 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import amqp, { type ChannelModel } from "amqplib";
 import { DeliveryPump } from "../../src/pump.js";
 import { RabbitMqSink } from "../../src/rabbitmq/publisher.js";
+
+const run = promisify(execFile);
 
 const envelope = (i: number) => ({ delivery_id: `d${i}`, event_id: `e${i}` });
 
@@ -50,25 +54,30 @@ describe("RabbitMQ sink: write-buffer-full surfaces as saturated", () => {
 
     const large = new TextEncoder().encode(JSON.stringify({ blob: "x".repeat(64 * 1024) }));
     const signal = new AbortController().signal;
+    // Open the connection with one confirmed publish before the broker stops reading.
+    expect((await sink.publish({ routing_key: "events" }, large, envelope(0), signal)).ok).toBe(
+      true,
+    );
+
+    // Whether a write buffer backs up on its own depends on how fast the machine and loopback
+    // are, so make it certain: a paused broker reads nothing, the kernel buffers fill, and the
+    // socket starts refusing writes.
+    await run("docker", ["pause", container.getId()]);
     const pending: Promise<unknown>[] = [];
     let sawSaturation = false;
-    for (let i = 0; i < 5000 && !sawSaturation; i++) {
-      pending.push(sink.publish({ routing_key: "events" }, large, envelope(i), signal));
-      // Publishes are not awaited one by one: the write buffer fills only while confirms lag.
-      await new Promise((resolve) => setImmediate(resolve));
-      if (sink.saturated) sawSaturation = true;
+    try {
+      for (let i = 1; i < 5000 && !sawSaturation; i++) {
+        pending.push(sink.publish({ routing_key: "events" }, large, envelope(i), signal));
+        // Publishes are not awaited one by one: the write buffer fills only while confirms lag.
+        await new Promise((resolve) => setImmediate(resolve));
+        if (sink.saturated) sawSaturation = true;
+      }
+    } finally {
+      await run("docker", ["unpause", container.getId()]);
     }
-    // If the buffer never filled, say why: a publish that failed outright (broker not ready,
-    // channel closed) looks the same as one that never backed up.
-    const firstResult = sawSaturation
-      ? undefined
-      : await Promise.race([
-          pending[0],
-          new Promise((resolve) => setTimeout(() => resolve("still pending after 2s"), 2000)),
-        ]);
     expect(
       sawSaturation,
-      `write buffer never filled after ${pending.length} publishes; first publish: ${JSON.stringify(firstResult)}`,
+      `write buffer never filled after ${pending.length} publishes to a paused broker`,
     ).toBe(true);
 
     await sink.waitForCapacity?.();
