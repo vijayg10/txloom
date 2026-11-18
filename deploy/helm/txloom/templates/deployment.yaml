@@ -1,0 +1,103 @@
+{{- if gt (int (default 1 .Values.replicaCount)) 1 }}
+{{- fail "txloom runs api and worker in one pod sharing a volume; replicaCount must be 1" }}
+{{- end }}
+{{- $secret := include "txloom.secretName" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "txloom.fullname" . }}
+  labels: {{- include "txloom.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # the data volume is ReadWriteOnce by default
+  selector:
+    matchLabels: {{- include "txloom.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "txloom.selectorLabels" . | nindent 8 }}
+      annotations:
+        {{- if not .Values.existingSecret }}
+        checksum/config: {{ toJson .Values.config | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}{{ toYaml . | nindent 8 }}{{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: txloom
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # api + worker in one container (they share run artifacts on /data)
+          command: ["/repo/deploy/docker/entrypoint.sh"]
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - {name: NODE_ENV, value: production}
+            - {name: PORT, value: "3000"}
+            - {name: DATA_DIR, value: /data}
+            - {name: MYSQL_HOST, value: {{ required "mysql.host is required" .Values.mysql.host | quote }}}
+            - {name: MYSQL_PORT, value: {{ .Values.mysql.port | quote }}}
+            - {name: MYSQL_DATABASE, value: {{ .Values.mysql.database | quote }}}
+            - {name: MYSQL_USER, value: {{ .Values.mysql.user | quote }}}
+            - name: MYSQL_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: mysql-password}}
+            - name: REDIS_URL
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: redis-url}}
+            - name: TXLOOM_INSTANCE_KEY
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: instance-key}}
+            - name: TXLOOM_CONNECTIONS_JSON
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: connections-json, optional: true}}
+            {{- with .Values.config.maxStreams }}
+            - {name: TXLOOM_MAX_STREAMS, value: {{ . | quote }}}
+            {{- end }}
+            {{- with .Values.config.maxWorkerThreads }}
+            - {name: TXLOOM_MAX_WORKER_THREADS, value: {{ . | quote }}}
+            {{- end }}
+            {{- with .Values.config.partitionChunkSize }}
+            - {name: TXLOOM_PARTITION_CHUNK_SIZE, value: {{ . | quote }}}
+            {{- end }}
+            {{- with .Values.config.maxExports }}
+            - {name: TXLOOM_MAX_EXPORTS, value: {{ . | quote }}}
+            {{- end }}
+            {{- with .Values.config.maxDeliveries }}
+            - {name: TXLOOM_MAX_DELIVERIES, value: {{ . | quote }}}
+            {{- end }}
+            {{- with .Values.config.localKafka }}
+            - {name: TXLOOM_LOCAL_KAFKA, value: {{ . | quote }}}
+            {{- end }}
+            {{- with .Values.extraEnv }}{{ toYaml . | nindent 12 }}{{- end }}
+          startupProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 5
+            failureThreshold: 60   # first boot runs DB migrations
+          readinessProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 20
+            failureThreshold: 3
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-data" (include "txloom.fullname" .)) .Values.persistence.existingClaim }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,5 +1,8 @@
-# Multi-stage build — native @confluentinc/kafka-javascript bindings need build
-# tooling at install time but not at runtime (D8 consequence).
+# The one txloom image: API, worker and web UI. What runs is chosen by the command.
+#   docker compose: api  -> default CMD; worker -> `node --import tsx apps/worker/src/index.ts`
+#   Kubernetes:     api + worker in one container via deploy/docker/entrypoint.sh
+# Native @confluentinc/kafka-javascript bindings need build tooling at install
+# time but not at runtime.
 FROM node:22-bookworm-slim AS base
 RUN corepack enable
 WORKDIR /repo
@@ -24,11 +27,12 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm --filter @txloom/web build
 RUN pnpm --filter @txloom/api... --filter=!@txloom/web typecheck
+RUN pnpm --filter @txloom/worker typecheck
 
 FROM base AS runtime
-ENV NODE_ENV=production
+ENV NODE_ENV=production DATA_DIR=/data PORT=3000
 WORKDIR /repo
 COPY --from=builder /repo /repo
-COPY --from=builder /repo/apps/web/dist /repo/apps/web/dist
+RUN mkdir -p /data
 EXPOSE 3000
 CMD ["node", "--import", "tsx", "apps/api/src/server.ts"]
