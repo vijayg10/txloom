@@ -1,0 +1,9 @@
+txloom is installing. API and UI are served on port {{ .Values.service.port }}.
+{{- if .Values.ingress.enabled }}
+{{ range .Values.ingress.hosts }}  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ .path }}
+{{ end }}
+{{- else }}
+Reach it with:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "txloom.fullname" . }} 3000:{{ .Values.service.port }}
+{{- end }}
+Back up the instance-key in Secret {{ include "txloom.secretName" . }}: without it saved connection credentials cannot be decrypted.

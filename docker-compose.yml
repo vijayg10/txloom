@@ -29,7 +29,8 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: Dockerfile
+    image: txloom:local
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -50,7 +51,9 @@ services:
   worker:
     build:
       context: .
-      dockerfile: apps/worker/Dockerfile
+      dockerfile: Dockerfile
+    image: txloom:local
+    command: ["node", "--import", "tsx", "apps/worker/src/index.ts"]
     restart: unless-stopped
     environment:
       NODE_ENV: production
