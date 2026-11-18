@@ -1,0 +1,77 @@
+image:
+  repository: ghcr.io/vijayg10/txloom
+  tag: ""            # defaults to the chart appVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# The API and worker share run artifacts on one volume, so this chart runs
+# them in one container, one replica. Do not scale replicas above 1.
+
+# External MySQL 8 (required). The database must already exist.
+mysql:
+  host: ""
+  port: 3306
+  database: txloom
+  user: txloom
+  password: ""
+
+# External Redis (required). Used by BullMQ only.
+redis:
+  url: ""            # e.g. redis://:password@redis.example:6379
+
+# Secret override. Must contain keys: mysql-password, redis-url, instance-key
+# (and optionally connections-json). When set, mysql.password, redis.url and
+# instanceKey below are ignored.
+existingSecret: ""
+
+# 32-byte hex key that encrypts connection credentials at rest. When empty the
+# chart generates one on first install and keeps it across upgrades. Losing it
+# makes saved connection credentials unreadable.
+instanceKey: ""
+
+# Optional TXLOOM_* tuning (empty = app default).
+config:
+  maxStreams: ""
+  maxWorkerThreads: ""
+  partitionChunkSize: ""
+  maxExports: ""
+  maxDeliveries: ""
+  localKafka: ""
+  connectionsJson: ""   # TXLOOM_CONNECTIONS_JSON; stored in the Secret
+
+extraEnv: []
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  size: 20Gi
+  accessModes: [ReadWriteOnce]
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: txloom.example.com
+      path: /
+      pathType: Prefix
+  tls: []
+
+resources:
+  requests: {cpu: "1", memory: 2Gi}
+  limits: {memory: 8Gi}
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
