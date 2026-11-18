@@ -31,13 +31,12 @@ describe("route redirects", () => {
 
   beforeEach(() => {
     vi.stubGlobal("WebSocket", QuietSocket);
+    // These tests only assert where a URL lands. A response that never arrives keeps the
+    // destination pages in their loading state; a canned body of the wrong shape makes them
+    // throw after the assertion has passed, and vitest fails the run on the unhandled error.
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({ scenarios: [], runs: [] }),
-      })),
+      vi.fn(() => new Promise(() => {})),
     );
   });
 

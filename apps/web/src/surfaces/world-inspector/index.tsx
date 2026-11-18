@@ -22,12 +22,9 @@ export function InspectTab({
   return (
     <div>
       {isPartial && (
-        <p
-          data-testid="inspector-partial-data-note"
-          className="text-text-secondary mb-4 text-xs"
-        >
-          This run hasn't completed — charts below reflect events generated so far and will
-          update as the run continues.
+        <p data-testid="inspector-partial-data-note" className="text-text-secondary mb-4 text-xs">
+          This run hasn't completed — charts below reflect events generated so far and will update
+          as the run continues.
         </p>
       )}
       <div className="flex flex-col gap-6">

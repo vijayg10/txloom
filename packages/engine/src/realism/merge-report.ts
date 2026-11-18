@@ -17,7 +17,14 @@ export interface RealismReport {
   volume_over_time: { date: string; count: number }[];
   /** Amount moments per event type, sorted by group — the world-inspector
    * amount-distributions chart reads this instead of re-scanning (FR-036 §4, D17). */
-  amount_by_type: { group: string; count: number; mean: number; stddev: number; min: number; max: number }[];
+  amount_by_type: {
+    group: string;
+    count: number;
+    mean: number;
+    stddev: number;
+    min: number;
+    max: number;
+  }[];
   /** Full 7×24 day-of-week × hour-of-day grid (UTC, zero-filled) — the world-inspector
    * persona-heatmap chart reads this instead of re-scanning (FR-036 §4, D17). */
   persona_heatmap: { dayOfWeek: number; hourOfDay: number; count: number }[];

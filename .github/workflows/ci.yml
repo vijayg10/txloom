@@ -66,19 +66,7 @@ jobs:
   bench-smoke:
     name: Performance gate (Kafka smoke benchmark, regression threshold)
     runs-on: ubuntu-latest
-    services:
-      kafka:
-        image: apache/kafka:3.9.0
-        ports:
-          - 9092:9092
-        env:
-          KAFKA_NODE_ID: "1"
-          KAFKA_PROCESS_ROLES: broker,controller
-          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -89,7 +77,24 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: KAFKA_BROKERS=localhost:9092 pnpm bench:smoke
+      # The benchmark drives a real stream session through the API, and the worker
+      # publishes, so it needs the whole stack plus the demo broker (as the worker
+      # sees it: kafka:29092).
+      - name: Start the stack with the demo broker
+        run: docker compose --profile demo-brokers up -d --build --wait mysql redis api worker kafka
+      - name: Wait for Kafka
+        run: |
+          for i in $(seq 1 30); do
+            docker compose exec -T kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "Kafka did not become ready" >&2; exit 1
+      - run: KAFKA_BROKERS=kafka:29092 pnpm bench:smoke
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose --profile demo-brokers logs --no-color
+      - run: docker compose --profile demo-brokers down -v
+        if: always()
 
   batch-smoke:
     name: Performance gate (batch generation smoke benchmark, regression threshold)
