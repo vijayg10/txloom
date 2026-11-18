@@ -58,7 +58,18 @@ describe("RabbitMQ sink: write-buffer-full surfaces as saturated", () => {
       await new Promise((resolve) => setImmediate(resolve));
       if (sink.saturated) sawSaturation = true;
     }
-    expect(sawSaturation).toBe(true);
+    // If the buffer never filled, say why: a publish that failed outright (broker not ready,
+    // channel closed) looks the same as one that never backed up.
+    const firstResult = sawSaturation
+      ? undefined
+      : await Promise.race([
+          pending[0],
+          new Promise((resolve) => setTimeout(() => resolve("still pending after 2s"), 2000)),
+        ]);
+    expect(
+      sawSaturation,
+      `write buffer never filled after ${pending.length} publishes; first publish: ${JSON.stringify(firstResult)}`,
+    ).toBe(true);
 
     await sink.waitForCapacity?.();
     expect(sink.saturated).toBe(false);
