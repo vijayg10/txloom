@@ -41,6 +41,20 @@ services:
       DATA_DIR: /data
     volumes:
       - ./data:/data
+    # Without this, `docker compose up --wait` returns while the API is still running
+    # migrations, and anything that calls it straight away gets "fetch failed".
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/api/v1/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
     depends_on:
       mysql:
         condition: service_healthy
@@ -119,7 +133,7 @@ services:
     restart: on-failure
     hostname: kafka-mon-ui
     ports:
-    - "9080:8080"
+      - "9080:8080"
     environment:
       - KAFKA_BROKERS=kafka:29092
 

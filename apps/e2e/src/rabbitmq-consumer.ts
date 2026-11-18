@@ -18,7 +18,9 @@ export class RabbitMqTestConsumer {
   async start(
     exchange: string,
     routingKey: string,
-    exchangeType: "direct" | "topic" | "fanout" = "topic",
+    // Must match what the sink declares ("direct" is the connection form's default): RabbitMQ
+    // refuses to re-declare an existing exchange with a different type, killing the channel.
+    exchangeType: "direct" | "topic" | "fanout" = "direct",
   ): Promise<void> {
     this.connection = await amqp.connect(this.url);
     this.channel = await this.connection.createChannel();
